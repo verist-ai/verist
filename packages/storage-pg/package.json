@@ -1,0 +1,64 @@
+{
+  "name": "@verist/storage-pg",
+  "version": "0.0.2",
+  "description": "PostgreSQL storage adapter for Verist workflows using Drizzle ORM",
+  "keywords": [
+    "verist",
+    "ai",
+    "llm",
+    "workflow",
+    "postgres",
+    "postgresql",
+    "drizzle",
+    "storage"
+  ],
+  "license": "Apache-2.0",
+  "author": "Verist <hello@verist.dev> (https://verist.dev/)",
+  "homepage": "https://verist.dev/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/verist-ai/verist.git",
+    "directory": "packages/storage-pg"
+  },
+  "bugs": {
+    "url": "https://github.com/verist-ai/verist/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/koistya"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./src/schema.ts",
+      "bun": "./src/schema.ts",
+      "default": "./dist/schema.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "peerDependencies": {
+    "@verist/core": "^0.0.1",
+    "@verist/storage": "^0.0.1",
+    "drizzle-orm": "^0.44.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0",
+    "@verist/core": "workspace:*",
+    "@verist/storage": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "pg": "^8.16.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

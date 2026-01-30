@@ -1,0 +1,53 @@
+{
+  "name": "@verist/llm",
+  "version": "0.0.2",
+  "description": "LLM provider adapters with built-in tracing for audit events",
+  "keywords": [
+    "verist",
+    "ai",
+    "llm",
+    "workflow",
+    "openai",
+    "anthropic",
+    "tracing",
+    "audit"
+  ],
+  "license": "Apache-2.0",
+  "author": "Verist <hello@verist.dev> (https://verist.dev/)",
+  "homepage": "https://verist.dev/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/verist-ai/verist.git",
+    "directory": "packages/llm"
+  },
+  "bugs": {
+    "url": "https://github.com/verist-ai/verist/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/koistya"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "peerDependencies": {
+    "@verist/core": "^0.0.1"
+  },
+  "devDependencies": {
+    "@verist/core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
