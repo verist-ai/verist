@@ -16,7 +16,7 @@ import { veristState, veristEvents } from "./schema.ts";
 
 const DATABASE_URL =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/verist_test_db";
+  "postgresql://postgres:postgres@localhost:5432/verist_test";
 
 describe("createPgRunStore", () => {
   let pool: Pool;
