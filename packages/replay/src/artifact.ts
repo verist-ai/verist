@@ -1,11 +1,11 @@
 import type { StepResult } from "@verist/core";
+import { hashValue } from "./hash.ts";
 import type {
   Artifact,
   CaptureOptions,
   CreateSnapshotParams,
   Snapshot,
 } from "./types.ts";
-import { hashValue } from "./hash.ts";
 
 /**
  * Capture a value as an artifact with its content hash.
@@ -36,7 +36,6 @@ export function captureArtifact(
 
 /**
  * Create a snapshot capturing step execution state.
- * Snapshots contain everything needed to replay a step exactly.
  *
  * @example
  * ```typescript
@@ -64,7 +63,9 @@ export function createSnapshot(params: CreateSnapshotParams): Snapshot {
 /**
  * Options for creating a snapshot from a step result.
  */
-export interface SnapshotFromResultOptions extends CaptureOptions {
+export interface SnapshotFromResultOptions {
+  /** If true, omit content from step-output artifact (hash only). Input is always stored in full. */
+  outputHashOnly?: boolean;
   /** Additional artifacts to include (e.g., LLM responses captured during execution) */
   artifacts?: Artifact[];
 }
@@ -75,11 +76,11 @@ export interface SnapshotFromResultOptions extends CaptureOptions {
  * This is the preferred way to create snapshots for replay. It ensures
  * correct field mapping and includes the step output as an artifact.
  *
- * **Compliance note:** `hashOnly` applies only to the step-output artifact
- * created by this helper. The `input` field is always stored in full (it's
- * part of the Snapshot structure). Any additional `options.artifacts` retain
- * their original form — use `captureArtifact(..., { hashOnly: true })` when
- * creating them if content must be omitted.
+ * **Compliance note:** `outputHashOnly` applies only to the step-output
+ * artifact created by this helper. The `input` field is always stored in full
+ * (it's part of the Snapshot structure). Any additional `options.artifacts`
+ * retain their original form — use `captureArtifact(..., { hashOnly: true })`
+ * when creating them if content must be omitted.
  *
  * @example
  * ```typescript
@@ -94,7 +95,9 @@ export function createSnapshotFromResult<TInput, TDelta>(
   result: StepResult<TInput, TDelta>,
   options?: SnapshotFromResultOptions,
 ): Snapshot {
-  const outputArtifact = captureArtifact("step-output", result.output, options);
+  const outputArtifact = captureArtifact("step-output", result.output, {
+    hashOnly: options?.outputHashOnly,
+  });
 
   return createSnapshot({
     workflowId: result.workflowId,

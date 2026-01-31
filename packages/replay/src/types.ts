@@ -1,19 +1,30 @@
 /**
+ * Classification of what an artifact represents.
+ *
+ * **Reserved by kernel:** `"step-output"` — used by `loadOutput`, `recompute`,
+ * `compareSnapshots`. Only the first `step-output` artifact is used.
+ *
+ * **User-defined:** Any other value (e.g., `"llm-input"`, `"llm-output"`) is
+ * opaque metadata for audit/tracing. The kernel does not interpret these.
+ */
+export type ArtifactKind = "step-output" | (string & {});
+
+/**
  * A captured non-deterministic value with its content hash.
  * Artifacts enable exact replay by storing values that would otherwise vary.
  */
 export interface Artifact {
   /** SHA-256 hash of the content */
   hash: string;
-  /** Classification of what this artifact represents */
-  kind: "llm-input" | "llm-output" | "step-input" | "step-output" | string;
+  /** @see ArtifactKind */
+  kind: ArtifactKind;
   /** The actual content. Optional for compliance scenarios where content cannot be persisted. */
   content?: unknown;
 }
 
 /**
- * A point-in-time capture of step execution inputs.
- * Snapshots contain everything needed to replay a step exactly.
+ * A point-in-time capture of step execution.
+ * Contains input, output, and artifacts for verification and recomputation.
  */
 export interface Snapshot {
   /** Workflow identifier */
@@ -74,12 +85,6 @@ export interface CreateSnapshotParams {
 }
 
 /**
- * Function type for retrieving artifacts by hash.
- * Used during replay to fetch stored artifact content.
- */
-export type GetArtifact = (hash: string) => Promise<unknown> | unknown;
-
-/**
  * Layered state structure for diff operations.
  * Compatible with @verist/storage LayeredState without coupling.
  */
@@ -94,8 +99,11 @@ export interface LayeredStateInput<T> {
 export interface RecomputeResult<T> {
   /** The recomputed output */
   output: T;
-  /** Diff between original and recomputed output */
-  diff: DiffResult;
-  /** Captured artifact when captureArtifacts option is true */
-  artifact?: Artifact;
+  /**
+   * Diff between original and recomputed delta (state change only, not events).
+   * `undefined` if original is unavailable for comparison (hash-only or missing).
+   */
+  diff: DiffResult | undefined;
+  /** Captured artifact of the recomputed output (when captureArtifacts option is set) */
+  outputArtifact?: Artifact;
 }

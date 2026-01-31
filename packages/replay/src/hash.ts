@@ -1,6 +1,14 @@
+import { createHash } from "node:crypto";
+import { stableStringify } from "./stringify.ts";
+
 /**
  * Compute SHA-256 hash of a JSON-serializable value.
  * Uses deterministic JSON serialization (sorted keys) for consistency.
+ *
+ * **Serialization behavior:**
+ * - `undefined` in objects → key omitted (treated as absence, consistent with diff)
+ * - `undefined` in arrays → `null` (per JSON spec)
+ * - Functions, symbols, circular refs → not supported (use Zod-validated data)
  *
  * @example
  * ```typescript
@@ -10,7 +18,7 @@
  */
 export function hashValue(value: unknown): string {
   const json = stableStringify(value);
-  const hash = computeSha256(json);
+  const hash = createHash("sha256").update(json).digest("hex");
   return `sha256:${hash}`;
 }
 
@@ -23,37 +31,6 @@ export function hashWithContent(value: unknown): {
   content: string;
 } {
   const content = stableStringify(value);
-  const hash = `sha256:${computeSha256(content)}`;
+  const hash = `sha256:${createHash("sha256").update(content).digest("hex")}`;
   return { hash, content };
-}
-
-/**
- * Deterministic JSON serialization with sorted object keys.
- * Ensures identical values produce identical strings regardless of key order.
- */
-function stableStringify(value: unknown): string {
-  return JSON.stringify(value, (_, v) => {
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      return Object.keys(v)
-        .sort()
-        .reduce(
-          (sorted, key) => {
-            sorted[key] = (v as Record<string, unknown>)[key];
-            return sorted;
-          },
-          {} as Record<string, unknown>,
-        );
-    }
-    return v;
-  });
-}
-
-/**
- * Compute SHA-256 hash of a string.
- * Returns hex-encoded hash.
- */
-function computeSha256(input: string): string {
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(input);
-  return hasher.digest("hex");
 }

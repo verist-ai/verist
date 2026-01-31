@@ -1,99 +1,75 @@
 import type { Result } from "@verist/core";
-import { ok, err } from "@verist/core";
-import type { Snapshot, GetArtifact, Artifact } from "./types.ts";
+import { err, ok } from "@verist/core";
+import { hashValue } from "./hash.ts";
+import type { Snapshot } from "./types.ts";
 
 /**
- * Replay context that provides artifact retrieval during step execution.
- * Wraps adapters to intercept non-deterministic calls and return stored values.
+ * Error codes for loadOutput.
  */
-export interface ReplayContext {
-  /** Retrieve an artifact by hash */
-  getArtifact: GetArtifact;
-  /** All artifacts from the snapshot, indexed by hash */
-  artifacts: Map<string, Artifact>;
-}
+export type LoadOutputErrorCode = "MISSING_OUTPUT" | "OUTPUT_CORRUPTED";
 
 /**
- * Result of replaying a snapshot.
+ * Error from loadOutput.
  */
-export interface ReplayResult<T> {
-  /** The replayed output */
-  output: T;
-  /** Artifacts used during replay */
-  usedArtifacts: Artifact[];
-}
-
-/**
- * Replay error types.
- */
-export type ReplayErrorCode =
-  | "MISSING_OUTPUT"
-  | "MISSING_ARTIFACT"
-  | "HASH_MISMATCH";
-
-export interface ReplayError {
-  code: ReplayErrorCode;
+export interface LoadOutputError {
+  code: LoadOutputErrorCode;
   message: string;
 }
 
 /**
- * Replay a snapshot using stored artifacts.
+ * Load the stored step output from a snapshot.
  *
- * Exact replay means the output should be byte-identical to the original
- * execution when using the same artifacts. This requires that:
- * 1. All non-deterministic inputs were captured as artifacts
- * 2. The step function is pure given those inputs
+ * This retrieves the captured output without re-executing the step.
+ * Use this for reading historical results or comparing outputs.
  *
- * Returns Result per Invariant #9 (Errors are Values).
+ * **Note:** Hash-only snapshots (captured with `{ hashOnly: true }`) cannot
+ * be loaded — the content was intentionally not stored. Use hash-only mode
+ * when you need audit trails without persisting sensitive data.
  *
  * @example
  * ```typescript
- * const result = await replay(snapshot, async (hash) => {
- *   return artifactStore.get(hash);
- * });
+ * const result = loadOutput<ExtractOutput>(snapshot);
  * if (result.ok) {
- *   console.log(result.value.output);
+ *   console.log(result.value);
  * }
  * ```
  */
-export async function replay<T>(
-  snapshot: Snapshot,
-  _getArtifact: GetArtifact,
-): Promise<Result<ReplayResult<T>, ReplayError>> {
-  const usedArtifacts: Artifact[] = [];
-
-  // The actual replay execution depends on how the step was captured.
-  // For now, return the stored output artifact if available.
+export function loadOutput<T>(snapshot: Snapshot): Result<T, LoadOutputError> {
   const outputArtifact = snapshot.artifacts.find(
     (a) => a.kind === "step-output",
   );
-  if (outputArtifact?.content !== undefined) {
-    return ok({
-      output: outputArtifact.content as T,
-      usedArtifacts: [outputArtifact],
+
+  if (!outputArtifact) {
+    return err({
+      code: "MISSING_OUTPUT",
+      message: `No step-output artifact in snapshot for step "${snapshot.stepName}"`,
     });
   }
 
-  // If no output artifact, we need to re-execute with artifact injection.
-  // This requires the step function and a replay-aware context.
-  // For pure replay without re-execution, return error if output is missing.
-  return err({
-    code: "MISSING_OUTPUT",
-    message: `No step-output artifact found in snapshot for step "${snapshot.stepName}"`,
-  });
-}
-
-/**
- * Create a replay context from a snapshot.
- * Use this when you need to manually control artifact retrieval.
- */
-export function createReplayContext(
-  snapshot: Snapshot,
-  getArtifact: GetArtifact,
-): ReplayContext {
-  const artifacts = new Map<string, Artifact>();
-  for (const artifact of snapshot.artifacts) {
-    artifacts.set(artifact.hash, artifact);
+  if (outputArtifact.content === undefined) {
+    return err({
+      code: "MISSING_OUTPUT",
+      message: `Step output content not available (hash-only capture) for step "${snapshot.stepName}"`,
+    });
   }
-  return { getArtifact, artifacts };
+
+  // Verify content integrity
+  let actualHash: string;
+  try {
+    actualHash = hashValue(outputArtifact.content);
+  } catch {
+    return err({
+      code: "OUTPUT_CORRUPTED",
+      message: `Cannot verify output integrity for step "${snapshot.stepName}": content is not serializable`,
+    });
+  }
+
+  if (actualHash !== outputArtifact.hash) {
+    return err({
+      code: "OUTPUT_CORRUPTED",
+      message: `Output hash mismatch for step "${snapshot.stepName}": expected ${outputArtifact.hash}, got ${actualHash}`,
+    });
+  }
+
+  return ok(outputArtifact.content as T);
 }
