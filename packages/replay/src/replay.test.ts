@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { replay, createReplayContext } from "./replay.ts";
-import { createSnapshot, captureArtifact } from "./artifact.ts";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { captureArtifact, createSnapshot } from "./artifact.ts";
+import { loadOutput } from "./replay.ts";
 import type { Snapshot } from "./types.ts";
 
-describe("replay", () => {
+describe("loadOutput", () => {
   let mockSnapshot: Snapshot;
 
   beforeEach(() => {
@@ -22,47 +22,64 @@ describe("replay", () => {
     Date.now = originalDateNow;
   });
 
-  it("returns stored output artifact on success", async () => {
-    const result = await replay(mockSnapshot, async () => undefined);
+  it("returns stored output on success", () => {
+    const result = loadOutput(mockSnapshot);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output).toEqual({
+      expect(result.value).toEqual({
         delta: { result: 42 },
         events: [],
       });
-      expect(result.value.usedArtifacts.length).toBe(1);
     }
   });
 
-  it("returns error when output artifact is missing", async () => {
+  it("returns error when output artifact is missing", () => {
     const snapshotWithoutOutput: Snapshot = {
       ...mockSnapshot,
       artifacts: [],
     };
 
-    const result = await replay(snapshotWithoutOutput, async () => undefined);
+    const result = loadOutput(snapshotWithoutOutput);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("MISSING_OUTPUT");
       expect(result.error.message).toContain("compute");
     }
   });
-});
 
-describe("createReplayContext", () => {
-  it("creates context with indexed artifacts", () => {
-    const artifact = captureArtifact("llm-output", { text: "response" });
-    const snapshot = createSnapshot({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      stepName: "step",
-      input: {},
-      artifacts: [artifact],
-    });
+  it("returns error when output hash is corrupted", () => {
+    const corruptedSnapshot: Snapshot = {
+      ...mockSnapshot,
+      artifacts: [
+        {
+          hash: "sha256:corrupted-hash-value",
+          kind: "step-output",
+          content: { delta: { result: 42 }, events: [] },
+        },
+      ],
+    };
 
-    const ctx = createReplayContext(snapshot, async () => undefined);
+    const result = loadOutput(corruptedSnapshot);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("OUTPUT_CORRUPTED");
+      expect(result.error.message).toContain("hash mismatch");
+    }
+  });
 
-    expect(ctx.artifacts.has(artifact.hash)).toBe(true);
-    expect(ctx.artifacts.get(artifact.hash)).toEqual(artifact);
+  it("returns error for hash-only snapshot", () => {
+    const hashOnlySnapshot: Snapshot = {
+      ...mockSnapshot,
+      artifacts: [
+        captureArtifact("step-output", { delta: {} }, { hashOnly: true }),
+      ],
+    };
+
+    const result = loadOutput(hashOnlySnapshot);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("MISSING_OUTPUT");
+      expect(result.error.message).toContain("hash-only");
+    }
   });
 });

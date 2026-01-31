@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import type { StepResult } from "@verist/core";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
   captureArtifact,
   createSnapshot,
@@ -148,7 +148,7 @@ describe("createSnapshotFromResult", () => {
     expect(artifact.content).toEqual(result.output);
   });
 
-  it("supports hashOnly mode for compliance", () => {
+  it("supports outputHashOnly mode for compliance", () => {
     const result: StepResult<{ id: string }, { data: string }> = {
       input: { id: "sensitive" },
       output: {
@@ -161,7 +161,7 @@ describe("createSnapshotFromResult", () => {
       runId: "run-1",
     };
 
-    const snapshot = createSnapshotFromResult(result, { hashOnly: true });
+    const snapshot = createSnapshotFromResult(result, { outputHashOnly: true });
 
     // Hash present, content omitted
     const artifact = snapshot.artifacts[0]!;

@@ -12,31 +12,25 @@ npm install @verist/replay
 
 ```typescript
 import {
-  hashValue,
   captureArtifact,
-  createSnapshot,
-  replay,
+  createSnapshotFromResult,
+  loadOutput,
   recompute,
   diff,
+  formatDiff,
 } from "@verist/replay";
 
-// Capture artifacts during step execution
-const artifact = captureArtifact("llm-output", response);
+// Create snapshot from step result (preferred)
+const snapshot = createSnapshotFromResult(result);
 
-// Create a replayable snapshot
-const snapshot = createSnapshot({
-  workflowId: "verify-doc",
-  workflowVersion: "1.0.0",
-  stepName: "extract",
-  input: { documentId: "doc-123" },
-  artifacts: [artifact],
-});
-
-// Exact replay using stored artifacts
-const result = await replay(snapshot, (hash) => artifactStore.get(hash));
+// Load stored output without re-execution
+const output = loadOutput(snapshot);
 
 // Fresh recomputation with diff
-const { output, diff: changes } = await recompute(snapshot, step, ctx);
+const recomputed = await recompute(snapshot, step, ctx);
+if (recomputed.ok && recomputed.value.diff && !recomputed.value.diff.equal) {
+  console.log(formatDiff(recomputed.value.diff));
+}
 ```
 
 ## API
@@ -44,22 +38,26 @@ const { output, diff: changes } = await recompute(snapshot, step, ctx);
 ### Hashing
 
 - `hashValue(value)` — SHA-256 hash of JSON-serializable value
+- `hashWithContent(value)` — Returns both hash and serialized content
 
 ### Artifacts
 
 - `captureArtifact(kind, content, opts?)` — Create artifact with hash
-- `createSnapshot(params)` — Create replayable snapshot
+- `createSnapshot(params)` — Create snapshot from raw params
+- `createSnapshotFromResult(result, opts?)` — Create snapshot from step result
 
 ### Diff
 
 - `diff(before, after)` — Generate structural diff
 - `applyDiff(base, diff)` — Apply diff to produce new value
 - `formatDiff(diff)` — Human-readable diff output
+- `diffEffectiveState(before, after)` — Diff layered states by effective view
 
 ### Replay
 
-- `replay(snapshot, getArtifact)` — Exact replay using stored artifacts
+- `loadOutput(snapshot)` — Load stored output from snapshot
 - `recompute(snapshot, step, ctx)` — Fresh execution with diff
+- `compareSnapshots(original, updated)` — Compare two snapshots
 
 ## Design
 

@@ -1,8 +1,11 @@
+import { stableStringify } from "./stringify.ts";
 import type { DiffEntry, DiffResult, LayeredStateInput } from "./types.ts";
 
 /**
  * Generate a structural diff between two values.
  * Recursively compares objects and arrays, producing a list of changes.
+ *
+ * An entry with `path: []` represents replacement of the entire root value.
  *
  * **Note:** `undefined` values are treated as equivalent to missing keys.
  * `diff({ a: undefined }, {})` returns equal. Avoid storing `undefined`
@@ -40,7 +43,14 @@ export function diff(before: unknown, after: unknown): DiffResult {
 export function applyDiff<T>(base: T, diffResult: DiffResult): T {
   if (diffResult.equal) return base;
 
-  let result = structuredClone(base) as unknown;
+  // Handle root replacement (path.length === 0) directly
+  const rootEntry = diffResult.entries.find((e) => e.path.length === 0);
+  if (rootEntry) {
+    return rootEntry.after as T;
+  }
+
+  // Clone once upfront, then mutate in place.
+  const result = structuredClone(base) as unknown;
 
   // Sort entries to apply array removals in descending index order.
   // This prevents index shift issues when removing multiple array elements.
@@ -60,7 +70,7 @@ export function applyDiff<T>(base: T, diffResult: DiffResult): T {
   });
 
   for (const entry of sorted) {
-    result = applyEntry(result, entry);
+    applyEntryMut(result, entry);
   }
 
   return result as T;
@@ -143,21 +153,26 @@ function diffObjects(
   path: (string | number)[],
   entries: DiffEntry[],
 ): void {
-  const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  // Sort keys for deterministic diff ordering
+  const allKeys = [
+    ...new Set([...Object.keys(before), ...Object.keys(after)]),
+  ].sort();
 
   for (const key of allKeys) {
     const beforeVal = before[key];
     const afterVal = after[key];
 
     if (!(key in before)) {
-      // Key added
+      // Key added — but undefined means "absent", so skip if afterVal is undefined
+      if (afterVal === undefined) continue;
       entries.push({
         path: [...path, key],
         before: undefined,
         after: afterVal,
       });
     } else if (!(key in after)) {
-      // Key removed
+      // Key removed — but undefined means "absent", so skip if beforeVal is undefined
+      if (beforeVal === undefined) continue;
       entries.push({
         path: [...path, key],
         before: beforeVal,
@@ -192,20 +207,44 @@ function diffArrays(
   }
 }
 
-function applyEntry(value: unknown, entry: DiffEntry): unknown {
+/** Mutates `value` in place. Caller must clone beforehand. */
+function applyEntryMut(value: unknown, entry: DiffEntry): void {
   if (entry.path.length === 0) {
-    return entry.after;
+    // Root replacement handled separately in applyDiff
+    throw new Error("applyEntryMut: root replacement not supported");
   }
 
-  const result = structuredClone(value);
-  let current: unknown = result;
+  let current: unknown = value;
 
   for (let i = 0; i < entry.path.length - 1; i++) {
     const key = entry.path[i] as string | number;
+    if (current === null || typeof current !== "object") {
+      const traversed = entry.path.slice(0, i).join(".");
+      throw new Error(
+        `applyDiff: cannot traverse path at "${traversed || "(root)"}": expected object, got ${current === null ? "null" : typeof current}`,
+      );
+    }
     current = (current as Record<string | number, unknown>)[key];
   }
 
+  if (current === null || typeof current !== "object") {
+    const parentPath = entry.path.slice(0, -1).join(".");
+    throw new Error(
+      `applyDiff: cannot apply change at "${parentPath || "(root)"}": expected object, got ${current === null ? "null" : typeof current}`,
+    );
+  }
+
   const lastKey = entry.path[entry.path.length - 1] as string | number;
+
+  // Validate array index type to prevent silent corruption.
+  // String "1" coerced via `as number` becomes NaN, causing splice(NaN, 1)
+  // to delete index 0 instead of the intended index.
+  if (Array.isArray(current) && typeof lastKey !== "number") {
+    throw new Error(
+      `applyDiff: array index must be number, got ${typeof lastKey} "${lastKey}"`,
+    );
+  }
+
   if (entry.after === undefined) {
     if (Array.isArray(current)) {
       current.splice(lastKey as number, 1);
@@ -215,8 +254,6 @@ function applyEntry(value: unknown, entry: DiffEntry): unknown {
   } else {
     (current as Record<string | number, unknown>)[lastKey] = entry.after;
   }
-
-  return result;
 }
 
 function formatPath(path: (string | number)[]): string {
@@ -230,7 +267,7 @@ function formatValue(value: unknown): string {
   if (value === undefined) return "(undefined)";
   if (value === null) return "null";
   if (typeof value === "string") return `"${value}"`;
-  if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "object") return stableStringify(value);
   return String(value);
 }
 
@@ -250,6 +287,9 @@ function toEffective<T extends Record<string, unknown>>(
  * Computes effective state (overlay wins over computed) for each,
  * then produces a structural diff. This is the key operation for
  * detecting changes that affect final decisions.
+ *
+ * **Note:** Overlay is applied as a shallow override — nested objects
+ * are replaced, not merged.
  *
  * @example
  * ```typescript

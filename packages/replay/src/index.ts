@@ -1,43 +1,38 @@
 // Types
 export type {
   Artifact,
-  Snapshot,
-  DiffEntry,
-  DiffResult,
+  ArtifactKind,
   CaptureOptions,
   CreateSnapshotParams,
-  GetArtifact,
-  RecomputeResult,
+  DiffEntry,
+  DiffResult,
   LayeredStateInput,
+  RecomputeResult,
+  Snapshot,
 } from "./types.ts";
 
 // Hash utilities
 export { hashValue, hashWithContent } from "./hash.ts";
 
 // Artifact capture
-export type { SnapshotFromResultOptions } from "./artifact.ts";
 export {
   captureArtifact,
   createSnapshot,
   createSnapshotFromResult,
 } from "./artifact.ts";
+export type { SnapshotFromResultOptions } from "./artifact.ts";
 
 // Diff utilities
-export { diff, applyDiff, formatDiff, diffEffectiveState } from "./diff.ts";
+export { applyDiff, diff, diffEffectiveState, formatDiff } from "./diff.ts";
 
-// Replay
-export type {
-  ReplayContext,
-  ReplayResult,
-  ReplayError,
-  ReplayErrorCode,
-} from "./replay.ts";
-export { replay, createReplayContext } from "./replay.ts";
+// Load stored output
+export { loadOutput } from "./replay.ts";
+export type { LoadOutputError, LoadOutputErrorCode } from "./replay.ts";
 
 // Recompute
+export { compareSnapshots, recompute } from "./recompute.ts";
 export type {
-  RecomputeOptions,
   RecomputeError,
   RecomputeErrorCode,
+  RecomputeOptions,
 } from "./recompute.ts";
-export { recompute, compareSnapshots } from "./recompute.ts";
