@@ -20,7 +20,7 @@
     "build": "bun run scripts/build.ts",
     "changeset": "changeset",
     "version": "changeset version",
-    "prepublish": "bun run build && bun run scripts/prepublish.ts",
+    "prepublish": "bun run scripts/prepublish.ts",
     "release": "bun run prepublish && changeset publish && git checkout packages/*/package.json",
     "docs:dev": "vitepress dev",
     "docs:build": "vitepress build",

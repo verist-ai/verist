@@ -1,5 +1,9 @@
 # Verist
 
+[![npm version](https://badge.fury.io/js/@verist%2Fcore.svg)](https://badge.fury.io/js/@verist%2Fcore)
+[![npm downloads](https://img.shields.io/npm/dm/@verist/core.svg)](https://npmjs.com/package/@verist/core)
+[![Twitter Follow](https://img.shields.io/twitter/follow/verist_ai?style=social)](https://x.com/verist_ai)
+
 Replay + diff for AI decisions — the trust kernel for production workflows.
 
 ## Why Verist
