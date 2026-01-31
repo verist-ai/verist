@@ -1,0 +1,134 @@
+# @verist/llm
+
+LLM provider adapters with built-in tracing for audit events.
+
+## Why
+
+Every LLM call in Verist workflows should be traceable. This package wraps provider SDKs to automatically capture:
+
+- Model version and token usage
+- Input/output hashes for replay detection
+- Duration and raw request/response (optional)
+- Structured errors with retry hints
+
+The trace attaches directly to audit events, so you can answer "what did the model see and return?" months later.
+
+## Install
+
+```bash
+bun add @verist/llm openai
+```
+
+## Usage
+
+```ts
+import OpenAI from "openai";
+import { createOpenAI, llmEvent } from "@verist/llm";
+
+const llm = createOpenAI({
+  client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+});
+
+const result = await llm.complete({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "Summarize this document..." }],
+});
+
+if (result.ok) {
+  console.log(result.value.content);
+  // Attach trace to audit event
+  const event = llmEvent("summary_created", result.value);
+}
+```
+
+## API
+
+### `createOpenAI(config)`
+
+Create an OpenAI provider adapter.
+
+```ts
+const llm = createOpenAI({
+  client: openaiClient, // OpenAI SDK instance
+  includeRawIO: true, // Embed raw request/response in trace (default: true)
+});
+```
+
+### `LLMProvider.complete(request)`
+
+Execute a completion request. Returns `Result<LLMResponse, LLMError>`.
+
+```ts
+interface LLMRequest {
+  model: string;
+  messages: LLMMessage[];
+  temperature?: number;
+  maxTokens?: number;
+}
+
+interface LLMResponse {
+  content: string;
+  trace: LLMTrace;
+}
+```
+
+### `llmEvent(type, response, payload?)`
+
+Create an audit event from an LLM response with trace attached.
+
+```ts
+const event = llmEvent("extraction_complete", response, { documentId: "123" });
+// => { type: "extraction_complete", payload: {...}, llmTrace: {...} }
+```
+
+### `LLMTrace`
+
+Trace metadata captured with every successful completion:
+
+```ts
+interface LLMTrace {
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  durationMs: number;
+  inputHash: string; // sha256 of request params
+  outputHash: string; // sha256 of response content
+  input?: unknown; // raw request (if includeRawIO)
+  output?: unknown; // raw response (if includeRawIO)
+}
+```
+
+### Error Handling
+
+Errors are returned as values, not thrown:
+
+```ts
+const result = await llm.complete(request);
+
+if (!result.ok) {
+  const { code, message, retryable } = result.error;
+  // code: "rate_limit" | "context_length" | "invalid_request" | "provider_error"
+}
+```
+
+## Bring Your Own Client
+
+The adapter uses structural typing — no direct dependency on `openai`. You provide a configured client instance:
+
+```ts
+import OpenAI from "openai";
+
+// Configure as needed (custom base URL, headers, etc.)
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: "https://api.openai.com/v1",
+});
+
+const llm = createOpenAI({ client });
+```
+
+This works with any OpenAI-compatible API (Azure OpenAI, local proxies, etc.).
+
+## License
+
+[Apache-2.0](../../LICENSE)
