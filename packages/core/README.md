@@ -43,7 +43,7 @@ if (result.ok) {
 }
 ```
 
-For the full guide, see the [documentation](https://github.com/verist-ai/verist).
+For the full guide, see [verist.dev](https://verist.dev/getting-started).
 
 ## Production Usage
 
@@ -78,7 +78,7 @@ Define a workflow step with typed input and delta schemas. The `delta` schema de
 
 ### `defineWorkflow(config)`
 
-Group named steps into a workflow. Version is required.
+Group named steps into a workflow. `name` and `version` must be non-empty strings.
 
 ```typescript
 const workflow = defineWorkflow({
@@ -150,7 +150,7 @@ commands: [
 ];
 ```
 
-`review` and `suspend` are blocking — they halt sibling command execution. See SPEC-commands and SPEC-suspend for full semantics.
+`review` and `suspend` are blocking. `review` defers sibling commands; `suspend` discards siblings. See SPEC-commands and SPEC-suspend for full semantics.
 
 ### Result Helpers
 

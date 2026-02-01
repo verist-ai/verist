@@ -1,4 +1,6 @@
-import type { Result, AuditEvent, Delta } from "@verist/core";
+// SPDX-License-Identifier: Apache-2.0
+
+import type { AuditEvent, Command, Delta, Result } from "@verist/core";
 
 /**
  * Three-layer state model (ADR-003).
@@ -38,7 +40,7 @@ export interface StateSnapshot<T = unknown> {
 
 /**
  * Parameters for committing a step result.
- * Writes state delta + events atomically.
+ * Writes state delta + events + commands atomically.
  */
 export interface CommitParams<T = unknown> {
   workflowId: string;
@@ -48,6 +50,14 @@ export interface CommitParams<T = unknown> {
   expectedVersion: number;
   delta: Delta<T>;
   events: AuditEvent[];
+  /**
+   * Commands to write to outbox atomically with state commit.
+   *
+   * **Suspend semantics:** If commands includes a `suspend` command, sibling
+   * commands are not persisted (workflow pauses until resume). Only the
+   * suspend block is created.
+   */
+  commands?: Command[];
 }
 
 /**
@@ -60,11 +70,29 @@ export type StorageErrorCode =
   | "serialization_error";
 
 /**
+ * Conflict reason for typed error handling.
+ *
+ * Storage Adapter Contract: adapters MUST set `reason` when returning
+ * `code: "conflict"`. Runners depend on this for retry/fatal classification.
+ */
+export type ConflictReason =
+  | "run_exists" // expectedVersion was 0 but run already exists
+  | "version_mismatch" // optimistic lock failed (concurrent update)
+  | "active_block" // run already has an unresolved block
+  | "command_exists" // outbox command with same dedupe key exists
+  | "lease_mismatch"; // outbox entry not finalizable by this owner
+
+/**
  * Structured error for storage operations.
  */
 export interface StorageError {
   code: StorageErrorCode;
   message: string;
+  /**
+   * Present when code is "conflict" — enables typed retry/fatal handling.
+   * Storage adapters MUST set this for conflict errors.
+   */
+  reason?: ConflictReason;
 }
 
 /**

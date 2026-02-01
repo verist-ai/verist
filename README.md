@@ -55,19 +55,23 @@ const result = await run(
 );
 ```
 
-You now have typed I/O, audit events, and replay capability – without rewriting your workflow.
+You now have typed I/O and audit events without rewriting your workflow.
+Add `@verist/replay` when you want artifact capture, exact replay, and recompute with diff.
 
 ## Packages
 
-| Package              | Purpose                                                |
-| -------------------- | ------------------------------------------------------ |
-| `@verist/core`       | Workflow kernel: `defineStep`, `defineWorkflow`, `run` |
-| `@verist/replay`     | Artifact capture, exact replay, recompute with diff    |
-| `@verist/pipeline`   | Sequential step composition with automatic wiring      |
-| `@verist/batch`      | Batch execution with concurrency control               |
-| `@verist/storage`    | State persistence with optimistic concurrency          |
-| `@verist/storage-pg` | PostgreSQL storage adapter                             |
-| `@verist/llm`        | LLM adapter with structured tracing                    |
+| Package              | Purpose                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| `@verist/core`       | Workflow kernel: `defineStep`, `defineWorkflow`, `run`           |
+| `@verist/replay`     | Artifact capture, exact replay, recompute with diff              |
+| `@verist/pipeline`   | Sequential step composition with automatic wiring                |
+| `@verist/batch`      | Batch execution with concurrency control                         |
+| `@verist/storage`    | Storage interface for computed/overlay/effective state           |
+| `@verist/storage-pg` | PostgreSQL storage adapter                                       |
+| `@verist/llm`        | LLM provider adapters with structured tracing                    |
+| `@verist/artifacts`  | Content-addressable artifact storage for workflow inputs/outputs |
+| `@verist/queue`      | Job queue adapter interface for distributed workflow execution   |
+| `@verist/otel`       | OpenTelemetry adapter for workflow observability                 |
 
 ## When to Use Verist
 
@@ -93,6 +97,8 @@ Verist is **not** a chat framework, agent runtime, or visual orchestrator. It is
 - [Getting Started](https://verist.dev/getting-started)
 - [Why Verist](https://verist.dev/why-verist)
 - [API Reference](https://verist.dev/api)
+- [Reference Runner](https://verist.dev/guides/reference-runner)
+- [Replay and Diff Guide](https://verist.dev/guides/replay-and-diff)
 
 ## License
 

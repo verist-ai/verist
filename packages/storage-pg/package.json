@@ -48,12 +48,14 @@
   ],
   "peerDependencies": {
     "@verist/core": "^0.0.1",
+    "@verist/replay": "^0.0.1",
     "@verist/storage": "^0.0.1",
     "drizzle-orm": "^0.44.0"
   },
   "devDependencies": {
     "@types/pg": "^8.15.0",
     "@verist/core": "workspace:*",
+    "@verist/replay": "workspace:*",
     "@verist/storage": "workspace:*",
     "drizzle-orm": "^0.44.0",
     "pg": "^8.16.0"

@@ -57,7 +57,11 @@ export interface EmitCommand {
 /**
  * Suspend workflow execution until external input arrives.
  * Unlike review (human approval), suspend waits for data/callbacks.
- * Sibling commands are discarded — the resumed step emits new commands.
+ *
+ * **Sibling commands are discarded by design.** When a step returns suspend
+ * alongside other commands, only the suspend is persisted. The resumed step
+ * is responsible for emitting any follow-up commands. This prevents stale
+ * commands from executing after potentially long wait periods.
  *
  * @see docs/specs/suspend.md
  */
@@ -139,6 +143,11 @@ export const CommandSchema = z.discriminatedUnion("type", [
 
 /**
  * Helper to create an invoke command.
+ *
+ * **Dedupe:** Commands are deduplicated by hash(workflowId, runId, stepId, command).
+ * Identical commands from the same step execution produce the same key — this is
+ * intentional for idempotency. If you need distinct commands with identical payloads,
+ * include a distinguishing field in the input (e.g., `{ ...input, nonce: "a" }`).
  */
 export function invoke(step: string, input: unknown): InvokeCommand {
   return { type: "invoke", step, input };
@@ -146,6 +155,11 @@ export function invoke(step: string, input: unknown): InvokeCommand {
 
 /**
  * Helper to create a fanout command.
+ *
+ * **Dedupe:** Each fanout command is deduplicated as a unit by its full payload.
+ * The inputs array order matters for deduplication. If you need the same fanout
+ * to produce distinct commands (e.g., on retry with different items), include a
+ * distinguishing field in each input.
  */
 export function fanout(step: string, inputs: unknown[]): FanoutCommand {
   return { type: "fanout", step, inputs };
