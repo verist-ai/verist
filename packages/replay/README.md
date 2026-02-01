@@ -1,5 +1,10 @@
 # @verist/replay
 
+[![npm version](https://badge.fury.io/js/@verist%2Freplay.svg)](https://badge.fury.io/js/@verist%2Freplay)
+[![npm downloads](https://img.shields.io/npm/dm/@verist/replay.svg)](https://npmjs.com/package/@verist/replay)
+[![Ask ChatGPT](https://img.shields.io/badge/Ask_ChatGPT-10a37f?logo=google+gemini&logoColor=white)](https://chatgpt.com/g/g-697e23b923088191b8cb315bebf14a3b-verist-architect)
+[![Twitter Follow](https://img.shields.io/twitter/follow/verist_ai?style=social)](https://x.com/verist_ai)
+
 Deterministic replay and recomputation for Verist workflows.
 
 ## Installation
