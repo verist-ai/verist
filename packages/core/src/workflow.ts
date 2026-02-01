@@ -1,5 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import type {
+  FanoutCommand,
+  InvokeCommand,
+  SuspendCommand,
+} from "./command.ts";
 import type { Step } from "./step.ts";
-import type { InvokeCommand, FanoutCommand } from "./command.ts";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyStep = Step<any, any, any>;
@@ -38,6 +44,15 @@ export interface Workflow<TSteps extends Record<string, AnyStep>> {
     step: K,
     inputs: StepInput<TSteps[K]>[],
   ): FanoutCommand;
+  /**
+   * Create a typed suspend command with compile-time resumeStep validation.
+   * Unlike the bare suspend() helper, this validates resumeStep against registered steps.
+   */
+  suspend<K extends keyof TSteps & string>(args: {
+    reason: string;
+    checkpoint: unknown;
+    resumeStep?: K;
+  }): SuspendCommand;
 }
 
 /**
@@ -63,6 +78,9 @@ export interface Workflow<TSteps extends Record<string, AnyStep>> {
 export function defineWorkflow<TSteps extends Record<string, AnyStep>>(
   config: WorkflowConfig<TSteps>,
 ): Workflow<TSteps> {
+  const stepNotFound = (step: string) =>
+    new Error(`Step "${step}" not found in workflow "${config.name}"`);
+
   return {
     name: config.name,
     version: config.version,
@@ -70,9 +88,7 @@ export function defineWorkflow<TSteps extends Record<string, AnyStep>>(
     getStep<K extends keyof TSteps>(name: K): TSteps[K] {
       const step = config.steps[name];
       if (!step) {
-        throw new Error(
-          `Step "${String(name)}" not found in workflow "${config.name}"`,
-        );
+        throw stepNotFound(String(name));
       }
       return step;
     },
@@ -81,9 +97,7 @@ export function defineWorkflow<TSteps extends Record<string, AnyStep>>(
       input: StepInput<TSteps[K]>,
     ): InvokeCommand {
       if (!config.steps[step]) {
-        throw new Error(
-          `Step "${step}" not found in workflow "${config.name}"`,
-        );
+        throw stepNotFound(step);
       }
       return { type: "invoke", step, input };
     },
@@ -92,11 +106,19 @@ export function defineWorkflow<TSteps extends Record<string, AnyStep>>(
       inputs: StepInput<TSteps[K]>[],
     ): FanoutCommand {
       if (!config.steps[step]) {
-        throw new Error(
-          `Step "${step}" not found in workflow "${config.name}"`,
-        );
+        throw stepNotFound(step);
       }
       return { type: "fanout", step, inputs };
+    },
+    suspend<K extends keyof TSteps & string>(args: {
+      reason: string;
+      checkpoint: unknown;
+      resumeStep?: K;
+    }): SuspendCommand {
+      if (args.resumeStep && !config.steps[args.resumeStep]) {
+        throw stepNotFound(args.resumeStep);
+      }
+      return { type: "suspend", ...args };
     },
   };
 }
