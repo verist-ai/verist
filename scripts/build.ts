@@ -15,6 +15,7 @@ const packagesDir = join(rootDir, "packages");
 // Build order: packages with no internal deps first
 const buildOrder = [
   "core",
+  "batch",
   "storage",
   "replay",
   "llm",

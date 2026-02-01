@@ -129,6 +129,41 @@ describe("defineWorkflow", () => {
       );
     });
 
+    it("creates review command", () => {
+      const workflow = defineWorkflow({
+        name: "doc-workflow",
+        version: "1.0.0",
+        steps: {},
+      });
+
+      const cmd = workflow.review({
+        reason: "high_risk_transaction",
+        payload: { amount: 50000, currency: "USD" },
+      });
+
+      expect(cmd).toEqual({
+        type: "review",
+        reason: "high_risk_transaction",
+        payload: { amount: 50000, currency: "USD" },
+      });
+    });
+
+    it("creates review command without payload", () => {
+      const workflow = defineWorkflow({
+        name: "test",
+        version: "1.0.0",
+        steps: {},
+      });
+
+      const cmd = workflow.review({ reason: "approval_required" });
+
+      expect(cmd).toEqual({
+        type: "review",
+        reason: "approval_required",
+        payload: undefined,
+      });
+    });
+
     it("creates typed suspend command", () => {
       const handleDoc = defineStep({
         name: "handleDoc",

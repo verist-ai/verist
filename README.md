@@ -19,7 +19,7 @@ AI workflows create trust gaps: decisions change with model updates, logs show w
 
 Verist is not logging or observability – it is deterministic replay with reviewable diffs.
 
-```
+```text
 change prompt → recompute → see diff → approve → ship
 ```
 
@@ -63,6 +63,7 @@ You now have typed I/O, audit events, and replay capability – without rewritin
 | -------------------- | ----------------------------------------------------------------- |
 | `@verist/core`       | Workflow kernel: `defineStep`, `defineWorkflow`, `run`, `runStep` |
 | `@verist/replay`     | Artifact capture, exact replay, recompute with diff               |
+| `@verist/batch`      | Batch execution with concurrency control                          |
 | `@verist/storage`    | State persistence with optimistic concurrency                     |
 | `@verist/storage-pg` | PostgreSQL storage adapter                                        |
 | `@verist/llm`        | LLM adapter with structured tracing                               |

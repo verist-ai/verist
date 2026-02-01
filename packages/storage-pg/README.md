@@ -163,6 +163,6 @@ A trust kernel must guarantee that state and audit events are consistent. Separa
 
 The `commit()` primitive solves this by using a database transaction.
 
-## Changelog
+## License
 
-See [CHANGELOG.md](./CHANGELOG.md).
+[Apache-2.0](../../LICENSE)

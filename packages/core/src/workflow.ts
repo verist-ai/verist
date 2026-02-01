@@ -3,6 +3,7 @@
 import type {
   FanoutCommand,
   InvokeCommand,
+  ReviewCommand,
   SuspendCommand,
 } from "./command.ts";
 import type { Step } from "./step.ts";
@@ -44,6 +45,8 @@ export interface Workflow<TSteps extends Record<string, AnyStep>> {
     step: K,
     inputs: StepInput<TSteps[K]>[],
   ): FanoutCommand;
+  /** Create a review command to request human approval. */
+  review(args: { reason: string; payload?: unknown }): ReviewCommand;
   /**
    * Create a typed suspend command with compile-time resumeStep validation.
    * Unlike the bare suspend() helper, this validates resumeStep against registered steps.
@@ -109,6 +112,9 @@ export function defineWorkflow<TSteps extends Record<string, AnyStep>>(
         throw stepNotFound(step);
       }
       return { type: "fanout", step, inputs };
+    },
+    review(args: { reason: string; payload?: unknown }): ReviewCommand {
+      return { type: "review", reason: args.reason, payload: args.payload };
     },
     suspend<K extends keyof TSteps & string>(args: {
       reason: string;
