@@ -42,10 +42,22 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.1"
+    "@verist/core": "^0.0.1",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "bullmq": {
+      "optional": true
+    },
+    "ioredis": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@verist/core": "workspace:*"
+    "@verist/core": "workspace:*",
+    "bullmq": "^5.34.0",
+    "ioredis": "^5.4.2"
   },
   "publishConfig": {
     "access": "public"

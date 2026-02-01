@@ -79,6 +79,7 @@ dbmate up
 This adapter provides:
 
 - `RunStore` implementation (`load`, `commit`, `setOverlay`)
+- Outbox + block operations via `PgRunStore` (`getBlock`, `resolveBlock`, `leaseOutbox`, `markDispatched`, `markFailed`)
 - Reference schema for Postgres
 - Atomic commits (state + events in transaction)
 
@@ -114,6 +115,14 @@ For advanced Postgres setups, use this as a starting point and customize.
 - `setOverlay()` is last-write-wins (no versioning)
 - Does not increment `version`
 - Overlay values take precedence over computed via `effectiveState()`
+
+### Blocking Commands + Outbox
+
+- `review` and `suspend` commands are written to `verist_blocks` (one active block per run)
+- Non-blocking commands are written to `verist_outbox` with deterministic dedupe keys
+- `review` puts sibling outbox commands in `deferred` until `resolveBlock({ approved: true })`
+- `suspend` discards sibling commands and creates a resume `invoke` command on resolve
+- Outbox dispatch is lease-based (`leaseOutbox` + `markDispatched` / `markFailed`)
 
 ### Merge Semantics
 

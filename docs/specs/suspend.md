@@ -323,17 +323,17 @@ commands: [
 
 ```typescript
 // BAD: busy-waiting in step
-run: async ({ input, adapters }) => {
+run: async (input, ctx) => {
   while (true) {
-    const doc = await adapters.db.getDocument(input.docId);
+    const doc = await ctx.adapters.db.getDocument(input.docId);
     if (doc) return { delta: { doc }, events: [] };
     await sleep(1000); // Blocks worker
   }
 };
 
 // GOOD: suspend and resume
-run: async ({ input, adapters }) => {
-  const doc = await adapters.db.getDocument(input.docId);
+run: async (input, ctx) => {
+  const doc = await ctx.adapters.db.getDocument(input.docId);
   if (!doc) {
     return {
       delta: {},
