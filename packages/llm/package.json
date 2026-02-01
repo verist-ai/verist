@@ -1,6 +1,6 @@
 {
   "name": "@verist/llm",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "LLM provider adapters with built-in tracing for audit events",
   "keywords": [
     "verist",
@@ -42,7 +42,7 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.1"
+    "@verist/core": "^0.0.6"
   },
   "devDependencies": {
     "@verist/core": "workspace:*"

@@ -1,6 +1,6 @@
 {
   "name": "@verist/queue",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Job queue adapter interface for distributed workflow execution",
   "keywords": [
     "verist",
@@ -42,7 +42,7 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.1",
+    "@verist/core": "^0.0.6",
     "bullmq": "^5.0.0",
     "ioredis": "^5.0.0"
   },

@@ -1,6 +1,6 @@
 {
   "name": "@verist/batch",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Batch execution for Verist workflow steps",
   "keywords": [
     "verist",
@@ -41,7 +41,7 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.5"
+    "@verist/core": "^0.0.6"
   },
   "devDependencies": {
     "@verist/core": "workspace:*",

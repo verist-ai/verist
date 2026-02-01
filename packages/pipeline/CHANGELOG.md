@@ -1,5 +1,26 @@
 # @verist/pipeline
 
+## 0.0.3
+
+### Patch Changes
+
+- 119e0b0: Fix null delta handling and add validation consistency
+  - Fix pipeline `??` operator treating `null` as missing delta
+  - Add name/version validation to `defineWorkflow`
+  - Add name validation to `definePipeline` and `runPipeline`
+  - Add `.min(1)` to command schema strings (step, reason, topic)
+  - Rename audit event `pipeline_stage_error` → `pipeline.stage_error`
+
+- 98a4883: **BREAKING:** Rename error handling option from `skip` to `continue`
+  - `onError: "skip"` → `onError: "continue"` (clearer semantics)
+  - `StageStatus` value `"skipped"` → `"continued"`
+  - Add `pipeline_stage_error` audit event for continued stages (maintains evidence trail)
+  - Fix `PipelineError.cause` to contain underlying error instead of wrapping `StepError`
+
+- Updated dependencies [98a4883]
+- Updated dependencies [119e0b0]
+  - @verist/core@0.0.6
+
 ## 0.0.2
 
 ### Patch Changes

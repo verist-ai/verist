@@ -1,6 +1,6 @@
 {
   "name": "@verist/storage-pg",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "PostgreSQL storage adapter for Verist workflows using Drizzle ORM",
   "keywords": [
     "verist",
@@ -47,9 +47,9 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.1",
-    "@verist/replay": "^0.0.1",
-    "@verist/storage": "^0.0.1",
+    "@verist/core": "^0.0.6",
+    "@verist/replay": "^0.0.6",
+    "@verist/storage": "^0.0.3",
     "drizzle-orm": "^0.44.0"
   },
   "devDependencies": {
