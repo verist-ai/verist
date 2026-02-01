@@ -66,6 +66,17 @@
         "@verist/core": "^0.0.1",
       },
     },
+    "packages/pipeline": {
+      "name": "@verist/pipeline",
+      "version": "0.0.1",
+      "devDependencies": {
+        "@verist/core": "workspace:*",
+        "zod": "^4.3.6",
+      },
+      "peerDependencies": {
+        "@verist/core": "^0.0.4",
+      },
+    },
     "packages/queue": {
       "name": "@verist/queue",
       "version": "0.0.2",
@@ -346,6 +357,8 @@
     "@verist/llm": ["@verist/llm@workspace:packages/llm"],
 
     "@verist/otel": ["@verist/otel@workspace:packages/otel"],
+
+    "@verist/pipeline": ["@verist/pipeline@workspace:packages/pipeline"],
 
     "@verist/queue": ["@verist/queue@workspace:packages/queue"],
 
