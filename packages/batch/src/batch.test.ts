@@ -281,6 +281,7 @@ describe("runBatch", () => {
       expect(result.aborted).toBe(false);
 
       expect(result.results[1]!.status).toBe("blocked");
+      expect(result.results[1]!.blockedBy).toBe("suspend");
       expect(result.results[1]!.delta).toEqual({ status: "pending" });
       // runId can be used to query for suspension records
       expect(result.results[1]!.runId).toBe("batch-suspend::1");
@@ -307,6 +308,7 @@ describe("runBatch", () => {
       expect(result.failed).toBe(0);
 
       expect(result.results[1]!.status).toBe("blocked");
+      expect(result.results[1]!.blockedBy).toBe("review");
       expect(result.results[1]!.delta).toEqual({ status: "pending_review" });
       expect(result.results[1]!.commands?.[0]!.type).toBe("review");
     });
@@ -558,6 +560,27 @@ describe("runBatch", () => {
     expect(result.results[0]!.events).toEqual([
       { type: "item_processed", payload: { id: "a" } },
     ]);
+  });
+
+  it("does not set blockedBy on non-blocked results", async () => {
+    const items = [
+      { id: "a", barrier: "none" as const },
+      { id: "b", barrier: "suspend" as const },
+    ];
+
+    const result = await runBatch({
+      step: barrierStep,
+      items,
+      contextFactory,
+      workflowId: "test",
+      workflowVersion: "1.0.0",
+      batchId: "batch-no-blockedby",
+    });
+
+    expect(result.results[0]!.status).toBe("succeeded");
+    expect(result.results[0]!.blockedBy).toBeUndefined();
+    expect(result.results[1]!.status).toBe("blocked");
+    expect(result.results[1]!.blockedBy).toBe("suspend");
   });
 
   it("tracks duration per item", async () => {

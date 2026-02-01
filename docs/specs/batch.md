@@ -56,6 +56,7 @@ interface ItemResult<TInput, TDelta, TError = StepError> {
   commands?: Command[];
   error?: TError;
   durationMs: number;
+  blockedBy?: "review" | "suspend"; // Present when status is "blocked"
 }
 ```
 

@@ -149,15 +149,16 @@ export async function runBatch<
         const output = stepResult.value.output;
 
         // Check for barrier commands (review or suspend)
-        const hasBarrier = output.commands?.some(isBlockingCommand);
+        const blockingCommand = output.commands?.find(isBlockingCommand);
 
-        if (hasBarrier) {
+        if (blockingCommand) {
           results[idx] = {
             index: meta.index,
             itemKey: meta.key,
             runId: meta.runId,
             input: meta.input,
             status: "blocked",
+            blockedBy: blockingCommand.type,
             delta: output.delta as TDelta,
             events: output.events,
             commands: output.commands,
