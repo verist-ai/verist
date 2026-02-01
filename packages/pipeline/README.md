@@ -42,7 +42,7 @@ const extract = defineStep({
 
 const pipeline = definePipeline({
   name: "process-document",
-  version: "1.0.0",
+  workflowVersion: "1.0.0",
   stages: [
     { step: parse },
     { step: extract, wire: (prev) => ({ markdown: prev.markdown }) },
@@ -78,10 +78,10 @@ interface PipelineStageConfig {
 ## Behavior
 
 - Stages execute sequentially and share the same `runId`.
-- If `runId` is omitted, it defaults to `crypto.randomUUID()` (Node 19+, Bun, Deno, browsers).
+- If `runId` is omitted, it defaults to `crypto.randomUUID()` (Node 20+, Bun, Deno, browsers).
 - Control commands (`invoke`, `fanout`) are not allowed and throw immediately.
 - Blocking commands (`suspend`, `review`) stop the pipeline and set `suspendedAt`. At most one blocking command per stage.
-- `onError: "continue"` acknowledges the error and proceeds. The pipeline emits a `pipeline_stage_error` audit event to maintain the evidence trail. The previous delta is carried forward, and the error is recorded in `StageResult.error`.
+- `onError: "continue"` acknowledges the error and proceeds. The pipeline emits a `pipeline.stage_error` audit event to maintain the evidence trail. The previous delta is carried forward, and the error is recorded in `StageResult.error`.
 
 ## Result Shape
 

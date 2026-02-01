@@ -31,7 +31,7 @@ export interface RunPipelineParams<
  * @example
  * const pipeline = definePipeline({
  *   name: "process-document",
- *   version: "1.0.0",
+ *   workflowVersion: "1.0.0",
  *   stages: [
  *     { step: parseDocument },
  *     { step: extractClaims, wire: (prev) => ({ markdown: prev.markdown }) },
@@ -40,9 +40,17 @@ export interface RunPipelineParams<
  * });
  */
 export function definePipeline(config: PipelineConfig): Pipeline {
+  if (!config.name?.trim()) {
+    throw new Error("definePipeline requires name");
+  }
+  if (!config.workflowVersion?.trim()) {
+    throw new Error(
+      "definePipeline requires workflowVersion for audit trail consistency",
+    );
+  }
   return {
     name: config.name,
-    version: config.version,
+    workflowVersion: config.workflowVersion,
     stages: config.stages,
   };
 }
@@ -77,6 +85,15 @@ export async function runPipeline<
   TAdapters extends BaseAdapters = BaseAdapters,
 >(params: RunPipelineParams<TAdapters>): Promise<PipelineResult<TOutput>> {
   const { pipeline, input, contextFactory, workflowId } = params;
+
+  if (!pipeline.name?.trim()) {
+    throw new Error("runPipeline requires pipeline.name");
+  }
+  if (!pipeline.workflowVersion?.trim()) {
+    throw new Error(
+      "runPipeline requires pipeline.workflowVersion for audit trail consistency",
+    );
+  }
   const runId = params.runId ?? generateRunId();
 
   const stages: StageResult[] = [];
@@ -88,14 +105,16 @@ export async function runPipeline<
     // Wire: first stage gets pipeline input, others get previous delta
     const stageInput = stage.wire
       ? stage.wire(currentDelta, input)
-      : (currentDelta ?? input);
+      : currentDelta !== undefined
+        ? currentDelta
+        : input;
 
     const result = await runStep({
       step: stage.step,
       input: stageInput,
       contextFactory,
       workflowId,
-      workflowVersion: pipeline.version,
+      workflowVersion: pipeline.workflowVersion,
       runId,
     });
 
@@ -104,18 +123,17 @@ export async function runPipeline<
     if (!result.ok) {
       // Handle error based on policy
       if (stage.onError === "continue") {
-        // Emit pipeline_stage_error audit event to maintain evidence trail
+        // Pipeline-owned audit event (not from step) to maintain evidence trail
         const stageError = {
-          type: "pipeline_stage_error",
+          type: "pipeline.stage_error",
           payload: {
             stepName: stage.step.name,
             code: result.error.code,
             message: result.error.message,
-            continued: true,
           },
         };
         // Record what was actually forwarded (matches wire logic for next stage)
-        const carryForward = currentDelta ?? input;
+        const carryForward = currentDelta !== undefined ? currentDelta : input;
         stages.push({
           stepName: stage.step.name,
           status: "continued",

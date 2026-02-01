@@ -80,7 +80,7 @@ export type Command =
 export const InvokeCommandSchema = z
   .object({
     type: z.literal("invoke"),
-    step: z.string(),
+    step: z.string().min(1),
     input: z.unknown(),
   })
   .strict();
@@ -89,7 +89,7 @@ export const InvokeCommandSchema = z
 export const FanoutCommandSchema = z
   .object({
     type: z.literal("fanout"),
-    step: z.string(),
+    step: z.string().min(1),
     inputs: z.array(z.unknown()),
   })
   .strict();
@@ -98,7 +98,7 @@ export const FanoutCommandSchema = z
 export const ReviewCommandSchema = z
   .object({
     type: z.literal("review"),
-    reason: z.string(),
+    reason: z.string().min(1),
     payload: z.unknown().optional(),
   })
   .strict();
@@ -107,7 +107,7 @@ export const ReviewCommandSchema = z
 export const EmitCommandSchema = z
   .object({
     type: z.literal("emit"),
-    topic: z.string(),
+    topic: z.string().min(1),
     payload: z.unknown(),
   })
   .strict();
@@ -122,9 +122,9 @@ export const EmitCommandSchema = z
 export const SuspendCommandSchema = z
   .object({
     type: z.literal("suspend"),
-    reason: z.string(),
+    reason: z.string().min(1),
     checkpoint: z.unknown(),
-    resumeStep: z.string().optional(),
+    resumeStep: z.string().min(1).optional(),
   })
   .strict();
 
@@ -155,7 +155,9 @@ export function fanout(step: string, inputs: unknown[]): FanoutCommand {
  * Helper to create a review command.
  */
 export function review(reason: string, payload?: unknown): ReviewCommand {
-  return { type: "review", reason, payload };
+  return payload !== undefined
+    ? { type: "review", reason, payload }
+    : { type: "review", reason };
 }
 
 /**
@@ -186,8 +188,8 @@ export function isBlockingCommand(
 }
 
 /**
- * Check if a command dispatches execution to other steps.
- * Blocking commands also affect control flow but do not dispatch steps.
+ * Check if a command directs execution to other steps.
+ * Blocking commands also affect control flow but do not direct to other steps.
  */
 export function isControlCommand(
   cmd: Command,

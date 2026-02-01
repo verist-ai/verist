@@ -46,6 +46,46 @@ describe("defineWorkflow", () => {
     );
   });
 
+  it("throws if name is empty", () => {
+    expect(() =>
+      defineWorkflow({
+        name: "",
+        version: "1.0.0",
+        steps: {},
+      }),
+    ).toThrow("defineWorkflow requires name");
+  });
+
+  it("throws if name is whitespace-only", () => {
+    expect(() =>
+      defineWorkflow({
+        name: "   ",
+        version: "1.0.0",
+        steps: {},
+      }),
+    ).toThrow("defineWorkflow requires name");
+  });
+
+  it("throws if version is empty", () => {
+    expect(() =>
+      defineWorkflow({
+        name: "test",
+        version: "",
+        steps: {},
+      }),
+    ).toThrow("defineWorkflow requires version");
+  });
+
+  it("throws if version is whitespace-only", () => {
+    expect(() =>
+      defineWorkflow({
+        name: "test",
+        version: "   ",
+        steps: {},
+      }),
+    ).toThrow("defineWorkflow requires version");
+  });
+
   describe("typed commands", () => {
     it("creates typed invoke command", () => {
       const extract = defineStep({
@@ -160,7 +200,6 @@ describe("defineWorkflow", () => {
       expect(cmd).toEqual({
         type: "review",
         reason: "approval_required",
-        payload: undefined,
       });
     });
 

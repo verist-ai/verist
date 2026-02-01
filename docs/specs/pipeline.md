@@ -26,7 +26,7 @@ Pipelines provide:
 
 **Pipeline Run** – Single execution of a pipeline with its own `runId`. All stages share the same `runId` (unlike batch, where each item gets a distinct `runId`).
 
-**Pipelines vs Workflows** – Pipelines are **execution compositions**, not versioned workflow definitions. A pipeline's `version` field is passed as `workflowVersion` to each stage for correlation and replay – pipelines themselves are not versioned entities, but the version is required for audit trail consistency.
+**Pipelines vs Workflows** – Pipelines are **execution compositions**, not versioned workflow definitions. A pipeline's `workflowVersion` field is stamped on each stage for correlation and replay – pipelines themselves are not versioned entities, but the version is required for audit trail consistency.
 
 **Terminal State** – Pipeline reaches terminal state when: all steps complete (success), a step fails (failure), or a step suspends (suspended). See SPEC-suspend for suspend semantics.
 
@@ -42,7 +42,7 @@ Pipelines provide:
 ```typescript
 interface Pipeline {
   name: string;
-  version: string;
+  workflowVersion: string;
   stages: PipelineStageConfig[];
 }
 
@@ -53,12 +53,12 @@ interface PipelineStageConfig {
 }
 
 interface PipelineResult<T> {
-  ok: boolean;
+  ok: boolean; // false means "did not complete" (failed OR suspended), not just "failed"
   runId: string;
   stages: StageResult[];
   output?: T; // Final delta if successful
   error?: PipelineError; // Present iff failed (mutually exclusive with suspendedAt)
-  suspendedAt?: string; // Step name if blocked; set for both suspend and review (use StageResult.blockedBy to distinguish)
+  suspendedAt?: string; // Step name if blocked; set for both suspend and review
 }
 
 interface StageResult {
@@ -66,7 +66,7 @@ interface StageResult {
   status: "completed" | "failed" | "continued" | "suspended";
   delta?: unknown;
   events: AuditEvent[];
-  commands?: Command[];
+  commands?: Command[]; // Not executed by pipeline. When blockedBy="review", deferred until resolved.
   durationMs: number;
   error?: PipelineError; // Present when status is "continued" or "failed"
   blockedBy?: "suspend" | "review"; // Present when status is "suspended"
@@ -90,7 +90,7 @@ import { definePipeline } from "@verist/pipeline";
 
 const documentPipeline = definePipeline({
   name: "process-document",
-  version: "1.0.0",
+  workflowVersion: "1.0.0",
   stages: [
     { step: parseDocument },
     { step: extractClaims, wire: (prev) => ({ markdown: prev.markdown }) },
@@ -154,7 +154,7 @@ Wiring transforms the previous step's delta into the next step's input.
 ```typescript
 const pipeline = definePipeline({
   name: "resilient-pipeline",
-  version: "1.0.0",
+  workflowVersion: "1.0.0",
   stages: [
     { step: fetchData },
     {
@@ -169,27 +169,26 @@ const pipeline = definePipeline({
 Error modes:
 
 - `"fail"` (default) – Pipeline terminates, returns error
-- `"continue"` – Stage marked continued, previous stage's delta passes through unchanged (**identity wiring**). The value forwarded is exactly what the next stage would have received if the failed stage were absent. When a stage fails, audit events are owned by the pipeline runner, not the step. The runner emits a `pipeline_stage_error` event to maintain the evidence trail:
+- `"continue"` – Stage marked continued, previous stage's delta passes through unchanged (**identity wiring**). The value forwarded is exactly what the next stage would have received if the failed stage were absent. When a stage fails with `continue`, the pipeline runner (not the step) emits a namespaced audit event:
 
 ```typescript
 {
-  type: "pipeline_stage_error",
+  type: "pipeline.stage_error",  // namespaced to distinguish from step events
   payload: {
     stepName: "enrichData",
     code: "ENRICHMENT_FAILED",
     message: "External service unavailable",
-    continued: true
   }
 }
 ```
 
-This event is included in `StageResult.events`, ensuring the audit trail records that an error occurred and was acknowledged. The original error is also preserved in `StageResult.error` for debugging.
+This event is included in `StageResult.events`. The event intentionally excludes `cause` for portability; the full underlying error is available in `StageResult.error.cause`. The `pipeline.` prefix distinguishes runner-owned events from step events.
 
 ## Semantics
 
-- **runId:** All stages share the same runId. If omitted, it defaults to `crypto.randomUUID()` and requires Web Crypto (Node 19+, Bun, Deno, modern browsers).
-- **Audit events:** Recorded for completed, continued, or suspended stages. Failed stages have empty `events`. Continued stages include the pipeline-owned `pipeline_stage_error` event.
-- **Dispatch commands:** If a stage returns `invoke` or `fanout`, execution throws immediately (pipelines do not support dispatch commands).
+- **runId:** All stages share the same runId. If omitted, it defaults to `crypto.randomUUID()` and requires Web Crypto (Node 20+, Bun, Deno, modern browsers).
+- **Audit events:** Recorded for completed, continued, or suspended stages. Failed stages have empty `events` – terminal failures are recorded structurally in `StageResult.error` and `PipelineResult.error`, not as audit events. Continued stages do not include step events (the step did not complete); they include only the pipeline-owned `pipeline.stage_error` event.
+- **Control commands:** If a stage returns `invoke` or `fanout`, execution throws immediately (pipelines do not support control commands).
 - **Blocking commands:** At most one blocking command (`suspend` or `review`) per stage. Multiple blocking commands throw. When `suspend` is present, sibling commands are discarded. When `review` is present, sibling commands are preserved (deferred).
 
 ## Relationship to Commands
@@ -202,6 +201,6 @@ Pipelines are **compile-time composition**. Commands are **runtime routing**.
 | Routing      | Static sequence | Dynamic based on step output   |
 | Use case     | Known sequences | Conditional branching, fan-out |
 
-**Commands in pipeline stages:** Dispatch commands (`invoke`, `fanout`) are not allowed in pipeline stages – use commands for dynamic routing outside pipelines. Side-effect commands (`emit`) are allowed and pass through. Blocking commands (`suspend`, `review`) stop the pipeline and return with `suspendedAt` set.
+**Commands in pipeline stages:** Control commands (`invoke`, `fanout`) are not allowed in pipeline stages – use commands for dynamic routing outside pipelines. Side-effect commands (`emit`) are allowed and pass through. Blocking commands (`suspend`, `review`) stop the pipeline and return with `suspendedAt` set.
 
 **Command execution:** Pipeline runner does not execute commands – it returns them in `StageResult.commands` for downstream consumers to handle. When `blockedBy=review`, all commands in the result are deferred (none executed by the runner).

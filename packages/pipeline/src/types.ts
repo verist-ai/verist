@@ -7,7 +7,8 @@ import type { AuditEvent, Command, Step } from "@verist/core";
  */
 export interface PipelineConfig {
   name: string;
-  version: string;
+  /** Version stamped on each stage's workflowVersion for audit correlation. */
+  workflowVersion: string;
   stages: PipelineStageConfig[];
 }
 
@@ -31,7 +32,8 @@ export interface PipelineStageConfig {
  */
 export interface Pipeline {
   readonly name: string;
-  readonly version: string;
+  /** Version stamped on each stage's workflowVersion for audit correlation. */
+  readonly workflowVersion: string;
   readonly stages: readonly PipelineStageConfig[];
 }
 
@@ -48,9 +50,12 @@ export interface StageResult {
   status: StageStatus;
   /** Stage output. For continued stages, contains the value forwarded to subsequent stages. */
   delta?: unknown;
-  /** Audit events from step execution. Continued stages include pipeline_stage_error event. */
+  /** Audit events. Continued stages include pipeline.stage_error (namespaced to distinguish from step events). */
   events: AuditEvent[];
-  /** Commands returned by the step. Not executed by pipeline runner. */
+  /**
+   * Commands returned by the step. Not executed by pipeline runner.
+   * When blockedBy="review", commands are deferred and must not be executed until review resolves.
+   */
   commands?: Command[];
   durationMs: number;
   /** Present when status is "continued" or "failed" — records the error. */
@@ -73,14 +78,21 @@ export interface PipelineError {
 
 /**
  * Result of a pipeline execution.
+ *
+ * Note: `ok === false` means "did not complete successfully", which includes
+ * both failures AND controlled suspension. Handle with:
+ * - result.ok → success
+ * - result.suspendedAt → suspended (not failed)
+ * - else → failed (result.error is set)
  */
 export interface PipelineResult<TOutput = unknown> {
+  /** False means pipeline did not complete (failed OR suspended), not just "failed". */
   ok: boolean;
   runId: string;
   stages: StageResult[];
   output?: TOutput;
   /** Present on failure. Identical to the failed stage's error. */
   error?: PipelineError;
-  /** Step name where pipeline suspended (on review or suspend command) */
+  /** Step name where pipeline suspended (on review or suspend command). */
   suspendedAt?: string;
 }

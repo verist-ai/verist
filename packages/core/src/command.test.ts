@@ -97,6 +97,49 @@ describe("Command helpers", () => {
     };
     expect(() => SuspendCommandSchema.parse(cmd)).toThrow();
   });
+
+  describe("schema rejects empty strings", () => {
+    it("invoke rejects empty step", () => {
+      expect(() =>
+        CommandSchema.parse({ type: "invoke", step: "", input: {} }),
+      ).toThrow();
+    });
+
+    it("fanout rejects empty step", () => {
+      expect(() =>
+        CommandSchema.parse({ type: "fanout", step: "", inputs: [] }),
+      ).toThrow();
+    });
+
+    it("review rejects empty reason", () => {
+      expect(() =>
+        CommandSchema.parse({ type: "review", reason: "" }),
+      ).toThrow();
+    });
+
+    it("emit rejects empty topic", () => {
+      expect(() =>
+        CommandSchema.parse({ type: "emit", topic: "", payload: {} }),
+      ).toThrow();
+    });
+
+    it("suspend rejects empty reason", () => {
+      expect(() =>
+        CommandSchema.parse({ type: "suspend", reason: "", checkpoint: {} }),
+      ).toThrow();
+    });
+
+    it("suspend rejects empty resumeStep", () => {
+      expect(() =>
+        CommandSchema.parse({
+          type: "suspend",
+          reason: "test",
+          checkpoint: {},
+          resumeStep: "",
+        }),
+      ).toThrow();
+    });
+  });
 });
 
 describe("Command category helpers", () => {

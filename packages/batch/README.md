@@ -67,7 +67,7 @@ interface BatchOptions<TItem> {
 
 - Each item runs as a separate `runStep` with a unique `runId`.
 - `runId` format: `${batchId}::${itemKey | index}` ("::" is reserved).
-- If `batchId` is omitted, it defaults to `crypto.randomUUID()` (Node 19+, Bun, Deno, browsers).
+- If `batchId` is omitted, it defaults to `crypto.randomUUID()` (Node 20+, Bun, Deno, browsers).
 - Results preserve input order regardless of completion order.
 - Items that return `review` or `suspend` commands are marked `blocked`.
 - With `failurePolicy: "abort"`, new items stop scheduling after the first failure; in-flight items finish and remaining items are marked `skipped`.

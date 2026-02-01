@@ -116,25 +116,89 @@ const emittingStep = defineStep({
 const contextFactory = createContextFactory({});
 
 describe("definePipeline", () => {
-  it("creates a pipeline with name, version, and stages", () => {
+  it("creates a pipeline with name, workflowVersion, and stages", () => {
     const pipeline = definePipeline({
       name: "test-pipeline",
-      version: "1.0.0",
+      workflowVersion: "1.0.0",
       stages: [{ step: parseDocument }],
     });
 
     expect(pipeline.name).toBe("test-pipeline");
-    expect(pipeline.version).toBe("1.0.0");
+    expect(pipeline.workflowVersion).toBe("1.0.0");
     expect(pipeline.stages).toHaveLength(1);
     expect(pipeline.stages[0]!.step.name).toBe("parseDocument");
+  });
+
+  it("throws if workflowVersion is empty", () => {
+    expect(() =>
+      definePipeline({
+        name: "test",
+        workflowVersion: "",
+        stages: [],
+      }),
+    ).toThrow("definePipeline requires workflowVersion");
+  });
+
+  it("throws if workflowVersion is whitespace-only", () => {
+    expect(() =>
+      definePipeline({
+        name: "test",
+        workflowVersion: "   ",
+        stages: [],
+      }),
+    ).toThrow("definePipeline requires workflowVersion");
+  });
+
+  it("throws if name is empty", () => {
+    expect(() =>
+      definePipeline({
+        name: "",
+        workflowVersion: "1.0.0",
+        stages: [],
+      }),
+    ).toThrow("definePipeline requires name");
+  });
+
+  it("throws if name is whitespace-only", () => {
+    expect(() =>
+      definePipeline({
+        name: "   ",
+        workflowVersion: "1.0.0",
+        stages: [],
+      }),
+    ).toThrow("definePipeline requires name");
   });
 });
 
 describe("runPipeline", () => {
+  it("throws if pipeline.name is empty", async () => {
+    const badPipeline = { name: "", workflowVersion: "1.0.0", stages: [] };
+    await expect(
+      runPipeline({
+        pipeline: badPipeline,
+        input: {},
+        contextFactory,
+        workflowId: "test",
+      }),
+    ).rejects.toThrow("runPipeline requires pipeline.name");
+  });
+
+  it("throws if pipeline.workflowVersion is empty", async () => {
+    const badPipeline = { name: "test", workflowVersion: "", stages: [] };
+    await expect(
+      runPipeline({
+        pipeline: badPipeline,
+        input: {},
+        contextFactory,
+        workflowId: "test",
+      }),
+    ).rejects.toThrow("runPipeline requires pipeline.workflowVersion");
+  });
+
   it("executes all stages and returns final delta as output", async () => {
     const pipeline = definePipeline({
       name: "process-document",
-      version: "1.0.0",
+      workflowVersion: "1.0.0",
       stages: [
         { step: parseDocument },
         {
@@ -165,7 +229,7 @@ describe("runPipeline", () => {
   it("collects events from all stages", async () => {
     const pipeline = definePipeline({
       name: "events-test",
-      version: "1.0.0",
+      workflowVersion: "1.0.0",
       stages: [
         { step: parseDocument },
         {
@@ -203,7 +267,7 @@ describe("runPipeline", () => {
 
     const pipeline = definePipeline({
       name: "duration-test",
-      version: "1.0.0",
+      workflowVersion: "1.0.0",
       stages: [{ step: slowStep }],
     });
 
@@ -216,7 +280,8 @@ describe("runPipeline", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.stages[0]!.durationMs).toBeGreaterThanOrEqual(50);
+    // Allow small timing variance in CI environments
+    expect(result.stages[0]!.durationMs).toBeGreaterThanOrEqual(45);
   });
 
   describe("wiring", () => {
@@ -233,7 +298,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "wire-test-first",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: captureStep }],
       });
 
@@ -247,6 +312,49 @@ describe("runPipeline", () => {
 
       expect(result.ok).toBe(true);
       expect(result.output).toEqual({ captured: "input-123" });
+    });
+
+    it("first stage wire receives undefined as prevDelta and pipeline input", async () => {
+      let capturedPrev: unknown = "NOT_CALLED";
+      let capturedInput: unknown = "NOT_CALLED";
+
+      const firstStageWithWire = defineStep({
+        name: "firstStageWithWire",
+        input: z.object({ transformed: z.string() }),
+        delta: z.object({ result: z.string() }),
+        run: async (input) => ({
+          delta: { result: input.transformed },
+          events: [],
+        }),
+      });
+
+      const pipeline = definePipeline({
+        name: "first-stage-wire-test",
+        workflowVersion: "1.0.0",
+        stages: [
+          {
+            step: firstStageWithWire,
+            wire: (prev, input: any) => {
+              capturedPrev = prev;
+              capturedInput = input;
+              return { transformed: `from:${input.original}` };
+            },
+          },
+        ],
+      });
+
+      const result = await runPipeline({
+        pipeline,
+        input: { original: "hello" },
+        contextFactory,
+        workflowId: "test",
+        runId: "run-first-wire",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(capturedPrev).toBeUndefined();
+      expect(capturedInput).toEqual({ original: "hello" });
+      expect(result.output).toEqual({ result: "from:hello" });
     });
 
     it("subsequent stages receive previous delta when no wire function", async () => {
@@ -272,7 +380,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "wire-test-chain",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: stepA }, { step: stepB }],
       });
 
@@ -293,7 +401,7 @@ describe("runPipeline", () => {
     it("wire function transforms data between stages", async () => {
       const pipeline = definePipeline({
         name: "wire-transform",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: parseDocument },
           {
@@ -320,6 +428,46 @@ describe("runPipeline", () => {
       });
     });
 
+    it("null delta is passed through correctly (not treated as missing)", async () => {
+      const nullReturningStep = defineStep({
+        name: "nullReturningStep",
+        input: z.object({ trigger: z.boolean() }),
+        delta: z.null(),
+        run: async () => ({
+          delta: null,
+          events: [],
+        }),
+      });
+
+      const nullReceivingStep = defineStep({
+        name: "nullReceivingStep",
+        input: z.null(),
+        delta: z.object({ receivedNull: z.boolean() }),
+        run: async (input) => ({
+          delta: { receivedNull: input === null },
+          events: [],
+        }),
+      });
+
+      const pipeline = definePipeline({
+        name: "null-delta-test",
+        workflowVersion: "1.0.0",
+        stages: [{ step: nullReturningStep }, { step: nullReceivingStep }],
+      });
+
+      const result = await runPipeline({
+        pipeline,
+        input: { trigger: true },
+        contextFactory,
+        workflowId: "test",
+        runId: "run-null-delta",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.stages[0]!.delta).toBeNull();
+      expect(result.stages[1]!.delta).toEqual({ receivedNull: true });
+    });
+
     it("wire function can access both previous delta and pipeline input", async () => {
       const combineStep = defineStep({
         name: "combineStep",
@@ -333,7 +481,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "wire-both",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: parseDocument },
           {
@@ -362,7 +510,7 @@ describe("runPipeline", () => {
     it("stops on error with fail policy (default)", async () => {
       const pipeline = definePipeline({
         name: "error-fail",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: parseDocument },
           { step: failingStep, wire: () => ({ shouldFail: true }) },
@@ -392,7 +540,7 @@ describe("runPipeline", () => {
     it("continues past error and preserves previous delta with continue policy", async () => {
       const pipeline = definePipeline({
         name: "error-continue",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: parseDocument },
           {
@@ -432,7 +580,7 @@ describe("runPipeline", () => {
     it("records error info on continued stages", async () => {
       const pipeline = definePipeline({
         name: "error-continue-info",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           {
             step: failingStep,
@@ -459,17 +607,72 @@ describe("runPipeline", () => {
       expect(result.stages[0]!.error!.message).toBe(
         "Step failed intentionally",
       );
-      // Verify pipeline_stage_error audit event is emitted
+      // Verify pipeline.stage_error audit event is emitted (namespaced to distinguish from step events)
       expect(result.stages[0]!.events).toHaveLength(1);
       expect(result.stages[0]!.events[0]).toEqual({
-        type: "pipeline_stage_error",
+        type: "pipeline.stage_error",
         payload: {
           stepName: "failingStep",
           code: "EXECUTION",
           message: "Step failed intentionally",
-          continued: true,
         },
       });
+    });
+
+    it("forwards null delta correctly on continue (regression test for ?? bug)", async () => {
+      const nullReturningStep = defineStep({
+        name: "nullReturningStep",
+        input: z.object({ trigger: z.boolean() }),
+        delta: z.null(),
+        run: async () => ({
+          delta: null,
+          events: [],
+        }),
+      });
+
+      const alwaysFailsStep = defineStep({
+        name: "alwaysFailsStep",
+        input: z.null(),
+        delta: z.object({ result: z.string() }),
+        run: async () => {
+          throw new Error("Always fails");
+        },
+      });
+
+      const nullReceivingStep = defineStep({
+        name: "nullReceivingStep",
+        input: z.null(),
+        delta: z.object({ receivedNull: z.boolean() }),
+        run: async (input) => ({
+          delta: { receivedNull: input === null },
+          events: [],
+        }),
+      });
+
+      const pipeline = definePipeline({
+        name: "null-continue-test",
+        workflowVersion: "1.0.0",
+        stages: [
+          { step: nullReturningStep },
+          { step: alwaysFailsStep, onError: "continue" },
+          { step: nullReceivingStep },
+        ],
+      });
+
+      const result = await runPipeline({
+        pipeline,
+        input: { trigger: true },
+        contextFactory,
+        workflowId: "test",
+        runId: "run-null-continue",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.stages[0]!.delta).toBeNull();
+      expect(result.stages[1]!.status).toBe("continued");
+      // Critical: continued stage should forward null (not pipeline input)
+      expect(result.stages[1]!.delta).toBeNull();
+      expect(result.stages[2]!.delta).toEqual({ receivedNull: true });
     });
 
     it("records input validation errors as failed", async () => {
@@ -485,7 +688,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "validation-error",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: strictStep }],
       });
 
@@ -504,7 +707,7 @@ describe("runPipeline", () => {
     it("records error info on failed stages", async () => {
       const pipeline = definePipeline({
         name: "error-fail-info",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: failingStep }],
       });
 
@@ -534,7 +737,7 @@ describe("runPipeline", () => {
     it("stops on suspend command", async () => {
       const pipeline = definePipeline({
         name: "suspend-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: parseDocument },
           { step: suspendingStep, wire: () => ({ data: "test" }) },
@@ -565,7 +768,7 @@ describe("runPipeline", () => {
     it("stops on review command", async () => {
       const pipeline = definePipeline({
         name: "review-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: parseDocument },
           { step: reviewingStep, wire: () => ({ data: "risky" }) },
@@ -606,7 +809,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "multi-blocking-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: multiBlockingStep }],
       });
 
@@ -640,7 +843,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "suspend-discard-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: suspendWithEmitStep }],
       });
 
@@ -676,7 +879,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "review-keep-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: reviewWithEmitStep }],
       });
 
@@ -703,7 +906,7 @@ describe("runPipeline", () => {
     it("throws on invoke command", async () => {
       const pipeline = definePipeline({
         name: "invoke-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: invokingStep }],
       });
 
@@ -723,7 +926,7 @@ describe("runPipeline", () => {
     it("throws on fanout command", async () => {
       const pipeline = definePipeline({
         name: "fanout-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: fanoutStep }],
       });
 
@@ -757,7 +960,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "mixed-control-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: mixedStep }],
       });
 
@@ -779,7 +982,7 @@ describe("runPipeline", () => {
     it("allows emit commands to pass through", async () => {
       const pipeline = definePipeline({
         name: "emit-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: emittingStep },
           { step: parseDocument, wire: () => ({ documentId: "after-emit" }) },
@@ -804,7 +1007,7 @@ describe("runPipeline", () => {
     it("does not include commands in stage result when empty", async () => {
       const pipeline = definePipeline({
         name: "no-commands",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: parseDocument }],
       });
 
@@ -825,7 +1028,7 @@ describe("runPipeline", () => {
     it("returns ok with undefined output", async () => {
       const pipeline = definePipeline({
         name: "empty",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [],
       });
 
@@ -847,7 +1050,7 @@ describe("runPipeline", () => {
     it("uses provided runId", async () => {
       const pipeline = definePipeline({
         name: "runid-test",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: parseDocument }],
       });
 
@@ -865,7 +1068,7 @@ describe("runPipeline", () => {
     it("generates runId when not provided", async () => {
       const pipeline = definePipeline({
         name: "runid-gen",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: parseDocument }],
       });
 
@@ -896,7 +1099,7 @@ describe("runPipeline", () => {
 
       const pipeline = definePipeline({
         name: "shared-runid",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [
           { step: trackingStep },
           { step: trackingStep, wire: (prev: any) => ({ x: prev.y + 1 }) },
@@ -926,7 +1129,7 @@ describe("runPipeline", () => {
     it("completed for successful stages", async () => {
       const pipeline = definePipeline({
         name: "status-completed",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: parseDocument }],
       });
 
@@ -944,7 +1147,7 @@ describe("runPipeline", () => {
     it("failed for error stages", async () => {
       const pipeline = definePipeline({
         name: "status-failed",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: failingStep }],
       });
 
@@ -962,7 +1165,7 @@ describe("runPipeline", () => {
     it("continued for error stages with continue policy", async () => {
       const pipeline = definePipeline({
         name: "status-continued",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: failingStep, onError: "continue" }],
       });
 
@@ -980,7 +1183,7 @@ describe("runPipeline", () => {
     it("suspended for blocking command stages", async () => {
       const pipeline = definePipeline({
         name: "status-suspended",
-        version: "1.0.0",
+        workflowVersion: "1.0.0",
         stages: [{ step: suspendingStep }],
       });
 

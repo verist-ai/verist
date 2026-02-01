@@ -242,7 +242,7 @@ export async function runBatch<
 function generateBatchId(): string {
   if (typeof crypto?.randomUUID !== "function") {
     throw new Error(
-      "runBatch() requires Web Crypto API (Node 19+, Bun, Deno, modern browsers). " +
+      "runBatch() requires Web Crypto API (Node 20+, Bun, Deno, modern browsers). " +
         "Provide batchId explicitly or upgrade your runtime.",
     );
   }
