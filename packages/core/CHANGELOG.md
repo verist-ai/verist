@@ -1,8 +1,8 @@
 # @verist/core
 
-## 0.1.0
+## 0.0.5
 
-### Minor Changes
+### Patch Changes
 
 - 8dc5b5b: Add `workflow.review()` for type-safe review commands
 
