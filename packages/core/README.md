@@ -109,6 +109,42 @@ Full step execution with explicit workflow identity. Use this in production for 
 
 Create a context factory from adapters. The factory attaches execution metadata at runtime.
 
+### Command Helpers
+
+Commands express "what should happen next" as data. External runners interpret them.
+
+```typescript
+import { invoke, fanout, review, emit, suspend } from "@verist/core";
+
+// Request another step
+commands: [invoke("nextStep", { id: input.id })];
+
+// Parallel processing
+commands: [
+  fanout(
+    "processItem",
+    items.map((i) => ({ id: i })),
+  ),
+];
+
+// Human-in-the-loop
+commands: [review("confidence below threshold", { score: 0.5 })];
+
+// External integration
+commands: [emit("slack:alerts", { message: "Verification complete" })];
+
+// Await external input (pauses workflow)
+commands: [
+  suspend({
+    reason: "awaiting_documentation",
+    checkpoint: { claimId },
+    resumeStep: "handleDocumentation",
+  }),
+];
+```
+
+`review` and `suspend` are blocking — they halt sibling command execution. See SPEC-commands and SPEC-suspend for full semantics.
+
 ### Result Helpers
 
 - `ok(value)` - Create success result

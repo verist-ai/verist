@@ -1,9 +1,16 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { invoke, fanout, review, emit, CommandSchema } from "./command.ts";
-import { defineStep } from "./step.ts";
-import { runStep } from "./run.ts";
+import {
+  CommandSchema,
+  emit,
+  fanout,
+  invoke,
+  review,
+  suspend,
+} from "./command.ts";
 import { createContextFactory } from "./context.ts";
+import { runStep } from "./run.ts";
+import { defineStep } from "./step.ts";
 
 describe("Commands", () => {
   it("invoke helper creates correct command", () => {
@@ -42,6 +49,34 @@ describe("Commands", () => {
       type: "emit",
       topic: "document.verified",
       payload: { docId: "d-1", score: 0.95 },
+    });
+    expect(CommandSchema.parse(cmd)).toEqual(cmd);
+  });
+
+  it("suspend helper creates correct command", () => {
+    const cmd = suspend({
+      reason: "awaiting_documentation",
+      checkpoint: { claimId: "c-1", requestedDocType: "financial" },
+      resumeStep: "handleDocumentation",
+    });
+    expect(cmd).toEqual({
+      type: "suspend",
+      reason: "awaiting_documentation",
+      checkpoint: { claimId: "c-1", requestedDocType: "financial" },
+      resumeStep: "handleDocumentation",
+    });
+    expect(CommandSchema.parse(cmd)).toEqual(cmd);
+  });
+
+  it("suspend helper works without resumeStep", () => {
+    const cmd = suspend({
+      reason: "awaiting_callback",
+      checkpoint: { webhookId: "wh-1" },
+    });
+    expect(cmd).toEqual({
+      type: "suspend",
+      reason: "awaiting_callback",
+      checkpoint: { webhookId: "wh-1" },
     });
     expect(CommandSchema.parse(cmd)).toEqual(cmd);
   });

@@ -19,6 +19,7 @@ Queue message → Load state → Run step → Persist delta + events → Emit ne
 ```
 
 Steps don't know about queues. Orchestration is external.
+The kernel is compatible with short-lived, stateless execution environments (edge/serverless) by design.
 
 ## Step Invariants
 
@@ -67,7 +68,13 @@ type Command =
   | { type: "invoke"; step: string; input: unknown } // request next step
   | { type: "fanout"; step: string; inputs: unknown[] } // parallel processing
   | { type: "review"; reason: string; payload?: unknown } // human-in-the-loop
-  | { type: "emit"; topic: string; payload: unknown }; // external event
+  | { type: "emit"; topic: string; payload: unknown } // external event
+  | {
+      type: "suspend";
+      reason: string;
+      checkpoint: unknown;
+      resumeStep?: string;
+    }; // await external input
 ```
 
 Commands are data, not execution. The external runner interprets them.
@@ -77,6 +84,8 @@ Commands are data, not execution. The external runner interprets them.
 - **invoke / fanout**: Control-flow directives. `fanout` inputs are logically independent; each input represents an isolated step execution. Runners may batch or parallelize, but must not share mutable state between executions.
 
 - **review**: Blocking directive. Workflow progression must stop until an external decision is provided. How the decision is captured and how execution resumes are runner concerns.
+
+- **suspend**: Blocking directive. Pauses workflow until external data arrives. Unlike review (human approval), suspend awaits data/callbacks. Sibling commands are discarded; the resumed step emits new commands. See SPEC-suspend.
 
 - **emit**: Integration directive for external systems. Distinct from audit events; not part of the internal evidence log.
 
@@ -166,6 +175,12 @@ The kernel's contract ends at: `(input, artifacts) → (delta, events, commands)
 - Must not interpret step output beyond commands
 - Must not inject implicit retries or branching logic
 - Must not add behavior not expressed in commands
+
+**Runtime assumptions**: Runners may be short-lived and stateless. Steps must not depend on:
+
+- In-memory durable state across executions
+- Background loops or long-lived workers
+- Local filesystem for persistence
 
 **Layer boundaries**: Higher-level packages consume only the kernel's public outputs — audit events and state deltas — never raw internal state. This ensures the kernel remains universal and extensions are purely additive.
 

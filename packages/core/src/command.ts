@@ -52,11 +52,27 @@ export interface EmitCommand {
   payload: unknown;
 }
 
+/**
+ * Suspend workflow execution until external input arrives.
+ * Unlike review (human approval), suspend waits for data/callbacks.
+ * Sibling commands are discarded — the resumed step emits new commands.
+ *
+ * @see docs/specs/suspend.md
+ */
+export interface SuspendCommand {
+  type: "suspend";
+  reason: string;
+  /** Serialized state for resume. MUST be JSON-serializable. */
+  checkpoint: unknown;
+  resumeStep?: string;
+}
+
 export type Command =
   | InvokeCommand
   | FanoutCommand
   | ReviewCommand
-  | EmitCommand;
+  | EmitCommand
+  | SuspendCommand;
 
 /** Zod schema for InvokeCommand */
 export const InvokeCommandSchema = z.object({
@@ -86,12 +102,27 @@ export const EmitCommandSchema = z.object({
   payload: z.unknown(),
 });
 
+/**
+ * Zod schema for SuspendCommand.
+ *
+ * NOTE: JSON-serializability of checkpoint is a runner responsibility.
+ * Zod intentionally does not enforce it — validating arbitrary values
+ * for JSON-serializability is impractical at the schema level.
+ */
+export const SuspendCommandSchema = z.object({
+  type: z.literal("suspend"),
+  reason: z.string(),
+  checkpoint: z.unknown(),
+  resumeStep: z.string().optional(),
+});
+
 /** Zod schema for Command (discriminated union) */
 export const CommandSchema = z.discriminatedUnion("type", [
   InvokeCommandSchema,
   FanoutCommandSchema,
   ReviewCommandSchema,
   EmitCommandSchema,
+  SuspendCommandSchema,
 ]);
 
 /**
@@ -120,4 +151,11 @@ export function review(reason: string, payload?: unknown): ReviewCommand {
  */
 export function emit(topic: string, payload: unknown): EmitCommand {
   return { type: "emit", topic, payload };
+}
+
+/**
+ * Helper to create a suspend command.
+ */
+export function suspend(args: Omit<SuspendCommand, "type">): SuspendCommand {
+  return { type: "suspend", ...args };
 }
