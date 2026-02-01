@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 
 /**
@@ -75,32 +77,40 @@ export type Command =
   | SuspendCommand;
 
 /** Zod schema for InvokeCommand */
-export const InvokeCommandSchema = z.object({
-  type: z.literal("invoke"),
-  step: z.string(),
-  input: z.unknown(),
-});
+export const InvokeCommandSchema = z
+  .object({
+    type: z.literal("invoke"),
+    step: z.string(),
+    input: z.unknown(),
+  })
+  .strict();
 
 /** Zod schema for FanoutCommand */
-export const FanoutCommandSchema = z.object({
-  type: z.literal("fanout"),
-  step: z.string(),
-  inputs: z.array(z.unknown()),
-});
+export const FanoutCommandSchema = z
+  .object({
+    type: z.literal("fanout"),
+    step: z.string(),
+    inputs: z.array(z.unknown()),
+  })
+  .strict();
 
 /** Zod schema for ReviewCommand */
-export const ReviewCommandSchema = z.object({
-  type: z.literal("review"),
-  reason: z.string(),
-  payload: z.unknown().optional(),
-});
+export const ReviewCommandSchema = z
+  .object({
+    type: z.literal("review"),
+    reason: z.string(),
+    payload: z.unknown().optional(),
+  })
+  .strict();
 
 /** Zod schema for EmitCommand */
-export const EmitCommandSchema = z.object({
-  type: z.literal("emit"),
-  topic: z.string(),
-  payload: z.unknown(),
-});
+export const EmitCommandSchema = z
+  .object({
+    type: z.literal("emit"),
+    topic: z.string(),
+    payload: z.unknown(),
+  })
+  .strict();
 
 /**
  * Zod schema for SuspendCommand.
@@ -109,12 +119,14 @@ export const EmitCommandSchema = z.object({
  * Zod intentionally does not enforce it — validating arbitrary values
  * for JSON-serializability is impractical at the schema level.
  */
-export const SuspendCommandSchema = z.object({
-  type: z.literal("suspend"),
-  reason: z.string(),
-  checkpoint: z.unknown(),
-  resumeStep: z.string().optional(),
-});
+export const SuspendCommandSchema = z
+  .object({
+    type: z.literal("suspend"),
+    reason: z.string(),
+    checkpoint: z.unknown(),
+    resumeStep: z.string().optional(),
+  })
+  .strict();
 
 /** Zod schema for Command (discriminated union) */
 export const CommandSchema = z.discriminatedUnion("type", [
@@ -155,7 +167,38 @@ export function emit(topic: string, payload: unknown): EmitCommand {
 
 /**
  * Helper to create a suspend command.
+ * Does not validate resumeStep — use workflow.suspend() for type-safe step validation.
  */
 export function suspend(args: Omit<SuspendCommand, "type">): SuspendCommand {
   return { type: "suspend", ...args };
+}
+
+// Command category helpers for validation, assertions, and readability
+
+/**
+ * Check if a command blocks workflow execution until resolved.
+ * Blocking commands require external input before the workflow can continue.
+ */
+export function isBlockingCommand(
+  cmd: Command,
+): cmd is ReviewCommand | SuspendCommand {
+  return cmd.type === "review" || cmd.type === "suspend";
+}
+
+/**
+ * Check if a command dispatches execution to other steps.
+ * Blocking commands also affect control flow but do not dispatch steps.
+ */
+export function isControlCommand(
+  cmd: Command,
+): cmd is InvokeCommand | FanoutCommand {
+  return cmd.type === "invoke" || cmd.type === "fanout";
+}
+
+/**
+ * Check if a command produces external side effects.
+ * Side effect commands publish to external systems (queues, topics).
+ */
+export function isSideEffectCommand(cmd: Command): cmd is EmitCommand {
+  return cmd.type === "emit";
 }

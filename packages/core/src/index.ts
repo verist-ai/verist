@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Result type and helpers
 export {
   err,
@@ -27,6 +29,9 @@ export {
   FanoutCommandSchema,
   invoke,
   InvokeCommandSchema,
+  isBlockingCommand,
+  isControlCommand,
+  isSideEffectCommand,
   review,
   ReviewCommandSchema,
   suspend,
