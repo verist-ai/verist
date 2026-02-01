@@ -1,5 +1,30 @@
 # @verist/replay
 
+## 0.0.4
+
+### Patch Changes
+
+- 400e584: Add first-class command diffing for control-flow change detection
+
+  **Breaking:** `RecomputeResult.diff` renamed to `deltaDiff` to distinguish from new `commandsDiff`.
+
+  ```typescript
+  const { deltaDiff, commandsDiff } = await recompute(snapshot, step, ctx);
+
+  if (commandsDiff && !commandsDiff.equal) {
+    console.log("Control flow changed:", formatDiff(commandsDiff));
+  }
+  ```
+
+  New features:
+  - `step-commands` artifact kind for explicit command capture
+  - `normalizeCommands()` for consistent command hashing (order-independent)
+  - `captureCommands` option in `createSnapshotFromResult()` to enable command diffing
+  - `commandsHashOnly` option for compliance mode
+
+- Updated dependencies [400e584]
+  - @verist/core@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes
