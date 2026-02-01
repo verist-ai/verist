@@ -34,17 +34,16 @@ When a stage fails and `onError: "continue"` is set, pipeline runner emits:
 
 ```typescript
 {
-  type: "pipeline_stage_error",
+  type: "pipeline.stage_error",  // namespaced to distinguish from step events
   payload: {
     stepName: string;
     code: string;
     message: string;
-    continued: true;
   }
 }
 ```
 
-This event is included in `PipelineResult.stages[n].events` for the failed stage, maintaining the audit trail.
+This event is included in `PipelineResult.stages[n].events` for the continued stage, maintaining the audit trail. The `pipeline.` prefix distinguishes pipeline-owned events from step-emitted events.
 
 ### StageResult Changes
 

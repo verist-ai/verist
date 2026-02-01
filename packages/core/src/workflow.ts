@@ -48,8 +48,8 @@ export interface Workflow<TSteps extends Record<string, AnyStep>> {
   /** Create a review command to request human approval. */
   review(args: { reason: string; payload?: unknown }): ReviewCommand;
   /**
-   * Create a typed suspend command with compile-time resumeStep validation.
-   * Unlike the bare suspend() helper, this validates resumeStep against registered steps.
+   * Create a typed suspend command with resumeStep validation.
+   * Type-level constraint (keyof steps) + runtime check against registered steps.
    */
   suspend<K extends keyof TSteps & string>(args: {
     reason: string;
@@ -81,6 +81,15 @@ export interface Workflow<TSteps extends Record<string, AnyStep>> {
 export function defineWorkflow<TSteps extends Record<string, AnyStep>>(
   config: WorkflowConfig<TSteps>,
 ): Workflow<TSteps> {
+  if (!config.name?.trim()) {
+    throw new Error("defineWorkflow requires name");
+  }
+  if (!config.version?.trim()) {
+    throw new Error(
+      "defineWorkflow requires version for audit trail consistency",
+    );
+  }
+
   const stepNotFound = (step: string) =>
     new Error(`Step "${step}" not found in workflow "${config.name}"`);
 
@@ -114,7 +123,9 @@ export function defineWorkflow<TSteps extends Record<string, AnyStep>>(
       return { type: "fanout", step, inputs };
     },
     review(args: { reason: string; payload?: unknown }): ReviewCommand {
-      return { type: "review", reason: args.reason, payload: args.payload };
+      return args.payload !== undefined
+        ? { type: "review", reason: args.reason, payload: args.payload }
+        : { type: "review", reason: args.reason };
     },
     suspend<K extends keyof TSteps & string>(args: {
       reason: string;

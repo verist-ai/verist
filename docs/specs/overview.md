@@ -93,7 +93,7 @@ Commands are data, not execution. The external runner interprets them.
 
 ### Command Semantics
 
-- **invoke / fanout**: Dispatch commands. These direct execution to other steps. `fanout` inputs are logically independent; each input represents an isolated step execution. Runners may batch or parallelize, but must not share mutable state between executions.
+- **invoke / fanout**: Control commands. These direct execution to other steps. `fanout` inputs are logically independent; each input represents an isolated step execution. Runners may batch or parallelize, but must not share mutable state between executions.
 
 - **review**: Blocking command. Workflow progression must stop until an external decision is provided. How the decision is captured and how execution resumes are runner concerns.
 
