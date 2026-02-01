@@ -6,7 +6,7 @@ Composing steps into linear sequences with automatic chaining and error propagat
 
 Real workflows are sequences of steps:
 
-```
+```text
 upload → parse → extract → verify → compute
 ```
 
@@ -17,7 +17,6 @@ Pipelines provide:
 - Declarative sequence definition in one place
 - Automatic output→input wiring
 - Unified error handling across the sequence
-- Pipeline-level replay and observability
 
 ## Concepts
 
@@ -39,14 +38,14 @@ Pipelines provide:
 ## Types
 
 ```typescript
-interface Pipeline<TInput, TOutput> {
+interface Pipeline {
   name: string;
   version: string;
-  stages: PipelineStage[];
+  stages: PipelineStageConfig[];
 }
 
-interface PipelineStage {
-  step: Step<any, any>;
+interface PipelineStageConfig {
+  step: Step<any, any, any>;
   wire?: (prevDelta: unknown, pipelineInput: unknown) => unknown;
   onError?: "fail" | "skip"; // Default: fail
 }
@@ -57,7 +56,7 @@ interface PipelineResult<T> {
   stages: StageResult[];
   output?: T; // Final delta if successful
   error?: PipelineError; // Present iff failed (mutually exclusive with suspendedAt)
-  suspendedAt?: string; // Step name if suspended (mutually exclusive with error)
+  suspendedAt?: string; // Step name if blocked; set for both suspend and review (use StageResult.blockedBy to distinguish)
 }
 
 interface StageResult {
@@ -65,7 +64,10 @@ interface StageResult {
   status: "completed" | "failed" | "skipped" | "suspended";
   delta?: unknown;
   events: AuditEvent[];
+  commands?: Command[];
   durationMs: number;
+  error?: PipelineError; // Present when status is "skipped" or "failed"
+  blockedBy?: "suspend" | "review"; // Present when status is "suspended"
 }
 
 interface PipelineError {
@@ -81,7 +83,7 @@ interface PipelineError {
 ### Defining a Pipeline
 
 ```typescript
-import { definePipeline, wire } from "@verist/pipeline";
+import { definePipeline } from "@verist/pipeline";
 
 const documentPipeline = definePipeline({
   name: "process-document",
@@ -111,7 +113,7 @@ const result = await runPipeline({
   input: { documentId: "doc-123", applicationId: "app-456" },
   contextFactory,
   workflowId: "doc-processing",
-  runId: generateRunId(),
+  runId: "run-123",
 });
 
 if (result.ok) {
@@ -142,12 +144,6 @@ Wiring transforms the previous step's delta into the next step's input.
 
 // Pass-through (default when wire is omitted)
 // First stage receives pipeline input; subsequent stages receive previous delta
-
-// Helper for common patterns
-import { pick, merge, map } from "@verist/pipeline";
-
-{ step: nextStep, wire: pick("fieldA", "fieldB") }
-{ step: nextStep, wire: merge((prev) => prev.data, (_, input) => ({ id: input.id })) }
 ```
 
 ### Error Handling
@@ -170,28 +166,14 @@ const pipeline = definePipeline({
 Error modes:
 
 - `"fail"` (default) — Pipeline terminates, returns error
-- `"skip"` — Stage marked skipped, previous stage's delta is preserved and passed forward
+- `"skip"` — Stage marked skipped, previous stage's delta is carried forward (stored in `StageResult.delta`). The error that caused the skip is recorded in `StageResult.error` for debugging. Events are empty since the step did not complete.
 
-### Pipeline-Level Replay
+## Semantics
 
-Replay requires pipeline execution snapshots; capture is implementation-defined.
-
-```typescript
-import { replayPipeline } from "@verist/pipeline";
-
-// Replay entire pipeline from captured artifacts
-const { output, stageDiffs } = await replayPipeline(
-  pipelineSnapshot,
-  artifactStore,
-);
-
-// See what changed at each stage
-for (const { stageName, diff } of stageDiffs) {
-  if (!diff.equal) {
-    console.log(`${stageName} output changed:`, formatDiff(diff));
-  }
-}
-```
+- **runId:** All stages share the same runId. If omitted, it defaults to `crypto.randomUUID()` and requires Web Crypto (Node 19+, Bun, Deno, modern browsers).
+- **Audit events:** Only recorded for completed or suspended stages. Failed and skipped stages always have empty `events`.
+- **Control commands:** If a stage returns `invoke` or `fanout`, execution throws immediately (pipelines do not support control commands).
+- **Blocking commands:** At most one blocking command (`suspend` or `review`) per stage. Multiple blocking commands throw. When `suspend` is present, sibling commands are discarded. When `review` is present, sibling commands are preserved (deferred).
 
 ## Relationship to Commands
 
@@ -203,4 +185,6 @@ Pipelines are **compile-time composition**. Commands are **runtime routing**.
 | Routing      | Static sequence | Dynamic based on step output   |
 | Use case     | Known sequences | Conditional branching, fan-out |
 
-**Commands in pipeline stages:** Routing commands (`invoke`, `fanout`) are not allowed in pipeline stages — use commands for dynamic routing outside pipelines. Side-effect commands (`emit`) are allowed but are not replayed and not reflected in pipeline diffs. Blocking commands (`suspend`, `review`) stop the pipeline and return with `suspendedAt` set.
+**Commands in pipeline stages:** Control commands (`invoke`, `fanout`) are not allowed in pipeline stages — use commands for dynamic routing outside pipelines. Side-effect commands (`emit`) are allowed and pass through. Blocking commands (`suspend`, `review`) stop the pipeline and return with `suspendedAt` set.
+
+**Command execution:** Pipeline runner does not execute commands — it returns them in `StageResult.commands` for downstream consumers to handle. When `blockedBy=review`, all commands in the result are deferred (none executed by the runner).
