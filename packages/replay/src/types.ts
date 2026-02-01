@@ -1,13 +1,14 @@
 /**
  * Classification of what an artifact represents.
  *
- * **Reserved by kernel:** `"step-output"` — used by `loadOutput`, `recompute`,
- * `compareSnapshots`. Only the first `step-output` artifact is used.
+ * **Reserved by kernel:**
+ * - `"step-output"` — step's delta + events, used by replay/recompute
+ * - `"step-commands"` — step's commands, used by recompute command diffing
  *
  * **User-defined:** Any other value (e.g., `"llm-input"`, `"llm-output"`) is
  * opaque metadata for audit/tracing. The kernel does not interpret these.
  */
-export type ArtifactKind = "step-output" | (string & {});
+export type ArtifactKind = "step-output" | "step-commands" | (string & {});
 
 /**
  * A captured non-deterministic value with its content hash.
@@ -94,16 +95,21 @@ export interface LayeredStateInput<T> {
 }
 
 /**
- * Result of recomputation including the diff from original.
+ * Result of recomputation including diffs from original.
  */
 export interface RecomputeResult<T> {
   /** The recomputed output */
   output: T;
   /**
-   * Diff between original and recomputed delta (state change only, not events).
+   * Diff between original and recomputed delta (state changes).
    * `undefined` if original is unavailable for comparison (hash-only or missing).
    */
-  diff: DiffResult | undefined;
+  deltaDiff: DiffResult | undefined;
+  /**
+   * Diff between original and recomputed commands (control-flow decisions).
+   * `undefined` if original commands are unavailable for comparison.
+   */
+  commandsDiff: DiffResult | undefined;
   /** Captured artifact of the recomputed output (when captureArtifacts option is set) */
   outputArtifact?: Artifact;
 }

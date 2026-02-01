@@ -1,6 +1,12 @@
-import type { Result, Step, StepContext, StepOutput } from "@verist/core";
+import type {
+  Command,
+  Result,
+  Step,
+  StepContext,
+  StepOutput,
+} from "@verist/core";
 import { err, ok } from "@verist/core";
-import { captureArtifact } from "./artifact.ts";
+import { captureArtifact, normalizeCommands } from "./artifact.ts";
 import { diff } from "./diff.ts";
 import { hashValue } from "./hash.ts";
 import type {
@@ -41,17 +47,19 @@ export interface RecomputeOptions {
  * to adapters (LLMs, databases, etc). This reveals what would change if
  * the step were run today with current models/data.
  *
- * **Note:** The diff compares delta only (state changes), not events.
- * Events are audit logs, not the "decision" being reviewed.
+ * Compares both delta (state changes) and commands (control-flow decisions).
+ * Events are audit logs and are not diffed.
  *
  * @example
  * ```typescript
  * const result = await recompute(snapshot, extractStep, ctx);
  * if (result.ok) {
- *   if (result.value.diff === undefined) {
- *     console.log("Original unavailable for comparison");
- *   } else if (!result.value.diff.equal) {
- *     console.log("Delta changed:", formatDiff(result.value.diff));
+ *   const { deltaDiff, commandsDiff } = result.value;
+ *   if (deltaDiff && !deltaDiff.equal) {
+ *     console.log("State changed:", formatDiff(deltaDiff));
+ *   }
+ *   if (commandsDiff && !commandsDiff.equal) {
+ *     console.log("Control flow changed:", formatDiff(commandsDiff));
  *   }
  * }
  * ```
@@ -83,7 +91,7 @@ export async function recompute<TInput, TState>(
     });
   }
 
-  // Find original output for comparison.
+  // Find original output for delta comparison.
   // Validate shape to avoid comparing corrupted/migrated data as if valid.
   const originalOutputArtifact = snapshot.artifacts.find(
     (a) => a.kind === "step-output",
@@ -92,12 +100,29 @@ export async function recompute<TInput, TState>(
     ? (originalOutputArtifact.content as StepOutput<TState>)
     : undefined;
 
-  // Diff only the delta (state change), not events.
-  // Events are audit logs, not the "decision" being reviewed.
-  // Returns undefined if original is unavailable (hash-only or malformed).
-  const outputDiff =
+  // Diff delta (state changes). Returns undefined if original is unavailable.
+  const deltaDiff =
     originalOutput !== undefined
       ? diff(originalOutput.delta, newOutput.delta)
+      : undefined;
+
+  // Diff commands (control-flow decisions).
+  // First try step-commands artifact, then fall back to commands in step-output.
+  const originalCommandsArtifact = snapshot.artifacts.find(
+    (a) => a.kind === "step-commands",
+  );
+  const originalCommands: Command[] | undefined =
+    originalCommandsArtifact?.content !== undefined
+      ? (originalCommandsArtifact.content as Command[])
+      : originalOutput?.commands;
+
+  // Normalize both for comparison (commands are semantically a set)
+  const commandsDiff =
+    originalCommands !== undefined
+      ? diff(
+          normalizeCommands(originalCommands),
+          normalizeCommands(newOutput.commands),
+        )
       : undefined;
 
   // Resolve capture options: true → full content, false/undefined → skip, object → pass through
@@ -109,7 +134,8 @@ export async function recompute<TInput, TState>(
 
   return ok({
     output: newOutput,
-    diff: outputDiff,
+    deltaDiff,
+    commandsDiff,
     outputArtifact: shouldCapture
       ? captureArtifact("step-output", newOutput, captureOpts)
       : undefined,
@@ -120,45 +146,78 @@ export async function recompute<TInput, TState>(
  * Compare two snapshots to see what changed.
  * Useful for comparing outputs across workflow versions.
  *
- * **Note:** Compares delta only (state changes), not events.
- * This matches `recompute()` semantics — events are audit logs,
- * not the decision being reviewed.
+ * Compares delta (state changes) and commands (control-flow decisions).
+ * Events are audit logs and are not compared.
  *
  * `deltaDiff` will be `undefined` if either snapshot:
  * - Is hash-only (content not stored)
  * - Has malformed step-output (missing `delta` key)
+ *
+ * `commandsDiff` will be `undefined` if commands are unavailable in either snapshot.
  */
 export function compareSnapshots(
   original: Snapshot,
   updated: Snapshot,
-): { inputDiff: DiffResult; deltaDiff: DiffResult | undefined } {
+): {
+  inputDiff: DiffResult;
+  deltaDiff: DiffResult | undefined;
+  commandsDiff: DiffResult | undefined;
+} {
   const inputDiff = diff(original.input, updated.input);
 
-  const originalArtifact = original.artifacts.find(
+  const originalOutputArtifact = original.artifacts.find(
     (a) => a.kind === "step-output",
   );
-  const updatedArtifact = updated.artifacts.find(
+  const updatedOutputArtifact = updated.artifacts.find(
     (a) => a.kind === "step-output",
   );
 
-  // Require content with valid step-output shape for comparison.
-  // Hash-only or malformed artifacts cannot be compared.
-  const originalValid = isStepOutputShape(originalArtifact?.content);
-  const updatedValid = isStepOutputShape(updatedArtifact?.content);
+  // Require content with valid step-output shape for delta comparison.
+  const originalValid = isStepOutputShape(originalOutputArtifact?.content);
+  const updatedValid = isStepOutputShape(updatedOutputArtifact?.content);
 
-  if (
-    !originalValid ||
-    !updatedValid ||
-    !originalArtifact ||
-    !updatedArtifact
-  ) {
-    return { inputDiff, deltaDiff: undefined };
-  }
+  const deltaDiff =
+    originalValid &&
+    updatedValid &&
+    originalOutputArtifact &&
+    updatedOutputArtifact
+      ? diff(
+          (originalOutputArtifact.content as { delta: unknown }).delta,
+          (updatedOutputArtifact.content as { delta: unknown }).delta,
+        )
+      : undefined;
 
-  const deltaDiff = diff(
-    (originalArtifact.content as { delta: unknown }).delta,
-    (updatedArtifact.content as { delta: unknown }).delta,
+  // Extract commands for comparison.
+  // First try step-commands artifact, then fall back to commands in step-output.
+  const originalCommandsArtifact = original.artifacts.find(
+    (a) => a.kind === "step-commands",
+  );
+  const updatedCommandsArtifact = updated.artifacts.find(
+    (a) => a.kind === "step-commands",
   );
 
-  return { inputDiff, deltaDiff };
+  const originalCommands: Command[] | undefined =
+    originalCommandsArtifact?.content !== undefined
+      ? (originalCommandsArtifact.content as Command[])
+      : originalValid
+        ? (originalOutputArtifact?.content as { commands?: Command[] })
+            ?.commands
+        : undefined;
+
+  const updatedCommands: Command[] | undefined =
+    updatedCommandsArtifact?.content !== undefined
+      ? (updatedCommandsArtifact.content as Command[])
+      : updatedValid
+        ? (updatedOutputArtifact?.content as { commands?: Command[] })?.commands
+        : undefined;
+
+  const commandsDiff =
+    originalCommands !== undefined && updatedCommands !== undefined
+      ? diff(
+          normalizeCommands(originalCommands),
+          normalizeCommands(updatedCommands),
+        )
+      : undefined;
+
+  return { inputDiff, deltaDiff, commandsDiff };
 }

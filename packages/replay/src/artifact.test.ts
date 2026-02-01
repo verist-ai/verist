@@ -1,4 +1,5 @@
 import type { StepResult } from "@verist/core";
+import { invoke } from "@verist/core";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
   captureArtifact,
@@ -190,5 +191,103 @@ describe("createSnapshotFromResult", () => {
     expect(snapshot.artifacts).toHaveLength(2);
     expect(snapshot.artifacts[0]!.kind).toBe("step-output");
     expect(snapshot.artifacts[1]!.kind).toBe("llm-output");
+  });
+
+  it("captures commands when captureCommands is true", () => {
+    const result: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: {
+        delta: { status: "processing" },
+        events: [],
+        commands: [invoke("next", { id: "doc-123" })],
+      },
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    const snapshot = createSnapshotFromResult(result, {
+      captureCommands: true,
+    });
+
+    expect(snapshot.artifacts).toHaveLength(2);
+    expect(snapshot.artifacts[0]!.kind).toBe("step-output");
+    expect(snapshot.artifacts[1]!.kind).toBe("step-commands");
+    expect(snapshot.artifacts[1]!.content).toEqual([
+      invoke("next", { id: "doc-123" }),
+    ]);
+  });
+
+  it("supports commandsHashOnly mode", () => {
+    const result: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: {
+        delta: { status: "processing" },
+        events: [],
+        commands: [invoke("next", { id: "doc-123" })],
+      },
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    const snapshot = createSnapshotFromResult(result, {
+      captureCommands: true,
+      commandsHashOnly: true,
+    });
+
+    const commandsArtifact = snapshot.artifacts.find(
+      (a) => a.kind === "step-commands",
+    );
+    expect(commandsArtifact).toBeDefined();
+    expect(commandsArtifact!.hash).toMatch(/^sha256:/);
+    expect(commandsArtifact!.content).toBeUndefined();
+  });
+
+  it("normalizes commands for consistent hashing", () => {
+    const result1: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: {
+        delta: { status: "done" },
+        events: [],
+        commands: [invoke("b", {}), invoke("a", {})],
+      },
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    const result2: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: {
+        delta: { status: "done" },
+        events: [],
+        commands: [invoke("a", {}), invoke("b", {})],
+      },
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-2",
+    };
+
+    const snapshot1 = createSnapshotFromResult(result1, {
+      captureCommands: true,
+    });
+    const snapshot2 = createSnapshotFromResult(result2, {
+      captureCommands: true,
+    });
+
+    const hash1 = snapshot1.artifacts.find(
+      (a) => a.kind === "step-commands",
+    )?.hash;
+    const hash2 = snapshot2.artifacts.find(
+      (a) => a.kind === "step-commands",
+    )?.hash;
+
+    // Same commands in different order → same hash after normalization
+    expect(hash1).toBe(hash2);
   });
 });

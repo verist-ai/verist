@@ -19,6 +19,7 @@ export {
   captureArtifact,
   createSnapshot,
   createSnapshotFromResult,
+  normalizeCommands,
 } from "./artifact.ts";
 export type { SnapshotFromResultOptions } from "./artifact.ts";
 
