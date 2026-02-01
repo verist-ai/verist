@@ -1,50 +1,27 @@
 # Why Verist
 
-Verist is a deterministic, audit-first workflow kernel for AI systems.
-It gives you replay, recompute, and diffs for AI decisions so you can upgrade models and prompts without guessing what will break.
+Verist is a deterministic, audit-first workflow kernel for AI systems. It gives you replay, recompute, and diffs for AI decisions – so you can upgrade models and prompts without guessing what will break.
 
-## The trust gap in AI workflows
+## The trust gap
 
 Modern AI workflows create failures you cannot reproduce:
 
-- Decisions change with model or prompt updates
+- Decisions change silently with model or prompt updates
 - Logs show what happened, but not why
 - Human corrections get overwritten by recomputation
 - Agent frameworks introduce hidden state and emergent control flow
 
-These are acceptable for demos, but not for review-heavy or high-impact systems.
+Acceptable for demos. Not for review-heavy or high-impact systems.
 
 ## What Verist gives you
 
-### Replay + diff
-
-Capture artifacts during a run, replay exactly, or recompute and review the diff before shipping changes.
-
-### Explicit state in your database
-
-All workflow state lives in your database. Steps return deltas; nothing important is implicit or in memory.
-
-### Audit-first by contract
-
-Every step produces structured audit events and LLM traces. The evidence trail is part of the API, not optional logging.
-
-### Human authority preserved
-
-Human overrides are first-class and survive recomputation.
-
-### Minimal, composable kernel
-
-Verist is not a platform. It is a small, explicit library that fits under your existing runner, queue, and UI.
-
-## Mental model: Git for AI decisions
-
-Verist workflows are built to make change reviewable:
-
-```
-change prompt -> recompute -> see diff -> approve or override -> persist
-```
-
-When you can see the diff, you can ship with confidence.
+| Capability                | Description                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Replay + diff**         | Capture artifacts during a run, replay exactly, or recompute and review the diff before shipping         |
+| **Database-backed state** | All state lives in your database. Steps return deltas; nothing important is implicit or in memory        |
+| **Audit-first**           | Every step produces structured audit events. The evidence trail is part of the API, not optional logging |
+| **Human authority**       | Human overrides are first-class and survive recomputation                                                |
+| **Minimal kernel**        | Small, explicit library that fits under your existing runner, queue, and UI                              |
 
 ## How Verist differs from agent frameworks
 
@@ -61,7 +38,7 @@ Agent frameworks optimize for autonomy and speed. Verist optimizes for control a
 
 Verist can sit underneath an agent framework when you need guarantees, or replace ad-hoc scripts when a workflow becomes critical.
 
-## When Verist is the right fit
+## When Verist fits
 
 Use Verist when:
 
@@ -70,10 +47,11 @@ Use Verist when:
 - Human review is part of the workflow
 - You are accountable to audits, compliance, or users
 
-If you are still prototyping and want speed over correctness, Verist will feel heavy.
+## When to skip Verist
 
-## Where to start
+- Internal chatbots without audit or replay requirements
+- Fast prototypes and throwaway scripts
+- Exploratory agents where outcomes are intentionally non-deterministic
+- One-off scripts where you don't need diff or long-term replay
 
-- Read `docs/getting-started.md` for a quick walkthrough.
-- Use `@verist/replay` to enable replay + recompute diff.
-- Add `@verist/storage-pg` for atomic commits and audit persistence.
+If you want speed over correctness, Verist will feel heavy.

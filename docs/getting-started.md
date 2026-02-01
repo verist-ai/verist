@@ -1,199 +1,123 @@
 # Getting Started
 
-Verist is a deterministic workflow kernel for AI systems. Each step returns:
-
-- state delta (partial update)
-- audit events (append-only log)
-- optional commands (declarative next steps)
-
-It is designed for workflows where you need replay, diff, and auditability.
-
-## Quick start
-
-For the fastest path to "wrap one function, get replay + diff", see [Your First Step](guides/first-step.md).
-
-This guide covers the full production setup.
-
-## Is Verist a good fit?
-
-Use Verist if you need:
-
-- replayable AI decisions ("what happened, exactly?")
-- safe model/prompt upgrades with reviewable diffs
-- audit trails and human overrides that survive recomputation
-
-Verist is not an agent runtime, chat framework, or orchestrator. It is the trust kernel underneath those systems.
+This guide covers the full Verist setup. For a minimal example, see [Your First Step](guides/first-step). For how the pieces fit together in production, see [Architecture Overview](guides/architecture).
 
 ## Install
 
-```bash
-bun add @verist/core zod
+::: code-group
+
+```bash [bun]
+bun add @verist/core @verist/replay zod
 ```
 
-Optional packages:
-
-```bash
-bun add @verist/replay
-bun add @verist/storage @verist/storage-pg
+```bash [npm]
+npm install @verist/core @verist/replay zod
 ```
 
-## 5-minute quickstart
+:::
 
-A step is a function that returns a delta + events (and optional commands). Steps are deterministic given their input and adapters.
+## Core concepts
 
-### Simplest form: `run()`
+Each step returns:
+
+- **delta** – partial state update
+- **events** – audit records (append-only)
+- **commands** – declarative next steps (optional)
+
+```text
+(input, context) → { delta, events, commands? }
+```
+
+## Define and run a step
 
 ```ts
 import { z } from "zod";
 import { defineStep, run } from "@verist/core";
 
-const summarize = defineStep({
-  name: "summarize",
-  input: z.object({ text: z.string() }),
-  delta: z.object({ summary: z.string() }),
+const verifyDocument = defineStep({
+  name: "verify-document",
+  input: z.object({ docId: z.string(), text: z.string() }),
+  delta: z.object({
+    verdict: z.enum(["accept", "reject"]),
+    confidence: z.number(),
+  }),
   run: async (input, ctx) => {
-    const summary = await ctx.adapters.llm.summarize(input.text);
+    const verdict = await ctx.adapters.llm.verify(input.text);
     return {
-      delta: { summary },
-      events: [
-        { type: "summary_created", payload: { length: summary.length } },
-      ],
+      delta: { verdict, confidence: 0.84 },
+      events: [{ type: "document_verified", payload: { docId: input.docId } }],
     };
   },
 });
 
 const result = await run(
-  summarize,
-  { text: "Verist makes AI decisions replayable." },
+  verifyDocument,
+  { docId: "doc-1", text: "Invoice #1042 for ACME Corp." },
   {
     adapters: {
-      llm: { summarize: async (text) => `Summary: ${text.slice(0, 40)}...` },
+      llm: {
+        verify: async (text) => (text.includes("fraud") ? "reject" : "accept"),
+      },
     },
   },
 );
 
 if (result.ok) {
   console.log(result.value.output.delta);
-  // { summary: "Summary: Verist makes AI decisions rep..." }
+  // { verdict: "accept", confidence: 0.84 }
 }
 ```
 
-### Production form: `runStep()`
+## Add explicit identity
 
-For explicit control over workflow/version/runId, use `runStep`:
+For stable IDs and version tracking, pass explicit identity to `run()`:
 
 ```ts
-import { defineWorkflow, runStep, createContextFactory } from "@verist/core";
+import { defineWorkflow, run } from "@verist/core";
 
 const workflow = defineWorkflow({
-  name: "hello-verist",
-  version: "0.1.0",
-  steps: { summarize },
+  name: "verify-document",
+  version: "1.0.0",
+  steps: { verifyDocument },
 });
 
-const result = await runStep({
-  step: workflow.getStep("summarize"),
-  input: { text: "Verist makes AI decisions replayable and diffable." },
-  contextFactory: createContextFactory({
-    llm: { summarize: async (text) => `Summary: ${text.slice(0, 40)}...` },
-  }),
-  workflowId: workflow.name,
-  workflowVersion: workflow.version,
-  runId: "run-1",
-});
-```
-
-### What just happened
-
-- `defineStep` validated input and output using Zod
-- `run` / `runStep` returned a `Result` (errors are values, not exceptions)
-- You got a delta and events (your runner persists these in production)
-
-For production state management with optimistic concurrency, see `@verist/storage`.
-
-## The "aha": replay + recompute diff
-
-The replay package (`@verist/replay`) lets you capture artifacts from a step, replay exactly what happened, or recompute with new adapters and inspect the diff.
-
-```ts
-import {
-  captureArtifact,
-  createSnapshot,
-  replay,
-  recompute,
-  formatDiff,
-} from "@verist/replay";
-
-const output = result.value.output;
-const artifacts = [captureArtifact("step-output", output)];
-
-const snapshot = createSnapshot({
-  workflowId,
-  workflowVersion,
-  stepName: result.value.stepName,
-  input: result.value.input, // validated input from execution
-  artifacts,
-});
-
-const replayResult = await replay(snapshot, async (hash) => {
-  return artifactStore.get(hash); // you provide storage
-});
-
-if (replayResult.ok) {
-  console.log("replayed", replayResult.value.output);
-}
-
-const recomputeCtx = contextFactory({
-  workflowId,
-  workflowVersion,
-  runId: "recompute-1",
-});
-
-const recomputeResult = await recompute(
-  snapshot,
-  workflow.getStep("summarize"),
-  recomputeCtx,
+const result = await run(
+  workflow.getStep("verifyDocument"),
+  { docId: "doc-1", text: "..." },
+  {
+    adapters,
+    workflowId: workflow.name,
+    workflowVersion: workflow.version,
+    runId: "run-1",
+  },
 );
-
-if (recomputeResult.ok && !recomputeResult.value.diff.equal) {
-  console.log(formatDiff(recomputeResult.value.diff));
-}
 ```
 
-Notes:
+## Runner wiring
 
-- `replay()` uses stored artifacts and returns the captured `step-output` when present
-- `recompute()` re-runs the step with live adapters and produces a diff
-- `recompute()` works with either a bare step or a workflow step — workflow identity only matters for versioning
-- artifact storage is external (database, blob store, etc.)
+Verist does not ship an orchestrator. A minimal runner typically does:
 
-## How to think about Verist
+1. Load state
+2. Execute `run()` with explicit identity
+3. Commit delta + events atomically
+4. Interpret commands (enqueue, fan-out, review, emit)
+5. Capture artifacts if you need replay/recompute
 
-### Step contract
+See [Reference Runner](./guides/reference-runner) for a concrete loop.
 
-```
-(input, context) -> { delta, events, commands? }
-```
+## Kernel guarantees
 
-- **delta** is a partial state update (validated against the step's `delta` schema)
-- **events** are immutable audit records
-- **commands** are declarative intent, interpreted by your runner
+Verist guarantees:
 
-### Kernel invariants (high-value guarantees)
+- Steps are deterministic given input + adapters
+- State lives in your database
+- Commands are data (never executed by the kernel)
+- Overlay wins over computed for human overrides
+- Errors are values (`Result`), not exceptions
 
-Verist guarantees, among others:
+## Commands
 
-- steps are deterministic given input + adapters
-- state lives in your database
-- commands are data (never executed by the kernel)
-- overlay wins over computed for human overrides
-- errors are values (`Result`), not exceptions
-
-See `docs/specs/kernel-invariants.md` for the full list.
-
-## Common command patterns
-
-Commands are plain objects. You can create them manually or use helpers.
+Commands are plain objects. Use helpers for common patterns:
 
 ```ts
 import { invoke, fanout, review, emit } from "@verist/core";
@@ -202,31 +126,19 @@ return {
   delta,
   events,
   commands: [
-    invoke("verify", { id }),
-    fanout("score", inputs),
-    review("low confidence", { score }),
-    emit("doc.verified", { id }),
+    invoke("verify", { id }), // call another step
+    fanout("score", inputs), // parallel execution
+    review("low confidence", data), // human review
+    emit("doc.verified", { id }), // external event
   ],
 };
 ```
 
-Commands are validated by shape, not by step registry. Use free-form commands (`invoke`, `fanout`) when running standalone steps. Use `workflow.invoke()` and `workflow.fanout()` when you want compile-time type safety for step inputs.
+## Decision checklist
 
-## Production wiring (high level)
-
-Verist does not ship an orchestrator. Your runner typically does:
-
-1. load state (`RunStore` or your own store)
-2. execute `runStep`
-3. commit delta + events atomically
-4. interpret commands (enqueue, fan-out, review, emit)
-5. capture artifacts if you need replay/recompute
-
-This boundary is deliberate: the kernel stays universal, orchestration stays yours.
-
-## Next steps
-
-- Overview and concepts: `docs/specs/overview.md`
-- Kernel guarantees: `docs/specs/kernel-invariants.md`
-- Replay and recompute: `docs/specs/replay.md`
-- Package stability tiers: `docs/adr/005-package-stability.md`
+| If you...               | Then skip...     |
+| ----------------------- | ---------------- |
+| Don't store state yet   | Storage adapters |
+| Don't branch or fan out | Commands         |
+| Don't pause runs        | Suspend/resume   |
+| Don't need stable IDs   | Workflows        |

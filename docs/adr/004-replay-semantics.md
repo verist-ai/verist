@@ -21,9 +21,9 @@ Accepted
 
 ## Alternatives
 
-- **Event sourcing**: Replay by re-applying all events. Rejected — events are outputs not inputs; doesn't capture LLM responses
-- **Mocked adapters**: Replace adapters with recorded responses. Rejected — tightly couples to adapter implementation; complex setup
-- **Snapshot entire state**: Store full state at each step. Rejected — doesn't enable re-execution; storage overhead for unchanged fields
+- **Event sourcing**: Replay by re-applying all events. Rejected – events are outputs not inputs; doesn't capture LLM responses
+- **Mocked adapters**: Replace adapters with recorded responses. Rejected – tightly couples to adapter implementation; complex setup
+- **Snapshot entire state**: Store full state at each step. Rejected – doesn't enable re-execution; storage overhead for unchanged fields
 
 ## Consequences
 

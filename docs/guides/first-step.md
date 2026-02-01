@@ -4,9 +4,17 @@ Wrap one function, get replay and diff. No workflows, no queues, no complexity.
 
 ## Install
 
-```bash
+::: code-group
+
+```bash [bun]
 bun add @verist/core @verist/replay zod
 ```
+
+```bash [npm]
+npm install @verist/core @verist/replay zod
+```
+
+:::
 
 ## Define a step
 
@@ -16,15 +24,18 @@ A step is a function with typed input/output and audit events.
 import { z } from "zod";
 import { defineStep, run } from "@verist/core";
 
-const summarize = defineStep({
-  name: "summarize",
-  input: z.object({ text: z.string() }),
-  delta: z.object({ summary: z.string() }),
+const verifyDocument = defineStep({
+  name: "verify-document",
+  input: z.object({ docId: z.string(), text: z.string() }),
+  delta: z.object({
+    verdict: z.enum(["accept", "reject"]),
+    confidence: z.number(),
+  }),
   run: async (input, ctx) => {
-    const summary = await ctx.adapters.llm.summarize(input.text);
+    const verdict = await ctx.adapters.llm.verify(input.text);
     return {
-      delta: { summary },
-      events: [{ type: "summarized", payload: { length: summary.length } }],
+      delta: { verdict, confidence: 0.84 },
+      events: [{ type: "document_verified", payload: { docId: input.docId } }],
     };
   },
 });
@@ -34,88 +45,86 @@ const summarize = defineStep({
 
 ```ts
 const result = await run(
-  summarize,
-  { text: "AI decisions should be replayable." },
+  verifyDocument,
+  { docId: "doc-1", text: "Invoice #1042 for ACME Corp." },
   {
     adapters: {
-      llm: { summarize: async (text) => `Summary: ${text.slice(0, 20)}...` },
+      llm: {
+        verify: async (text) => (text.includes("fraud") ? "reject" : "accept"),
+      },
     },
   },
 );
 
 if (result.ok) {
   console.log(result.value.output.delta);
-  // { summary: "Summary: AI decisions sho..." }
+  // { verdict: "accept", confidence: 0.84 }
 }
 ```
 
-That's it. You just ran a Verist step.
-
 ## Add replay + diff
 
-Capture the output as an artifact. Later, replay exactly or recompute with a new model and see what changed.
+Capture the output as a snapshot, then recompute with a new model to see what changed:
 
 ```ts
 import {
-  captureArtifact,
-  createSnapshot,
+  createSnapshotFromResult,
   recompute,
   formatDiff,
 } from "@verist/replay";
 import { createContextFactory } from "@verist/core";
 
-// Guard: only capture if step succeeded
-if (!result.ok) {
-  throw new Error(`${result.error.code}: ${result.error.message}`);
-}
+if (!result.ok) throw new Error(result.error.message);
 
-const artifact = captureArtifact("step-output", result.value.output);
-
-const snapshot = createSnapshot({
-  workflowId: result.value.workflowId,
-  workflowVersion: result.value.workflowVersion,
-  stepName: result.value.stepName,
-  input: result.value.input, // validated input from execution
-  artifacts: [artifact],
+const snapshot = await createSnapshotFromResult(result.value, {
+  captureCommands: true,
 });
 
-// Store snapshot (your choice: database, file, etc.)
-
-// Later, recompute with a new model:
-const newAdapters = {
-  llm: { summarize: async (text) => `New model: ${text.slice(0, 30)}...` },
-};
-
-const ctx = createContextFactory(newAdapters)({
+// Recompute with a different adapter
+const ctx = createContextFactory({
+  llm: { verify: async () => "reject" }, // [!code highlight]
+})({
   workflowId: snapshot.workflowId,
   workflowVersion: snapshot.workflowVersion,
   runId: "recompute-1",
 });
 
-const recomputeResult = await recompute(snapshot, summarize, ctx);
+const recomputeResult = await recompute(snapshot, verifyDocument, ctx);
 
-if (recomputeResult.ok && !recomputeResult.value.diff.equal) {
-  console.log(formatDiff(recomputeResult.value.diff));
-  // Shows exactly which fields changed
+if (recomputeResult.ok) {
+  const { deltaDiff } = recomputeResult.value;
+  if (deltaDiff && !deltaDiff.equal) {
+    console.log(formatDiff(deltaDiff));
+    // Shows exactly which fields changed
+  }
 }
 ```
 
 ## What you get
 
-- **Typed input/output** via Zod schemas
-- **Audit events** for every execution
-- **Replay** from stored artifacts (byte-identical)
-- **Recompute + diff** when you change models or prompts
+| Feature          | Description                                      |
+| ---------------- | ------------------------------------------------ |
+| **Typed I/O**    | Zod schemas validate input and output            |
+| **Audit events** | Structured records for every execution           |
+| **Replay**       | Reproduce past runs from stored artifacts        |
+| **Diff**         | See exactly what changes with new models/prompts |
 
-## When to graduate to `runStep`
+## When to add explicit identity
 
-`run()` uses defaults for workflow identity (workflowId = step name, version = "0.0.0"). This is fine for exploring, but switch to `runStep` when you need:
+`run()` uses defaults for workflow identity (`workflowId` = step name, `version` = "0.0.0"). Pass explicit values when you need:
 
-- **Stable workflow IDs** across deployments
-- **Version tracking** to compare results across prompt/model changes
-- **Multi-step workflows** with typed commands
-- **State persistence** with `@verist/storage-pg`
+- Stable workflow IDs across deployments
+- Version tracking across prompt/model changes
+- Multi-step workflows with typed commands
+- State persistence with `@verist/storage-pg`
+
+```ts
+const result = await run(verifyDocument, input, {
+  adapters,
+  workflowId: "verify-document",
+  workflowVersion: "1.0.0",
+  runId: crypto.randomUUID(),
+});
+```
 
 Most teams never need overlays or contradiction handling. Verist is useful even if you stop at replay + diff.
-
-See [Getting Started](../getting-started.md) for the full production setup.

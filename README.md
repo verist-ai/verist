@@ -59,15 +59,15 @@ You now have typed I/O, audit events, and replay capability – without rewritin
 
 ## Packages
 
-| Package              | Purpose                                                           |
-| -------------------- | ----------------------------------------------------------------- |
-| `@verist/core`       | Workflow kernel: `defineStep`, `defineWorkflow`, `run`, `runStep` |
-| `@verist/replay`     | Artifact capture, exact replay, recompute with diff               |
-| `@verist/pipeline`   | Sequential step composition with automatic wiring                 |
-| `@verist/batch`      | Batch execution with concurrency control                          |
-| `@verist/storage`    | State persistence with optimistic concurrency                     |
-| `@verist/storage-pg` | PostgreSQL storage adapter                                        |
-| `@verist/llm`        | LLM adapter with structured tracing                               |
+| Package              | Purpose                                                |
+| -------------------- | ------------------------------------------------------ |
+| `@verist/core`       | Workflow kernel: `defineStep`, `defineWorkflow`, `run` |
+| `@verist/replay`     | Artifact capture, exact replay, recompute with diff    |
+| `@verist/pipeline`   | Sequential step composition with automatic wiring      |
+| `@verist/batch`      | Batch execution with concurrency control               |
+| `@verist/storage`    | State persistence with optimistic concurrency          |
+| `@verist/storage-pg` | PostgreSQL storage adapter                             |
+| `@verist/llm`        | LLM adapter with structured tracing                    |
 
 ## When to Use Verist
 

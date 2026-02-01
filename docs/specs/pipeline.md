@@ -20,20 +20,22 @@ Pipelines provide:
 
 ## Concepts
 
-**Pipeline** — An ordered sequence of steps where each step's output feeds the next step's input.
+**Pipeline** – An ordered sequence of steps where each step's output feeds the next step's input.
 
-**Wiring** — The transformation from one step's delta to the next step's input. Can be automatic (pass-through) or explicit (mapper function).
+**Wiring** – The transformation from one step's delta to the next step's input. Can be automatic (pass-through) or explicit (mapper function).
 
-**Pipeline Run** — Single execution of a pipeline with its own `runId`. All stages share the same `runId` (unlike batch, where each item gets a distinct `runId`).
+**Pipeline Run** – Single execution of a pipeline with its own `runId`. All stages share the same `runId` (unlike batch, where each item gets a distinct `runId`).
 
-**Terminal State** — Pipeline reaches terminal state when: all steps complete (success), a step fails (failure), or a step suspends (suspended). See SPEC-suspend for suspend semantics.
+**Pipelines vs Workflows** – Pipelines are **execution compositions**, not versioned workflow definitions. A pipeline's `version` field is passed as `workflowVersion` to each stage for correlation and replay – pipelines themselves are not versioned entities, but the version is required for audit trail consistency.
+
+**Terminal State** – Pipeline reaches terminal state when: all steps complete (success), a step fails (failure), or a step suspends (suspended). See SPEC-suspend for suspend semantics.
 
 ## Design Principles
 
-1. **Pipeline is metadata** — Defines sequence and wiring; steps remain pure
-2. **Steps don't know about pipelines** — A step works identically standalone or in pipeline
-3. **Wiring is explicit** — No magic; transformations are visible and testable
-4. **Composition, not inheritance** — Pipelines compose steps; steps don't extend a base class
+1. **Pipeline is metadata** – Defines sequence and wiring; steps remain pure
+2. **Steps don't know about pipelines** – A step works identically standalone or in pipeline
+3. **Wiring is explicit** – No magic; transformations are visible and testable
+4. **Composition, not inheritance** – Pipelines compose steps; steps don't extend a base class
 
 ## Types
 
@@ -47,7 +49,7 @@ interface Pipeline {
 interface PipelineStageConfig {
   step: Step<any, any, any>;
   wire?: (prevDelta: unknown, pipelineInput: unknown) => unknown;
-  onError?: "fail" | "skip"; // Default: fail
+  onError?: "fail" | "continue"; // Default: fail
 }
 
 interface PipelineResult<T> {
@@ -61,12 +63,12 @@ interface PipelineResult<T> {
 
 interface StageResult {
   stepName: string;
-  status: "completed" | "failed" | "skipped" | "suspended";
+  status: "completed" | "failed" | "continued" | "suspended";
   delta?: unknown;
   events: AuditEvent[];
   commands?: Command[];
   durationMs: number;
-  error?: PipelineError; // Present when status is "skipped" or "failed"
+  error?: PipelineError; // Present when status is "continued" or "failed"
   blockedBy?: "suspend" | "review"; // Present when status is "suspended"
 }
 
@@ -74,7 +76,8 @@ interface PipelineError {
   stepName: string;
   code: string;
   message: string;
-  cause?: StepError;
+  /** The underlying error (e.g., ZodError for validation, Error for execution). */
+  cause?: unknown;
 }
 ```
 
@@ -156,7 +159,7 @@ const pipeline = definePipeline({
     { step: fetchData },
     {
       step: enrichData,
-      onError: "skip", // Continue without enrichment
+      onError: "continue", // Continue without enrichment
     },
     { step: finalize },
   ],
@@ -165,14 +168,28 @@ const pipeline = definePipeline({
 
 Error modes:
 
-- `"fail"` (default) — Pipeline terminates, returns error
-- `"skip"` — Stage marked skipped, previous stage's delta is carried forward (stored in `StageResult.delta`). The error that caused the skip is recorded in `StageResult.error` for debugging. Events are empty since the step did not complete.
+- `"fail"` (default) – Pipeline terminates, returns error
+- `"continue"` – Stage marked continued, previous stage's delta passes through unchanged (**identity wiring**). The value forwarded is exactly what the next stage would have received if the failed stage were absent. When a stage fails, audit events are owned by the pipeline runner, not the step. The runner emits a `pipeline_stage_error` event to maintain the evidence trail:
+
+```typescript
+{
+  type: "pipeline_stage_error",
+  payload: {
+    stepName: "enrichData",
+    code: "ENRICHMENT_FAILED",
+    message: "External service unavailable",
+    continued: true
+  }
+}
+```
+
+This event is included in `StageResult.events`, ensuring the audit trail records that an error occurred and was acknowledged. The original error is also preserved in `StageResult.error` for debugging.
 
 ## Semantics
 
 - **runId:** All stages share the same runId. If omitted, it defaults to `crypto.randomUUID()` and requires Web Crypto (Node 19+, Bun, Deno, modern browsers).
-- **Audit events:** Only recorded for completed or suspended stages. Failed and skipped stages always have empty `events`.
-- **Control commands:** If a stage returns `invoke` or `fanout`, execution throws immediately (pipelines do not support control commands).
+- **Audit events:** Recorded for completed, continued, or suspended stages. Failed stages have empty `events`. Continued stages include the pipeline-owned `pipeline_stage_error` event.
+- **Dispatch commands:** If a stage returns `invoke` or `fanout`, execution throws immediately (pipelines do not support dispatch commands).
 - **Blocking commands:** At most one blocking command (`suspend` or `review`) per stage. Multiple blocking commands throw. When `suspend` is present, sibling commands are discarded. When `review` is present, sibling commands are preserved (deferred).
 
 ## Relationship to Commands
@@ -185,6 +202,6 @@ Pipelines are **compile-time composition**. Commands are **runtime routing**.
 | Routing      | Static sequence | Dynamic based on step output   |
 | Use case     | Known sequences | Conditional branching, fan-out |
 
-**Commands in pipeline stages:** Control commands (`invoke`, `fanout`) are not allowed in pipeline stages — use commands for dynamic routing outside pipelines. Side-effect commands (`emit`) are allowed and pass through. Blocking commands (`suspend`, `review`) stop the pipeline and return with `suspendedAt` set.
+**Commands in pipeline stages:** Dispatch commands (`invoke`, `fanout`) are not allowed in pipeline stages – use commands for dynamic routing outside pipelines. Side-effect commands (`emit`) are allowed and pass through. Blocking commands (`suspend`, `review`) stop the pipeline and return with `suspendedAt` set.
 
-**Command execution:** Pipeline runner does not execute commands — it returns them in `StageResult.commands` for downstream consumers to handle. When `blockedBy=review`, all commands in the result are deferred (none executed by the runner).
+**Command execution:** Pipeline runner does not execute commands – it returns them in `StageResult.commands` for downstream consumers to handle. When `blockedBy=review`, all commands in the result are deferred (none executed by the runner).

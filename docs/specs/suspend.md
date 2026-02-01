@@ -14,21 +14,21 @@ These workflows must **suspend** (persist state and exit) then **resume** (conti
 
 ## Concepts
 
-**Suspension** — A workflow pause with serialized state. The step signals it cannot proceed, and the runner persists enough context to resume later.
+**Suspension** – A workflow pause with serialized state. The step signals it cannot proceed, and the runner persists enough context to resume later.
 
-**Suspension Reason** — Why the workflow paused. Enables routing: `awaiting_input` goes to founder UI, `awaiting_callback` waits for webhook.
+**Suspension Reason** – Why the workflow paused. Enables routing: `awaiting_input` goes to founder UI, `awaiting_callback` waits for webhook.
 
-**Resume Trigger** — External event that unblocks the workflow: founder uploads document, webhook arrives, timeout expires.
+**Resume Trigger** – External event that unblocks the workflow: founder uploads document, webhook arrives, timeout expires.
 
-**Checkpoint** — Serialized state captured at suspension time. Immutable — resume adds new data alongside it.
+**Checkpoint** – Serialized state captured at suspension time. Immutable – resume adds new data alongside it.
 
 ## Design Principles
 
-1. **Suspend is a command** — Follows existing command pattern (data, not action)
-2. **Checkpoint is immutable** — Resume doesn't mutate suspension record
-3. **Resume is a new step execution** — Not "continuing" old execution
-4. **State in database** — Suspension records live in DB, not memory/KV
-5. **Sibling commands are discarded** — Resumed step emits new commands
+1. **Suspend is a command** – Follows existing command pattern (data, not action)
+2. **Checkpoint is immutable** – Resume doesn't mutate suspension record
+3. **Resume is a new step execution** – Not "continuing" old execution
+4. **State in database** – Suspension records live in DB, not memory/KV
+5. **Sibling commands are discarded** – Resumed step emits new commands
 
 ## Types
 
@@ -145,7 +145,7 @@ async function handleStepResult(result: StepResult, tx: Transaction) {
       resumeStep: suspendCmd.resumeStep ?? result.stepName,
       suspendedAt: new Date(),
     });
-    // Sibling commands are discarded — resumed step will emit new commands
+    // Sibling commands are discarded  – resumed step will emit new commands
     return;
   }
 
@@ -266,7 +266,7 @@ This is an orchestration error.
 When a `suspend` command is present, sibling commands are **discarded** (not deferred). The resumed step is responsible for emitting any needed commands.
 
 ```typescript
-// The invoke command is discarded — resumed step will emit new commands
+// The invoke command is discarded  – resumed step will emit new commands
 commands: [
   suspend({ reason: "awaiting_input", checkpoint }),
   invoke("nextStep", data), // Discarded

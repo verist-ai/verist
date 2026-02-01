@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { ZodError } from "zod";
-import type { Result } from "./result.ts";
-import { ok, err } from "./result.ts";
-import type { Step, StepOutput } from "./step.ts";
+import type { OnArtifact } from "./artifact.ts";
+import { createArtifact } from "./artifact.ts";
 import type { ContextFactory } from "./context.ts";
 import { createContextFactory } from "./context.ts";
+import type { Result } from "./result.ts";
+import { err, ok } from "./result.ts";
+import type { Step, StepOutput } from "./step.ts";
 import type { BaseAdapters, Delta } from "./types.ts";
 
 /**
@@ -48,6 +52,8 @@ export interface RunStepInput<
   workflowId: string;
   workflowVersion: string;
   runId: string;
+  /** Optional callback for capturing artifacts during execution. */
+  onArtifact?: OnArtifact;
 }
 
 /**
@@ -80,8 +86,15 @@ export async function runStep<
 >(
   params: RunStepInput<TInput, TDelta, TAdapters>,
 ): Promise<Result<StepResult<TInput, TDelta>, StepError>> {
-  const { step, input, contextFactory, workflowId, workflowVersion, runId } =
-    params;
+  const {
+    step,
+    input,
+    contextFactory,
+    workflowId,
+    workflowVersion,
+    runId,
+    onArtifact,
+  } = params;
 
   // Validate input
   const inputResult = step.inputSchema.safeParse(input);
@@ -94,7 +107,12 @@ export async function runStep<
   }
 
   // Create context with version for audit correlation
-  const ctx = contextFactory({ workflowId, workflowVersion, runId });
+  const ctx = contextFactory({
+    workflowId,
+    workflowVersion,
+    runId,
+    onArtifact,
+  });
 
   // Execute step
   let output: StepOutput<TDelta>;
@@ -118,13 +136,25 @@ export async function runStep<
     });
   }
 
+  const validatedOutput = {
+    delta: outputResult.data as Delta<TDelta>,
+    events: output.events,
+    commands: output.commands,
+  };
+
+  // Emit step-output artifact if callback is provided
+  if (onArtifact) {
+    onArtifact(
+      await createArtifact("step-output", {
+        delta: validatedOutput.delta,
+        events: validatedOutput.events,
+      }),
+    );
+  }
+
   return ok({
     input: inputResult.data,
-    output: {
-      delta: outputResult.data as Delta<TDelta>,
-      events: output.events,
-      commands: output.commands,
-    },
+    output: validatedOutput,
     stepName: step.name,
     workflowId,
     workflowVersion,
@@ -149,6 +179,12 @@ export interface RunOptions<TAdapters extends BaseAdapters = BaseAdapters> {
   workflowId?: string;
   /** Override workflowVersion. Defaults to "0.0.0". */
   workflowVersion?: string;
+  /**
+   * Callback for capturing artifacts during execution.
+   * When provided, core emits step-output artifact with { delta, events }.
+   * Adapters can emit their own artifacts (llm-input, llm-output, etc.) via context.
+   */
+  onArtifact?: OnArtifact;
 }
 
 /**
@@ -163,7 +199,7 @@ export interface RunOptions<TAdapters extends BaseAdapters = BaseAdapters> {
  * Graduate to `runStep` when you need explicit workflow/version control,
  * multi-step workflows, or stable version tracking across deployments.
  *
- * Requires a runtime with Web Crypto API (Node 19+, Bun, Deno, modern browsers).
+ * Requires a runtime with Web Crypto API (Node 20+, Bun, Deno, modern browsers).
  *
  * @example
  * const summarize = defineStep({
@@ -200,7 +236,7 @@ export async function run<
   if (!runId) {
     if (typeof crypto?.randomUUID !== "function") {
       throw new Error(
-        "run() requires Web Crypto API (Node 19+, Bun, Deno, modern browsers). " +
+        "run() requires Web Crypto API (Node 20+, Bun, Deno, modern browsers). " +
           "Provide runId explicitly or upgrade your runtime.",
       );
     }
@@ -214,5 +250,6 @@ export async function run<
     workflowId,
     workflowVersion,
     runId,
+    onArtifact: options.onArtifact,
   });
 }

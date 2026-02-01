@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Artifact capture and hashing
+export { createArtifact, hashValue, stableStringify } from "./artifact.ts";
+export type { Artifact, OnArtifact } from "./artifact.ts";
+
 // Result type and helpers
 export {
   err,

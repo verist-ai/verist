@@ -15,26 +15,69 @@ npm install @verist/replay
 
 ## Usage
 
+### Creating Snapshots
+
+Use `createSnapshotFromResult` after step execution:
+
 ```typescript
+import { runStep, createContextFactory } from "@verist/core";
 import {
-  captureArtifact,
   createSnapshotFromResult,
-  loadOutput,
   recompute,
-  diff,
   formatDiff,
 } from "@verist/replay";
 
-// Create snapshot from step result (preferred)
-const snapshot = createSnapshotFromResult(result);
+const result = await runStep({
+  step,
+  input,
+  contextFactory: createContextFactory(adapters),
+  workflowId: "verify-doc",
+  workflowVersion: "1.0.0",
+  runId: crypto.randomUUID(),
+});
 
-// Load stored output without re-execution
-const output = loadOutput(snapshot);
+if (result.ok) {
+  // Create snapshot for later replay/recompute
+  const snapshot = await createSnapshotFromResult(result.value, {
+    captureCommands: true, // Required for command diffing
+  });
 
-// Fresh recomputation with diff
+  // Store snapshot for later use
+  await artifactStore.save(snapshot);
+}
+```
+
+### Recomputing with Diff
+
+Later, recompute with a fresh execution and compare:
+
+```typescript
+import { recompute, formatDiff } from "@verist/replay";
+
 const recomputed = await recompute(snapshot, step, ctx);
-if (recomputed.ok && recomputed.value.diff && !recomputed.value.diff.equal) {
-  console.log(formatDiff(recomputed.value.diff));
+
+if (recomputed.ok) {
+  const { deltaDiff, commandsDiff } = recomputed.value;
+
+  if (deltaDiff && !deltaDiff.equal) {
+    console.log("State changed:", formatDiff(deltaDiff));
+  }
+  if (commandsDiff && !commandsDiff.equal) {
+    console.log("Control flow changed:", formatDiff(commandsDiff));
+  }
+}
+```
+
+### Loading Stored Output
+
+Load historical results without re-execution:
+
+```typescript
+import { loadOutput } from "@verist/replay";
+
+const output = await loadOutput(snapshot);
+if (output.ok) {
+  console.log(output.value.delta);
 }
 ```
 
@@ -42,14 +85,14 @@ if (recomputed.ok && recomputed.value.diff && !recomputed.value.diff.equal) {
 
 ### Hashing
 
-- `hashValue(value)` — SHA-256 hash of JSON-serializable value
-- `hashWithContent(value)` — Returns both hash and serialized content
+- `hashValue(value)` — SHA-256 hash of JSON-serializable value (async)
+- `hashWithContent(value)` — Returns both hash and serialized content (async)
 
 ### Artifacts
 
-- `captureArtifact(kind, content, opts?)` — Create artifact with hash
-- `createSnapshot(params)` — Create snapshot from raw params
-- `createSnapshotFromResult(result, opts?)` — Create snapshot from step result
+- `captureArtifact(kind, content, opts?)` — Create artifact with hash (async)
+- `createSnapshot(params)` — Create snapshot from raw params (async)
+- `createSnapshotFromResult(result, opts?)` — Create snapshot from step result (async)
 
 ### Diff
 
@@ -60,12 +103,14 @@ if (recomputed.ok && recomputed.value.diff && !recomputed.value.diff.equal) {
 
 ### Replay
 
-- `loadOutput(snapshot)` — Load stored output from snapshot
-- `recompute(snapshot, step, ctx)` — Fresh execution with diff
+- `loadOutput(snapshot)` — Load stored output from snapshot (async)
+- `recompute(snapshot, step, ctx)` — Fresh execution with diff (async)
 - `compareSnapshots(original, updated)` — Compare two snapshots
 
 ## Design
 
-This package produces and consumes artifacts but does not store them. Storage is external—bring your own database, S3, or content-addressable store.
+This package produces and consumes artifacts but does not store them. Storage is external — bring your own database, S3, or content-addressable store.
+
+The `onArtifact` callback in `@verist/core` is the primary integration point. This package provides utilities to consume those artifacts for snapshot creation and recomputation.
 
 See [SPEC-replay](../../docs/specs/replay.md) for detailed documentation.

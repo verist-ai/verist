@@ -19,15 +19,14 @@ Accepted
 Stability promise:
 
 - Breaking changes require major version bump
-- API surface kept minimal — new exports are additions, not replacements
+- API surface kept minimal – new exports are additions, not replacements
 - Deprecated APIs supported for at least one major version
 
 Core exports with stability guarantee:
 
-- `defineStep`, `defineWorkflow`, `runStep`
-- `createContextFactory`
+- `defineStep`, `defineWorkflow`, `run`
 - `Result` type and helpers (`ok`, `err`, `isOk`, `isErr`, `map`, `flatMap`)
-- Command types and builders (`invoke`, `fanout`, `review`, `emit`)
+- Command types and builders (`invoke`, `fanout`, `review`, `emit`, `suspend`)
 - `AuditEvent`, `LLMTrace` schemas
 
 ### Tier 2: Capabilities (`@verist/replay`)
@@ -42,8 +41,8 @@ Reason: Replay, diff, and recomputation patterns are newer and may need iteratio
 
 ## Alternatives
 
-- **Single stability tier**: Rejected — forces either too-slow core evolution or too-unstable guarantees
-- **No explicit tiers**: Rejected — users cannot make informed dependency decisions
+- **Single stability tier**: Rejected – forces either too-slow core evolution or too-unstable guarantees
+- **No explicit tiers**: Rejected – users cannot make informed dependency decisions
 
 ## Consequences
 
@@ -54,5 +53,5 @@ Reason: Replay, diff, and recomputation patterns are newer and may need iteratio
 
 ## References
 
-- SPEC-kernel-invariants.md — defines what the kernel guarantees
-- vision.md — "Trust Kit (optional layer)" suggests tiered stability
+- SPEC-kernel-invariants.md – defines what the kernel guarantees
+- vision.md – "Trust Kit (optional layer)" suggests tiered stability

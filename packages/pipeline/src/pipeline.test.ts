@@ -389,16 +389,16 @@ describe("runPipeline", () => {
       expect(result.output).toBeUndefined();
     });
 
-    it("skips stage and preserves previous delta with skip policy", async () => {
+    it("continues past error and preserves previous delta with continue policy", async () => {
       const pipeline = definePipeline({
-        name: "error-skip",
+        name: "error-continue",
         version: "1.0.0",
         stages: [
           { step: parseDocument },
           {
             step: failingStep,
             wire: () => ({ shouldFail: true }),
-            onError: "skip",
+            onError: "continue",
           },
           {
             step: extractClaims,
@@ -409,7 +409,7 @@ describe("runPipeline", () => {
 
       const result = await runPipeline({
         pipeline,
-        input: { documentId: "doc-skip" },
+        input: { documentId: "doc-continue" },
         contextFactory,
         workflowId: "test",
         runId: "run-error-2",
@@ -419,24 +419,24 @@ describe("runPipeline", () => {
       expect(result.stages).toHaveLength(3);
       expect(result.stages[0]!.status).toBe("completed");
       expect(result.stages[0]!.blockedBy).toBeUndefined();
-      expect(result.stages[1]!.status).toBe("skipped");
+      expect(result.stages[1]!.status).toBe("continued");
       expect(result.stages[1]!.blockedBy).toBeUndefined();
       expect(result.stages[1]!.delta).toEqual({
-        markdown: "# Doc doc-skip",
+        markdown: "# Doc doc-continue",
         wordCount: 100,
       });
       expect(result.stages[2]!.status).toBe("completed");
       expect(result.stages[2]!.blockedBy).toBeUndefined();
     });
 
-    it("records error info on skipped stages", async () => {
+    it("records error info on continued stages", async () => {
       const pipeline = definePipeline({
-        name: "error-skip-info",
+        name: "error-continue-info",
         version: "1.0.0",
         stages: [
           {
             step: failingStep,
-            onError: "skip",
+            onError: "continue",
           },
         ],
       });
@@ -446,17 +446,30 @@ describe("runPipeline", () => {
         input: { shouldFail: true },
         contextFactory,
         workflowId: "test",
-        runId: "run-skip-info",
+        runId: "run-continue-info",
       });
 
       expect(result.ok).toBe(true);
-      expect(result.stages[0]!.status).toBe("skipped");
+      expect(result.stages[0]!.status).toBe("continued");
+      // First-stage continue: delta reflects what subsequent stages receive (pipeline input)
+      expect(result.stages[0]!.delta).toEqual({ shouldFail: true });
       expect(result.stages[0]!.error).toBeDefined();
       expect(result.stages[0]!.error!.stepName).toBe("failingStep");
       expect(result.stages[0]!.error!.code).toBe("EXECUTION");
       expect(result.stages[0]!.error!.message).toBe(
         "Step failed intentionally",
       );
+      // Verify pipeline_stage_error audit event is emitted
+      expect(result.stages[0]!.events).toHaveLength(1);
+      expect(result.stages[0]!.events[0]).toEqual({
+        type: "pipeline_stage_error",
+        payload: {
+          stepName: "failingStep",
+          code: "EXECUTION",
+          message: "Step failed intentionally",
+          continued: true,
+        },
+      });
     });
 
     it("records input validation errors as failed", async () => {
@@ -946,11 +959,11 @@ describe("runPipeline", () => {
       expect(result.stages[0]!.status).toBe("failed");
     });
 
-    it("skipped for error stages with skip policy", async () => {
+    it("continued for error stages with continue policy", async () => {
       const pipeline = definePipeline({
-        name: "status-skipped",
+        name: "status-continued",
         version: "1.0.0",
-        stages: [{ step: failingStep, onError: "skip" }],
+        stages: [{ step: failingStep, onError: "continue" }],
       });
 
       const result = await runPipeline({
@@ -961,7 +974,7 @@ describe("runPipeline", () => {
         runId: "run-status-3",
       });
 
-      expect(result.stages[0]!.status).toBe("skipped");
+      expect(result.stages[0]!.status).toBe("continued");
     });
 
     it("suspended for blocking command stages", async () => {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { StepResult } from "@verist/core";
 import { invoke } from "@verist/core";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
@@ -9,20 +11,20 @@ import {
 import { hashValue } from "./hash.ts";
 
 describe("captureArtifact", () => {
-  it("creates artifact with hash and content", () => {
+  it("creates artifact with hash and content", async () => {
     const content = { text: "Hello, world!" };
-    const artifact = captureArtifact("llm-output", content);
+    const artifact = await captureArtifact("llm-output", content);
 
-    expect(artifact.hash).toBe(hashValue(content));
+    expect(artifact.hash).toBe(await hashValue(content));
     expect(artifact.kind).toBe("llm-output");
     expect(artifact.content).toEqual(content);
   });
 
-  it("supports different artifact kinds", () => {
-    const a1 = captureArtifact("llm-input", { prompt: "test" });
-    const a2 = captureArtifact("step-input", { id: 1 });
-    const a3 = captureArtifact("step-output", { result: true });
-    const a4 = captureArtifact("custom-kind", { data: [] });
+  it("supports different artifact kinds", async () => {
+    const a1 = await captureArtifact("llm-input", { prompt: "test" });
+    const a2 = await captureArtifact("step-input", { id: 1 });
+    const a3 = await captureArtifact("step-output", { result: true });
+    const a4 = await captureArtifact("custom-kind", { data: [] });
 
     expect(a1.kind).toBe("llm-input");
     expect(a2.kind).toBe("step-input");
@@ -30,18 +32,20 @@ describe("captureArtifact", () => {
     expect(a4.kind).toBe("custom-kind");
   });
 
-  it("omits content when hashOnly is true", () => {
+  it("omits content when hashOnly is true", async () => {
     const content = { sensitive: "data" };
-    const artifact = captureArtifact("llm-output", content, { hashOnly: true });
+    const artifact = await captureArtifact("llm-output", content, {
+      hashOnly: true,
+    });
 
-    expect(artifact.hash).toBe(hashValue(content));
+    expect(artifact.hash).toBe(await hashValue(content));
     expect(artifact.kind).toBe("llm-output");
     expect(artifact.content).toBeUndefined();
   });
 
-  it("includes content when hashOnly is false", () => {
+  it("includes content when hashOnly is false", async () => {
     const content = { data: "value" };
-    const artifact = captureArtifact("llm-output", content, {
+    const artifact = await captureArtifact("llm-output", content, {
       hashOnly: false,
     });
 
@@ -61,11 +65,13 @@ describe("createSnapshot", () => {
     Date.now = originalDateNow;
   });
 
-  it("creates snapshot with all fields", () => {
+  it("creates snapshot with all fields", async () => {
     const input = { documentId: "doc-123" };
-    const artifacts = [captureArtifact("llm-output", { response: "test" })];
+    const artifacts = [
+      await captureArtifact("llm-output", { response: "test" }),
+    ];
 
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "verify-doc",
       workflowVersion: "1.0.0",
       stepName: "extract",
@@ -77,14 +83,14 @@ describe("createSnapshot", () => {
     expect(snapshot.workflowVersion).toBe("1.0.0");
     expect(snapshot.stepName).toBe("extract");
     expect(snapshot.input).toEqual(input);
-    expect(snapshot.inputHash).toBe(hashValue(input));
+    expect(snapshot.inputHash).toBe(await hashValue(input));
     expect(snapshot.artifacts).toEqual(artifacts);
     expect(snapshot.capturedAt).toBe(1700000000000);
   });
 
-  it("computes inputHash from input", () => {
+  it("computes inputHash from input", async () => {
     const input = { a: 1, b: 2 };
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
@@ -92,11 +98,11 @@ describe("createSnapshot", () => {
       artifacts: [],
     });
 
-    expect(snapshot.inputHash).toBe(hashValue(input));
+    expect(snapshot.inputHash).toBe(await hashValue(input));
   });
 
-  it("handles empty artifacts array", () => {
-    const snapshot = createSnapshot({
+  it("handles empty artifacts array", async () => {
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
@@ -120,7 +126,7 @@ describe("createSnapshotFromResult", () => {
     Date.now = originalDateNow;
   });
 
-  it("creates snapshot from step result", () => {
+  it("creates snapshot from step result", async () => {
     const result: StepResult<{ id: string }, { score: number }> = {
       input: { id: "doc-123" },
       output: {
@@ -133,13 +139,13 @@ describe("createSnapshotFromResult", () => {
       runId: "run-456",
     };
 
-    const snapshot = createSnapshotFromResult(result);
+    const snapshot = await createSnapshotFromResult(result);
 
     expect(snapshot.workflowId).toBe("verify-doc");
     expect(snapshot.workflowVersion).toBe("1.2.0");
     expect(snapshot.stepName).toBe("score");
     expect(snapshot.input).toEqual({ id: "doc-123" });
-    expect(snapshot.inputHash).toBe(hashValue({ id: "doc-123" }));
+    expect(snapshot.inputHash).toBe(await hashValue({ id: "doc-123" }));
     expect(snapshot.capturedAt).toBe(1700000000000);
 
     // Includes step output as artifact
@@ -149,7 +155,7 @@ describe("createSnapshotFromResult", () => {
     expect(artifact.content).toEqual(result.output);
   });
 
-  it("supports outputHashOnly mode for compliance", () => {
+  it("supports outputHashOnly mode for compliance", async () => {
     const result: StepResult<{ id: string }, { data: string }> = {
       input: { id: "sensitive" },
       output: {
@@ -162,15 +168,17 @@ describe("createSnapshotFromResult", () => {
       runId: "run-1",
     };
 
-    const snapshot = createSnapshotFromResult(result, { outputHashOnly: true });
+    const snapshot = await createSnapshotFromResult(result, {
+      outputHashOnly: true,
+    });
 
     // Hash present, content omitted
     const artifact = snapshot.artifacts[0]!;
-    expect(artifact.hash).toBe(hashValue(result.output));
+    expect(artifact.hash).toBe(await hashValue(result.output));
     expect(artifact.content).toBeUndefined();
   });
 
-  it("includes additional artifacts", () => {
+  it("includes additional artifacts", async () => {
     const result: StepResult<{ id: string }, { summary: string }> = {
       input: { id: "doc" },
       output: {
@@ -183,8 +191,10 @@ describe("createSnapshotFromResult", () => {
       runId: "run-1",
     };
 
-    const llmArtifact = captureArtifact("llm-output", { response: "LLM text" });
-    const snapshot = createSnapshotFromResult(result, {
+    const llmArtifact = await captureArtifact("llm-output", {
+      response: "LLM text",
+    });
+    const snapshot = await createSnapshotFromResult(result, {
       artifacts: [llmArtifact],
     });
 
@@ -193,7 +203,7 @@ describe("createSnapshotFromResult", () => {
     expect(snapshot.artifacts[1]!.kind).toBe("llm-output");
   });
 
-  it("captures commands when captureCommands is true", () => {
+  it("captures commands when captureCommands is true", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
       output: {
@@ -207,7 +217,7 @@ describe("createSnapshotFromResult", () => {
       runId: "run-1",
     };
 
-    const snapshot = createSnapshotFromResult(result, {
+    const snapshot = await createSnapshotFromResult(result, {
       captureCommands: true,
     });
 
@@ -219,7 +229,7 @@ describe("createSnapshotFromResult", () => {
     ]);
   });
 
-  it("supports commandsHashOnly mode", () => {
+  it("supports commandsHashOnly mode", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
       output: {
@@ -233,7 +243,7 @@ describe("createSnapshotFromResult", () => {
       runId: "run-1",
     };
 
-    const snapshot = createSnapshotFromResult(result, {
+    const snapshot = await createSnapshotFromResult(result, {
       captureCommands: true,
       commandsHashOnly: true,
     });
@@ -246,7 +256,7 @@ describe("createSnapshotFromResult", () => {
     expect(commandsArtifact!.content).toBeUndefined();
   });
 
-  it("normalizes commands for consistent hashing", () => {
+  it("normalizes commands for consistent hashing", async () => {
     const result1: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
       output: {
@@ -273,10 +283,10 @@ describe("createSnapshotFromResult", () => {
       runId: "run-2",
     };
 
-    const snapshot1 = createSnapshotFromResult(result1, {
+    const snapshot1 = await createSnapshotFromResult(result1, {
       captureCommands: true,
     });
-    const snapshot2 = createSnapshotFromResult(result2, {
+    const snapshot2 = await createSnapshotFromResult(result2, {
       captureCommands: true,
     });
 

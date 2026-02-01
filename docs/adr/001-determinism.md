@@ -20,8 +20,8 @@ Accepted
 
 ## Alternatives
 
-- **Autonomous agents**: LLM decides next action. Rejected — non-deterministic, hard to audit, unpredictable costs
-- **DAG orchestrator (Airflow-style)**: External orchestration service. Rejected — operational overhead, state lives outside domain database
+- **Autonomous agents**: LLM decides next action. Rejected – non-deterministic, hard to audit, unpredictable costs
+- **DAG orchestrator (Airflow-style)**: External orchestration service. Rejected – operational overhead, state lives outside domain database
 
 ## Consequences
 

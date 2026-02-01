@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Command, StepResult } from "@verist/core";
 import { hashValue } from "./hash.ts";
+import { stableStringify } from "./stringify.ts";
 import type {
   Artifact,
   CaptureOptions,
@@ -12,20 +15,20 @@ import type {
  *
  * @example
  * ```typescript
- * const artifact = captureArtifact("llm-output", response);
+ * const artifact = await captureArtifact("llm-output", response);
  * // => { hash: "sha256:...", kind: "llm-output", content: response }
  *
  * // Compliance mode: hash only, no content stored
- * const hashOnly = captureArtifact("llm-output", response, { hashOnly: true });
+ * const hashOnly = await captureArtifact("llm-output", response, { hashOnly: true });
  * // => { hash: "sha256:...", kind: "llm-output" }
  * ```
  */
-export function captureArtifact(
+export async function captureArtifact(
   kind: Artifact["kind"],
   content: unknown,
   options?: CaptureOptions,
-): Artifact {
-  const hash = hashValue(content);
+): Promise<Artifact> {
+  const hash = await hashValue(content);
 
   if (options?.hashOnly) {
     return { hash, kind };
@@ -39,22 +42,24 @@ export function captureArtifact(
  *
  * @example
  * ```typescript
- * const snapshot = createSnapshot({
+ * const snapshot = await createSnapshot({
  *   workflowId: "verify-doc",
  *   workflowVersion: "1.0.0",
  *   stepName: "extract",
  *   input: { documentId: "doc-123" },
- *   artifacts: [captureArtifact("llm-output", response)],
+ *   artifacts: [await captureArtifact("llm-output", response)],
  * });
  * ```
  */
-export function createSnapshot(params: CreateSnapshotParams): Snapshot {
+export async function createSnapshot(
+  params: CreateSnapshotParams,
+): Promise<Snapshot> {
   return {
     workflowId: params.workflowId,
     workflowVersion: params.workflowVersion,
     stepName: params.stepName,
     input: params.input,
-    inputHash: hashValue(params.input),
+    inputHash: await hashValue(params.input),
     artifacts: params.artifacts,
     capturedAt: Date.now(),
   };
@@ -100,7 +105,7 @@ function commandSemanticFields(cmd: Command): unknown {
 
 /**
  * Normalize commands for consistent hashing and comparison.
- * Commands are sorted by type, then by identifying field, then by semantic content hash.
+ * Commands are sorted by type, then by identifying field, then by serialized content.
  * This ensures semantically identical command sets produce identical hashes.
  *
  * Only semantic fields are considered — runtime metadata added by runners is ignored.
@@ -136,9 +141,9 @@ export function normalizeCommands(commands: Command[] | undefined): Command[] {
 
     if (identifierCmp !== 0) return identifierCmp;
 
-    // Tie-breaker: hash of semantic fields only (ignores runtime metadata)
-    return hashValue(commandSemanticFields(a)).localeCompare(
-      hashValue(commandSemanticFields(b)),
+    // Tie-breaker: deterministic serialization of semantic fields (ignores runtime metadata)
+    return stableStringify(commandSemanticFields(a)).localeCompare(
+      stableStringify(commandSemanticFields(b)),
     );
   });
 }
@@ -161,18 +166,18 @@ export function normalizeCommands(commands: Command[] | undefined): Command[] {
  * const result = await runStep({ step, input, ... });
  * if (result.ok) {
  *   // Capture output and commands for full diff support
- *   const snapshot = createSnapshotFromResult(result.value, {
+ *   const snapshot = await createSnapshotFromResult(result.value, {
  *     captureCommands: true,
  *   });
  *   await artifactStore.save(snapshot);
  * }
  * ```
  */
-export function createSnapshotFromResult<TInput, TDelta>(
+export async function createSnapshotFromResult<TInput, TDelta>(
   result: StepResult<TInput, TDelta>,
   options?: SnapshotFromResultOptions,
-): Snapshot {
-  const outputArtifact = captureArtifact("step-output", result.output, {
+): Promise<Snapshot> {
+  const outputArtifact = await captureArtifact("step-output", result.output, {
     hashOnly: options?.outputHashOnly,
   });
 
@@ -181,7 +186,7 @@ export function createSnapshotFromResult<TInput, TDelta>(
   // Capture commands if requested (required for command diffing)
   if (options?.captureCommands) {
     const normalizedCommands = normalizeCommands(result.output.commands);
-    const commandsArtifact = captureArtifact(
+    const commandsArtifact = await captureArtifact(
       "step-commands",
       normalizedCommands,
       {

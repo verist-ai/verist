@@ -16,7 +16,7 @@ Accepted
 - **Rationale**:
   - Computed layer holds AI-derived values, safely rewritable on reprocessing
   - Overlay layer holds human corrections, never touched by recomputation
-  - Effective layer is computed as `{ ...computed, ...overlay }` — overlay values take precedence
+  - Effective layer is computed as `{ ...computed, ...overlay }` – overlay values take precedence
   - Computed and overlay are the only persisted sources of truth; effective is a derived view and MUST NOT be persisted
   - Overlay is authoritative per field and replaces computed values entirely (no implicit deep-merge)
   - Overlay represents human-authoritative decisions and MUST NOT be written by automated steps
@@ -28,9 +28,9 @@ Accepted
 
 ## Alternatives
 
-- **Single mutable state**: Human edits and AI outputs mixed. Rejected — recomputation would destroy corrections
-- **Version branches**: Fork state on each edit. Rejected — complex merge logic, storage overhead
-- **Immutable snapshots only**: No in-place corrections. Rejected — poor UX for human reviewers
+- **Single mutable state**: Human edits and AI outputs mixed. Rejected – recomputation would destroy corrections
+- **Version branches**: Fork state on each edit. Rejected – complex merge logic, storage overhead
+- **Immutable snapshots only**: No in-place corrections. Rejected – poor UX for human reviewers
 
 ## Consequences
 
