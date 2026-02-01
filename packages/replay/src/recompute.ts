@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type {
   Command,
   Result,
@@ -71,7 +73,7 @@ export async function recompute<TInput, TState>(
   options?: RecomputeOptions,
 ): Promise<Result<RecomputeResult<StepOutput<TState>>, RecomputeError>> {
   // Verify input hash matches
-  const currentInputHash = hashValue(snapshot.input);
+  const currentInputHash = await hashValue(snapshot.input);
   if (currentInputHash !== snapshot.inputHash) {
     return err({
       code: "INPUT_HASH_MISMATCH",
@@ -137,7 +139,7 @@ export async function recompute<TInput, TState>(
     deltaDiff,
     commandsDiff,
     outputArtifact: shouldCapture
-      ? captureArtifact("step-output", newOutput, captureOpts)
+      ? await captureArtifact("step-output", newOutput, captureOpts)
       : undefined,
   });
 }

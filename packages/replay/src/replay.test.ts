@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { beforeEach, describe, expect, it } from "bun:test";
 import { captureArtifact, createSnapshot } from "./artifact.ts";
 import { loadOutput } from "./replay.ts";
@@ -6,24 +8,24 @@ import type { Snapshot } from "./types.ts";
 describe("loadOutput", () => {
   let mockSnapshot: Snapshot;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const originalDateNow = Date.now;
     Date.now = () => 1700000000000;
 
     const output = { delta: { result: 42 }, events: [] };
-    mockSnapshot = createSnapshot({
+    mockSnapshot = await createSnapshot({
       workflowId: "test-wf",
       workflowVersion: "1.0.0",
       stepName: "compute",
       input: { value: 21 },
-      artifacts: [captureArtifact("step-output", output)],
+      artifacts: [await captureArtifact("step-output", output)],
     });
 
     Date.now = originalDateNow;
   });
 
-  it("returns stored output on success", () => {
-    const result = loadOutput(mockSnapshot);
+  it("returns stored output on success", async () => {
+    const result = await loadOutput(mockSnapshot);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value).toEqual({
@@ -33,13 +35,13 @@ describe("loadOutput", () => {
     }
   });
 
-  it("returns error when output artifact is missing", () => {
+  it("returns error when output artifact is missing", async () => {
     const snapshotWithoutOutput: Snapshot = {
       ...mockSnapshot,
       artifacts: [],
     };
 
-    const result = loadOutput(snapshotWithoutOutput);
+    const result = await loadOutput(snapshotWithoutOutput);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("MISSING_OUTPUT");
@@ -47,7 +49,7 @@ describe("loadOutput", () => {
     }
   });
 
-  it("returns error when output hash is corrupted", () => {
+  it("returns error when output hash is corrupted", async () => {
     const corruptedSnapshot: Snapshot = {
       ...mockSnapshot,
       artifacts: [
@@ -59,7 +61,7 @@ describe("loadOutput", () => {
       ],
     };
 
-    const result = loadOutput(corruptedSnapshot);
+    const result = await loadOutput(corruptedSnapshot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("OUTPUT_CORRUPTED");
@@ -67,15 +69,15 @@ describe("loadOutput", () => {
     }
   });
 
-  it("returns error for hash-only snapshot", () => {
+  it("returns error for hash-only snapshot", async () => {
     const hashOnlySnapshot: Snapshot = {
       ...mockSnapshot,
       artifacts: [
-        captureArtifact("step-output", { delta: {} }, { hashOnly: true }),
+        await captureArtifact("step-output", { delta: {} }, { hashOnly: true }),
       ],
     };
 
-    const result = loadOutput(hashOnlySnapshot);
+    const result = await loadOutput(hashOnlySnapshot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("MISSING_OUTPUT");

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import type { OnArtifact } from "./artifact.ts";
 import type { BaseAdapters } from "./types.ts";
 
 /**
@@ -7,6 +10,8 @@ export interface ExecutionMetadata {
   workflowId: string;
   workflowVersion: string;
   runId: string;
+  /** Optional callback for capturing artifacts during execution. */
+  onArtifact?: OnArtifact;
 }
 
 /**
@@ -19,6 +24,8 @@ export interface StepContext<TAdapters extends BaseAdapters = BaseAdapters> {
   workflowId: string;
   workflowVersion: string;
   runId: string;
+  /** Optional callback for capturing artifacts. Adapters use this to emit llm-input, llm-output, etc. */
+  onArtifact?: OnArtifact;
 }
 
 /**
@@ -36,10 +43,11 @@ export type ContextFactory<TAdapters extends BaseAdapters = BaseAdapters> = (
 export function createContextFactory<TAdapters extends BaseAdapters>(
   adapters: TAdapters,
 ): ContextFactory<TAdapters> {
-  return ({ workflowId, workflowVersion, runId }) => ({
+  return ({ workflowId, workflowVersion, runId, onArtifact }) => ({
     adapters,
     workflowId,
     workflowVersion,
     runId,
+    onArtifact,
   });
 }

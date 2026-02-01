@@ -71,7 +71,7 @@ if (result.ok) {
 interface PipelineStageConfig {
   step: Step<any, any, any>;
   wire?: (prevDelta: unknown, pipelineInput: unknown) => unknown;
-  onError?: "fail" | "skip"; // default "fail"
+  onError?: "fail" | "continue"; // default "fail"
 }
 ```
 
@@ -81,7 +81,7 @@ interface PipelineStageConfig {
 - If `runId` is omitted, it defaults to `crypto.randomUUID()` (Node 19+, Bun, Deno, browsers).
 - Control commands (`invoke`, `fanout`) are not allowed and throw immediately.
 - Blocking commands (`suspend`, `review`) stop the pipeline and set `suspendedAt`. At most one blocking command per stage.
-- `onError: "skip"` marks a stage as skipped and preserves the previous delta. The skip reason is recorded in `StageResult.error`.
+- `onError: "continue"` acknowledges the error and proceeds. The pipeline emits a `pipeline_stage_error` audit event to maintain the evidence trail. The previous delta is carried forward, and the error is recorded in `StageResult.error`.
 
 ## Result Shape
 

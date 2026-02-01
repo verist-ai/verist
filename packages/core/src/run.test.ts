@@ -1,8 +1,11 @@
-import { describe, it, expect } from "bun:test";
+// SPDX-License-Identifier: Apache-2.0
+
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { defineStep } from "./step.ts";
-import { runStep, run } from "./run.ts";
+import type { Artifact } from "./artifact.ts";
 import { createContextFactory } from "./context.ts";
+import { run, runStep } from "./run.ts";
+import { defineStep } from "./step.ts";
 
 describe("runStep", () => {
   interface TestAdapters {
@@ -250,5 +253,91 @@ describe("run", () => {
         { type: "emit", topic: "done", payload: {} },
       ]);
     }
+  });
+
+  describe("onArtifact callback", () => {
+    const artifactStep = defineStep({
+      name: "artifact-test",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ doubled: z.number() }),
+      run: async (input) => ({
+        delta: { doubled: input.value * 2 },
+        events: [{ type: "doubled", payload: { original: input.value } }],
+      }),
+    });
+
+    it("emits step-output artifact when callback is provided", async () => {
+      const artifacts: Artifact[] = [];
+
+      const result = await run(
+        artifactStep,
+        { value: 5 },
+        {
+          adapters: {},
+          onArtifact: (artifact) => artifacts.push(artifact),
+        },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(artifacts).toHaveLength(1);
+      expect(artifacts[0]!.kind).toBe("step-output");
+
+      const expectedContent = {
+        delta: { doubled: 10 },
+        events: [{ type: "doubled", payload: { original: 5 } }],
+      };
+      expect(artifacts[0]!.content).toEqual(expectedContent);
+
+      // Hash must match the validated output (not raw/pre-validation)
+      const { hashValue } = await import("./artifact.ts");
+      expect(artifacts[0]!.hash).toBe(await hashValue(expectedContent));
+    });
+
+    it("does not emit artifact when callback is not provided", async () => {
+      const result = await run(artifactStep, { value: 5 }, { adapters: {} });
+
+      expect(result.ok).toBe(true);
+      // No way to verify no artifact was emitted, but test shouldn't throw
+    });
+
+    it("passes onArtifact to context for adapters", async () => {
+      const artifacts: Artifact[] = [];
+      let contextOnArtifact: ((artifact: Artifact) => void) | undefined;
+
+      const adapterStep = defineStep({
+        name: "adapter-test",
+        input: z.object({ x: z.number() }),
+        delta: z.object({ y: z.number() }),
+        run: async (input, ctx) => {
+          contextOnArtifact = ctx.onArtifact;
+          // Simulate adapter emitting an artifact
+          if (ctx.onArtifact) {
+            ctx.onArtifact({
+              hash: "sha256:mock",
+              kind: "llm-output",
+              content: { response: "mocked" },
+            });
+          }
+          return { delta: { y: input.x }, events: [] };
+        },
+      });
+
+      await run(
+        adapterStep,
+        { x: 1 },
+        {
+          adapters: {},
+          onArtifact: (artifact) => artifacts.push(artifact),
+        },
+      );
+
+      expect(contextOnArtifact).toBeDefined();
+      // Adapter artifact + step-output = 2 artifacts
+      expect(artifacts).toHaveLength(2);
+      // Adapter artifacts emitted during execution come first,
+      // step-output emitted after step completes
+      expect(artifacts[0]!.kind).toBe("llm-output");
+      expect(artifacts[1]!.kind).toBe("step-output");
+    });
   });
 });

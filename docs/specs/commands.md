@@ -1,6 +1,6 @@
 # SPEC: Commands
 
-Commands are declarative data returned by steps to express "what should happen next." The kernel does not execute commands — external runners interpret them.
+Commands are declarative data returned by steps to express "what should happen next." The kernel does not execute commands – external runners interpret them.
 
 Commands are **intent, not action**. Steps return commands; runners decide how to execute them.
 
@@ -29,7 +29,7 @@ Silently ignoring commands violates the contract. Commands SHOULD be persisted a
 
 ### 2. Blocking Commands: Review and Suspend
 
-`review` and `suspend` are **blocking commands** — they halt execution of sibling commands.
+`review` and `suspend` are **blocking commands** – they halt execution of sibling commands.
 
 **At most one blocking command**: A step result MUST NOT contain multiple blocking commands. Runners MUST fail the step execution if they find two or more `suspend`, two or more `review`, or any combination of both. This is an orchestration error.
 
@@ -114,7 +114,7 @@ Runners MUST track review state.
 { type: "emit", topic: string, payload: unknown }
 ```
 
-Publish to an external system. Unlike audit events (internal log), emit is for integration: webhooks, message buses, notifications. Emit commands are not replayed during recompute — they represent one-time side effects.
+Publish to an external system. Unlike audit events (internal log), emit is for integration: webhooks, message buses, notifications. Emit commands are not replayed during recompute – they represent one-time side effects.
 
 Use topic namespacing for routing (e.g., `doc.verified`, `slack:alerts`).
 

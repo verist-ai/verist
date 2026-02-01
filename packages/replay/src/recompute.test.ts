@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import {
   createContextFactory,
   defineStep,
@@ -33,12 +35,12 @@ describe("recompute", () => {
       delta: { result: 42 },
       events: [{ type: "doubled" }],
     };
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "double",
       input: { value: 21 },
-      artifacts: [captureArtifact("step-output", originalOutput)],
+      artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
     const ctx = contextFactory({
@@ -62,12 +64,12 @@ describe("recompute", () => {
       delta: { result: 100 },
       events: [{ type: "doubled" }],
     };
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "double",
       input: { value: 21 },
-      artifacts: [captureArtifact("step-output", originalOutput)],
+      artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
     const ctx = contextFactory({
@@ -92,12 +94,12 @@ describe("recompute", () => {
   it("reports equal when only events differ", async () => {
     // Same delta, different events — should be equal (events are not diffed)
     const originalOutput = { delta: { result: 42 }, events: [] };
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "double",
       input: { value: 21 },
-      artifacts: [captureArtifact("step-output", originalOutput)],
+      artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
     const ctx = contextFactory({
@@ -140,7 +142,7 @@ describe("recompute", () => {
   });
 
   it("returns undefined diff when original output is missing", async () => {
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "double",
@@ -164,13 +166,13 @@ describe("recompute", () => {
   });
 
   it("returns undefined diff when original is hash-only", async () => {
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "double",
       input: { value: 21 },
       artifacts: [
-        captureArtifact(
+        await captureArtifact(
           "step-output",
           { delta: { result: 100 }, events: [] },
           { hashOnly: true },
@@ -203,7 +205,7 @@ describe("recompute", () => {
       },
     });
 
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "failing",
@@ -226,7 +228,7 @@ describe("recompute", () => {
   });
 
   it("captures artifact with hashOnly option", async () => {
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "double",
@@ -252,7 +254,7 @@ describe("recompute", () => {
   });
 
   it("captures artifact with full content when boolean true", async () => {
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "double",
@@ -278,21 +280,21 @@ describe("recompute", () => {
 });
 
 describe("compareSnapshots", () => {
-  it("detects identical snapshots", () => {
+  it("detects identical snapshots", async () => {
     const output = { delta: { x: 1 }, events: [] };
-    const snapshot1 = createSnapshot({
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
-      artifacts: [captureArtifact("step-output", output)],
+      artifacts: [await captureArtifact("step-output", output)],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
-      artifacts: [captureArtifact("step-output", output)],
+      artifacts: [await captureArtifact("step-output", output)],
     });
 
     const { inputDiff, deltaDiff } = compareSnapshots(snapshot1, snapshot2);
@@ -300,21 +302,21 @@ describe("compareSnapshots", () => {
     expect(deltaDiff?.equal).toBe(true);
   });
 
-  it("detects input differences", () => {
+  it("detects input differences", async () => {
     const output = { delta: { x: 1 }, events: [] };
-    const snapshot1 = createSnapshot({
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
-      artifacts: [captureArtifact("step-output", output)],
+      artifacts: [await captureArtifact("step-output", output)],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 2 },
-      artifacts: [captureArtifact("step-output", output)],
+      artifacts: [await captureArtifact("step-output", output)],
     });
 
     const { inputDiff, deltaDiff } = compareSnapshots(snapshot1, snapshot2);
@@ -322,23 +324,23 @@ describe("compareSnapshots", () => {
     expect(deltaDiff?.equal).toBe(true);
   });
 
-  it("detects delta differences (ignores events)", () => {
-    const snapshot1 = createSnapshot({
+  it("detects delta differences (ignores events)", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { x: 2 },
           events: [{ type: "new" }],
         }),
@@ -351,23 +353,23 @@ describe("compareSnapshots", () => {
     expect(deltaDiff?.entries).toEqual([{ path: ["x"], before: 1, after: 2 }]);
   });
 
-  it("reports equal when only events differ", () => {
-    const snapshot1 = createSnapshot({
+  it("reports equal when only events differ", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { x: 1 },
           events: [{ type: "added" }],
         }),
@@ -378,27 +380,27 @@ describe("compareSnapshots", () => {
     expect(deltaDiff?.equal).toBe(true);
   });
 
-  it("returns undefined deltaDiff for hash-only snapshots", () => {
-    const snapshot1 = createSnapshot({
+  it("returns undefined deltaDiff for hash-only snapshots", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact(
+        await captureArtifact(
           "step-output",
           { delta: { x: 1 }, events: [] },
           { hashOnly: true },
         ),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
       ],
     });
 
@@ -408,24 +410,24 @@ describe("compareSnapshots", () => {
     expect(deltaDiff).toBeUndefined();
   });
 
-  it("uses first step-output when multiple exist", () => {
-    const snapshot1 = createSnapshot({
+  it("uses first step-output when multiple exist", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
-        captureArtifact("step-output", { delta: { x: 999 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 999 }, events: [] }),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
       ],
     });
 
@@ -434,8 +436,8 @@ describe("compareSnapshots", () => {
     expect(deltaDiff?.entries).toEqual([{ path: ["x"], before: 1, after: 2 }]);
   });
 
-  it("returns undefined deltaDiff for malformed step-output (missing delta key)", () => {
-    const snapshot1 = createSnapshot({
+  it("returns undefined deltaDiff for malformed step-output (missing delta key)", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
@@ -445,13 +447,13 @@ describe("compareSnapshots", () => {
         { kind: "step-output", hash: "sha256:abc", content: { result: 42 } },
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
       ],
     });
 
@@ -460,27 +462,27 @@ describe("compareSnapshots", () => {
     expect(deltaDiff).toBeUndefined();
   });
 
-  it("detects command differences (invoke to suspend)", () => {
-    const snapshot1 = createSnapshot({
+  it("detects command differences (invoke to suspend)", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { x: 1 },
           events: [],
           commands: [invoke("verify", { id: 1 })],
         }),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { x: 1 },
           events: [],
           commands: [
@@ -499,28 +501,28 @@ describe("compareSnapshots", () => {
     );
   });
 
-  it("reports equal when commands are identical", () => {
+  it("reports equal when commands are identical", async () => {
     const commands = [invoke("verify", { id: 1 })];
-    const snapshot1 = createSnapshot({
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { x: 1 },
           events: [],
           commands,
         }),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { x: 1 },
           events: [],
           commands: [invoke("verify", { id: 1 })],
@@ -532,25 +534,25 @@ describe("compareSnapshots", () => {
     expect(commandsDiff?.equal).toBe(true);
   });
 
-  it("uses step-commands artifact when present", () => {
-    const snapshot1 = createSnapshot({
+  it("uses step-commands artifact when present", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
-        captureArtifact("step-commands", [invoke("verify", { id: 1 })]),
+        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-commands", [invoke("verify", { id: 1 })]),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
-        captureArtifact("step-commands", [invoke("verify", { id: 2 })]),
+        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-commands", [invoke("verify", { id: 2 })]),
       ],
     });
 
@@ -561,23 +563,23 @@ describe("compareSnapshots", () => {
     ]);
   });
 
-  it("returns undefined commandsDiff when commands unavailable", () => {
-    const snapshot1 = createSnapshot({
+  it("returns undefined commandsDiff when commands unavailable", async () => {
+    const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
       ],
     });
-    const snapshot2 = createSnapshot({
+    const snapshot2 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { x: 1 },
           events: [],
           commands: [invoke("verify", {})],
@@ -621,12 +623,12 @@ describe("recompute command diffing", () => {
       events: [],
       commands: [suspend({ reason: "awaiting_input", checkpoint: {} })],
     };
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "decide",
       input: { ready: true },
-      artifacts: [captureArtifact("step-output", originalOutput)],
+      artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
     const ctx = contextFactory({
@@ -664,12 +666,12 @@ describe("recompute command diffing", () => {
       events: [],
       commands: [invoke("next", { value: 21 })],
     };
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "stable",
       input: { value: 21 },
-      artifacts: [captureArtifact("step-output", originalOutput)],
+      artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
     const ctx = contextFactory({
@@ -698,17 +700,17 @@ describe("recompute command diffing", () => {
       }),
     });
 
-    const snapshot = createSnapshot({
+    const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "decide",
       input: { id: 1 },
       artifacts: [
-        captureArtifact("step-output", {
+        await captureArtifact("step-output", {
           delta: { status: "done" },
           events: [],
         }),
-        captureArtifact("step-commands", [invoke("next", { id: 1 })]),
+        await captureArtifact("step-commands", [invoke("next", { id: 1 })]),
       ],
     });
 

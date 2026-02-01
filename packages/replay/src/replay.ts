@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Result } from "@verist/core";
 import { err, ok } from "@verist/core";
 import { hashValue } from "./hash.ts";
@@ -28,13 +30,15 @@ export interface LoadOutputError {
  *
  * @example
  * ```typescript
- * const result = loadOutput<ExtractOutput>(snapshot);
+ * const result = await loadOutput<ExtractOutput>(snapshot);
  * if (result.ok) {
  *   console.log(result.value);
  * }
  * ```
  */
-export function loadOutput<T>(snapshot: Snapshot): Result<T, LoadOutputError> {
+export async function loadOutput<T>(
+  snapshot: Snapshot,
+): Promise<Result<T, LoadOutputError>> {
   const outputArtifact = snapshot.artifacts.find(
     (a) => a.kind === "step-output",
   );
@@ -56,7 +60,7 @@ export function loadOutput<T>(snapshot: Snapshot): Result<T, LoadOutputError> {
   // Verify content integrity
   let actualHash: string;
   try {
-    actualHash = hashValue(outputArtifact.content);
+    actualHash = await hashValue(outputArtifact.content);
   } catch {
     return err({
       code: "OUTPUT_CORRUPTED",

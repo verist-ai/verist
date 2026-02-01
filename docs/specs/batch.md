@@ -10,13 +10,13 @@ Many workflows process collections (claims, files, recipients). Batch defines co
 
 ## Concepts
 
-**Batch** — A collection of inputs processed by the same step, each as an independent run.
+**Batch** – A collection of inputs processed by the same step, each as an independent run.
 
-**Batch Result** — Collected outcomes: successes, failures, blocked items, and per-item details.
+**Batch Result** – Collected outcomes: successes, failures, blocked items, and per-item details.
 
-**Partial Failure** — Some items succeed while others fail; the batch completes with mixed results.
+**Partial Failure** – Some items succeed while others fail; the batch completes with mixed results.
 
-**Failure Policy** — Rules for stopping early or continuing.
+**Failure Policy** – Rules for stopping early or continuing.
 
 ## Design Principles
 

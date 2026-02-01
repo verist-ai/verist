@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuditEvent, Command, Step, StepError } from "@verist/core";
+import type { AuditEvent, Command, Step } from "@verist/core";
 
 /**
  * Configuration for defining a pipeline.
@@ -23,7 +23,7 @@ export interface PipelineStageConfig {
    */
   wire?: (prevDelta: unknown, pipelineInput: unknown) => unknown;
   /** How to handle step errors. Default: "fail" */
-  onError?: "fail" | "skip";
+  onError?: "fail" | "continue";
 }
 
 /**
@@ -38,7 +38,7 @@ export interface Pipeline {
 /**
  * Status of a pipeline stage execution.
  */
-export type StageStatus = "completed" | "failed" | "skipped" | "suspended";
+export type StageStatus = "completed" | "failed" | "continued" | "suspended";
 
 /**
  * Result of a single stage execution within a pipeline.
@@ -46,14 +46,14 @@ export type StageStatus = "completed" | "failed" | "skipped" | "suspended";
 export interface StageResult {
   stepName: string;
   status: StageStatus;
-  /** Stage output. For skipped stages, contains the carry-forward delta from previous stage. */
+  /** Stage output. For continued stages, contains the value forwarded to subsequent stages. */
   delta?: unknown;
-  /** Audit events from step execution. Empty for skipped/failed stages. */
+  /** Audit events from step execution. Continued stages include pipeline_stage_error event. */
   events: AuditEvent[];
   /** Commands returned by the step. Not executed by pipeline runner. */
   commands?: Command[];
   durationMs: number;
-  /** Present when status is "skipped" or "failed" — records the error. */
+  /** Present when status is "continued" or "failed" — records the error. */
   error?: PipelineError;
   /** Present when status is "suspended" — indicates which command blocked the stage. */
   blockedBy?: "suspend" | "review";
@@ -61,12 +61,14 @@ export interface StageResult {
 
 /**
  * Error that occurred during pipeline execution.
+ * The `cause` field contains the underlying error (e.g., ZodError, thrown exception).
  */
 export interface PipelineError {
   stepName: string;
   code: string;
   message: string;
-  cause?: StepError;
+  /** The underlying error that caused the failure (e.g., ZodError for validation). */
+  cause?: unknown;
 }
 
 /**

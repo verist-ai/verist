@@ -51,7 +51,7 @@ export function definePipeline(config: PipelineConfig): Pipeline {
  * Execute a pipeline sequentially.
  *
  * - Calls steps in order, wiring data between stages
- * - Stops on error (unless onError: "skip"), suspend, or review
+ * - Stops on error (unless onError: "continue"), suspend, or review
  * - Throws immediately if a stage returns control commands (invoke/fanout)
  * - Side-effect commands (emit) pass through
  *
@@ -103,18 +103,30 @@ export async function runPipeline<
 
     if (!result.ok) {
       // Handle error based on policy
-      if (stage.onError === "skip") {
+      if (stage.onError === "continue") {
+        // Emit pipeline_stage_error audit event to maintain evidence trail
+        const stageError = {
+          type: "pipeline_stage_error",
+          payload: {
+            stepName: stage.step.name,
+            code: result.error.code,
+            message: result.error.message,
+            continued: true,
+          },
+        };
+        // Record what was actually forwarded (matches wire logic for next stage)
+        const carryForward = currentDelta ?? input;
         stages.push({
           stepName: stage.step.name,
-          status: "skipped",
-          delta: currentDelta,
-          events: [],
+          status: "continued",
+          delta: carryForward,
+          events: [stageError],
           durationMs,
           error: {
             stepName: stage.step.name,
             code: result.error.code,
             message: result.error.message,
-            cause: result.error,
+            cause: result.error.cause,
           },
         });
         continue;
@@ -124,7 +136,7 @@ export async function runPipeline<
         stepName: stage.step.name,
         code: result.error.code,
         message: result.error.message,
-        cause: result.error,
+        cause: result.error.cause,
       };
 
       stages.push({
@@ -210,7 +222,7 @@ export async function runPipeline<
 function generateRunId(): string {
   if (typeof crypto?.randomUUID !== "function") {
     throw new Error(
-      "runPipeline() requires Web Crypto API (Node 19+, Bun, Deno, modern browsers). " +
+      "runPipeline() requires Web Crypto API (Node 20+, Bun, Deno, modern browsers). " +
         "Provide runId explicitly or upgrade your runtime.",
     );
   }

@@ -14,7 +14,7 @@ The database is the source of truth. In-memory state is ephemeral. Queue jobs ar
 
 ## 3. Commands Are Data
 
-Steps return commands as plain objects describing intent. The kernel does not execute commands — runners interpret them.
+Steps return commands as plain objects describing intent. The kernel does not execute commands – runners interpret them.
 
 ## 4. Deltas Are Partial
 

@@ -47,10 +47,10 @@ For the full guide, see the [documentation](https://github.com/verist-ai/verist)
 
 ## Production Usage
 
-For production, use `runStep` with explicit workflow identity:
+For production, pass explicit workflow identity:
 
 ```typescript
-import { defineWorkflow, runStep, createContextFactory } from "@verist/core";
+import { defineWorkflow, run } from "@verist/core";
 
 const workflow = defineWorkflow({
   name: "verify-document",
@@ -58,14 +58,16 @@ const workflow = defineWorkflow({
   steps: { summarize },
 });
 
-const result = await runStep({
-  step: workflow.getStep("summarize"),
-  input: { text: "..." },
-  contextFactory: createContextFactory({ llm: myLlm }),
-  workflowId: workflow.name,
-  workflowVersion: workflow.version,
-  runId: crypto.randomUUID(),
-});
+const result = await run(
+  workflow.getStep("summarize"),
+  { text: "..." },
+  {
+    adapters: { llm: myLlm },
+    workflowId: workflow.name,
+    workflowVersion: workflow.version,
+    runId: crypto.randomUUID(),
+  },
+);
 ```
 
 ## API
@@ -98,21 +100,21 @@ const fanoutCmd = workflow.fanout("verify", [
 
 ### `run(step, input, options)`
 
-Simplified step execution with sensible defaults.
+Execute a step with typed I/O and audit events.
 
-- `workflowId` defaults to step name
-- `workflowVersion` defaults to `"0.0.0"`
-- `runId` defaults to random UUID
+```typescript
+const result = await run(step, input, {
+  adapters,                    // Required: runtime dependencies
+  workflowId?: string,         // Default: step.name
+  workflowVersion?: string,    // Default: "0.0.0"
+  runId?: string,              // Default: crypto.randomUUID()
+  onArtifact?: (artifact) => void, // Optional: capture for replay
+});
+```
 
-### `runStep(params)`
+**Identity defaults:** For quick start, identity parameters are optional. For production, pass explicit values to enable stable audit trails and replay.
 
-Full step execution with explicit workflow identity. Use this in production for stable versioning and multi-step workflows.
-
-**Note:** `run()` and `runStep()` have identical execution semantics once running. They differ in identity discipline — `run()` generates defaults while `runStep()` requires explicit values. `run()` may throw early if the runtime cannot generate a runId (provide `runId` explicitly to avoid this). Verist does not enforce how results are persisted.
-
-### `createContextFactory(adapters)`
-
-Create a context factory from adapters. The factory attaches execution metadata at runtime.
+**Artifact capture:** When `onArtifact` is provided, core emits a `step-output` artifact. Adapters can emit additional artifacts (e.g., `llm-input`, `llm-output`) via the same callback passed through context. See ADR-008.
 
 ### Command Helpers
 

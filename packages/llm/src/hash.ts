@@ -1,25 +1,6 @@
-/**
- * Deterministic JSON serialization for hashing.
- * Sorts object keys to ensure consistent output regardless of insertion order.
- */
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value);
-  }
+// SPDX-License-Identifier: Apache-2.0
 
-  if (Array.isArray(value)) {
-    return "[" + value.map(stableStringify).join(",") + "]";
-  }
-
-  const keys = Object.keys(value as Record<string, unknown>).sort();
-  const pairs = keys.map(
-    (key) =>
-      JSON.stringify(key) +
-      ":" +
-      stableStringify((value as Record<string, unknown>)[key]),
-  );
-  return "{" + pairs.join(",") + "}";
-}
+import { stableStringify } from "@verist/core";
 
 /**
  * Convert ArrayBuffer to hex string.
@@ -35,10 +16,10 @@ function toHex(buffer: ArrayBuffer): string {
 
 /**
  * Compute SHA-256 hash of a JSON-serializable value.
- * Uses Web Crypto API (Node.js 18+, Bun, Deno, browsers).
+ * Uses Web Crypto API (Node 20+, Bun, Deno, browsers).
  *
- * Input must be JSON-safe. Undefined values produce undefined behavior.
- * Keys are sorted for deterministic output regardless of insertion order.
+ * Uses shared `stableStringify` from @verist/core for consistency
+ * across all packages. `stableStringify` normalizes `undefined` to `null`.
  *
  * @returns Hash string in format "sha256:<hex>"
  */
