@@ -1,5 +1,10 @@
 # @verist/storage-pg
 
+[![npm version](https://badge.fury.io/js/@verist%2Fstorage-pg.svg)](https://badge.fury.io/js/@verist%2Fstorage-pg)
+[![npm downloads](https://img.shields.io/npm/dm/@verist/storage-pg.svg)](https://npmjs.com/package/@verist/storage-pg)
+[![Ask ChatGPT](https://img.shields.io/badge/Ask_ChatGPT-10a37f?logo=google+gemini&logoColor=white)](https://chatgpt.com/g/g-697e23b923088191b8cb315bebf14a3b-verist-architect)
+[![Twitter Follow](https://img.shields.io/twitter/follow/verist_ai?style=social)](https://x.com/verist_ai)
+
 Postgres adapter for Verist storage interfaces.
 
 ## Quick Start

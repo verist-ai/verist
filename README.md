@@ -2,17 +2,22 @@
 
 [![npm version](https://badge.fury.io/js/@verist%2Fcore.svg)](https://badge.fury.io/js/@verist%2Fcore)
 [![npm downloads](https://img.shields.io/npm/dm/@verist/core.svg)](https://npmjs.com/package/@verist/core)
+[![Ask ChatGPT](https://img.shields.io/badge/Ask_ChatGPT-10a37f?logo=google+gemini&logoColor=white)](https://chatgpt.com/g/g-697e23b923088191b8cb315bebf14a3b-verist-architect)
 [![Twitter Follow](https://img.shields.io/twitter/follow/verist_ai?style=social)](https://x.com/verist_ai)
 
-Replay + diff for AI decisions — the trust kernel for production workflows.
+**Audit-first AI workflows — know why each decision happened.**
+A deterministic workflow kernel with replay, recompute, and preserved human overrides.
+Ask **Verist Architect** in [ChatGPT](https://chatgpt.com/g/g-697e23b923088191b8cb315bebf14a3b-verist-architect) or [Gemini](https://gemini.google.com/gem/16ofP3wcDulLXY0oj7EXhRlVtws9A8znp?usp=sharing) about replay semantics, diffs, and kernel invariants.
 
 ## Why Verist
 
-AI workflows create trust gaps: decisions change with model updates, logs show what but not why, and human corrections get overwritten. Verist gives you:
+AI workflows create trust gaps: decisions change with model updates, logs show what but not why, and human corrections get overwritten. This breaks the moment you upgrade a model, rerun a workflow, or face a review or audit. Verist gives you:
 
-- **Replay any decision** — Re-run past AI decisions from stored artifacts
-- **Diff before shipping** — Upgrade models or prompts and review exactly what changes
-- **Human authority preserved** — Manual overrides survive recomputation
+- **Replay any decision** – Reproduce past AI decisions exactly from stored artifacts
+- **Diff before shipping** – See what would change after a model or prompt upgrade
+- **Human authority preserved** – Manual overrides survive recomputation by design
+
+Verist is not logging or observability – it is deterministic replay with reviewable diffs.
 
 ```
 change prompt → recompute → see diff → approve → ship
@@ -50,7 +55,7 @@ const result = await run(
 );
 ```
 
-You now have typed I/O, audit events, and replay capability — without rewriting your workflow.
+You now have typed I/O, audit events, and replay capability – without rewriting your workflow.
 
 ## Packages
 

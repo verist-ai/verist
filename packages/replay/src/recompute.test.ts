@@ -1,7 +1,17 @@
-import { createContextFactory, defineStep } from "@verist/core";
+import {
+  createContextFactory,
+  defineStep,
+  emit,
+  invoke,
+  suspend,
+} from "@verist/core";
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { captureArtifact, createSnapshot } from "./artifact.ts";
+import {
+  captureArtifact,
+  createSnapshot,
+  normalizeCommands,
+} from "./artifact.ts";
 import { compareSnapshots, recompute } from "./recompute.ts";
 import type { Snapshot } from "./types.ts";
 
@@ -41,8 +51,8 @@ describe("recompute", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.output.delta).toEqual({ result: 42 });
-      expect(result.value.diff).toBeDefined();
-      expect(result.value.diff!.equal).toBe(true);
+      expect(result.value.deltaDiff).toBeDefined();
+      expect(result.value.deltaDiff!.equal).toBe(true);
     }
   });
 
@@ -70,10 +80,10 @@ describe("recompute", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.output.delta).toEqual({ result: 42 });
-      expect(result.value.diff).toBeDefined();
-      expect(result.value.diff!.equal).toBe(false);
+      expect(result.value.deltaDiff).toBeDefined();
+      expect(result.value.deltaDiff!.equal).toBe(false);
       // Diff should show delta.result changed from 100 to 42
-      expect(result.value.diff!.entries).toEqual([
+      expect(result.value.deltaDiff!.entries).toEqual([
         { path: ["result"], before: 100, after: 42 },
       ]);
     }
@@ -100,8 +110,8 @@ describe("recompute", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // Delta is the same, so diff should be equal even though events differ
-      expect(result.value.diff).toBeDefined();
-      expect(result.value.diff!.equal).toBe(true);
+      expect(result.value.deltaDiff).toBeDefined();
+      expect(result.value.deltaDiff!.equal).toBe(true);
     }
   });
 
@@ -149,7 +159,7 @@ describe("recompute", () => {
     if (result.ok) {
       expect(result.value.output.delta).toEqual({ result: 42 });
       // No original to compare → diff unavailable
-      expect(result.value.diff).toBeUndefined();
+      expect(result.value.deltaDiff).toBeUndefined();
     }
   });
 
@@ -179,7 +189,7 @@ describe("recompute", () => {
     if (result.ok) {
       expect(result.value.output.delta).toEqual({ result: 42 });
       // Hash-only → can't compare → diff unavailable (consistent with compareSnapshots)
-      expect(result.value.diff).toBeUndefined();
+      expect(result.value.deltaDiff).toBeUndefined();
     }
   });
 
@@ -448,5 +458,336 @@ describe("compareSnapshots", () => {
     const { deltaDiff } = compareSnapshots(snapshot1, snapshot2);
     // Malformed content treated as "no content" — can't compare
     expect(deltaDiff).toBeUndefined();
+  });
+
+  it("detects command differences (invoke to suspend)", () => {
+    const snapshot1 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", {
+          delta: { x: 1 },
+          events: [],
+          commands: [invoke("verify", { id: 1 })],
+        }),
+      ],
+    });
+    const snapshot2 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", {
+          delta: { x: 1 },
+          events: [],
+          commands: [
+            suspend({ reason: "awaiting_docs", checkpoint: { id: 1 } }),
+          ],
+        }),
+      ],
+    });
+
+    const { deltaDiff, commandsDiff } = compareSnapshots(snapshot1, snapshot2);
+    expect(deltaDiff?.equal).toBe(true);
+    expect(commandsDiff?.equal).toBe(false);
+    // Command type changed from invoke to suspend
+    expect(commandsDiff?.entries.some((e) => e.path.includes("type"))).toBe(
+      true,
+    );
+  });
+
+  it("reports equal when commands are identical", () => {
+    const commands = [invoke("verify", { id: 1 })];
+    const snapshot1 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", {
+          delta: { x: 1 },
+          events: [],
+          commands,
+        }),
+      ],
+    });
+    const snapshot2 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", {
+          delta: { x: 1 },
+          events: [],
+          commands: [invoke("verify", { id: 1 })],
+        }),
+      ],
+    });
+
+    const { commandsDiff } = compareSnapshots(snapshot1, snapshot2);
+    expect(commandsDiff?.equal).toBe(true);
+  });
+
+  it("uses step-commands artifact when present", () => {
+    const snapshot1 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        captureArtifact("step-commands", [invoke("verify", { id: 1 })]),
+      ],
+    });
+    const snapshot2 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        captureArtifact("step-commands", [invoke("verify", { id: 2 })]),
+      ],
+    });
+
+    const { commandsDiff } = compareSnapshots(snapshot1, snapshot2);
+    expect(commandsDiff?.equal).toBe(false);
+    expect(commandsDiff?.entries).toEqual([
+      { path: [0, "input", "id"], before: 1, after: 2 },
+    ]);
+  });
+
+  it("returns undefined commandsDiff when commands unavailable", () => {
+    const snapshot1 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+      ],
+    });
+    const snapshot2 = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "step",
+      input: { a: 1 },
+      artifacts: [
+        captureArtifact("step-output", {
+          delta: { x: 1 },
+          events: [],
+          commands: [invoke("verify", {})],
+        }),
+      ],
+    });
+
+    const { commandsDiff } = compareSnapshots(snapshot1, snapshot2);
+    // First snapshot has no commands → can't compare
+    expect(commandsDiff).toBeUndefined();
+  });
+});
+
+describe("recompute command diffing", () => {
+  const contextFactory = createContextFactory({});
+
+  it("detects command change (invoke to suspend)", async () => {
+    const step = defineStep({
+      name: "decide",
+      input: z.object({ ready: z.boolean() }),
+      delta: z.object({ status: z.string() }),
+      run: async (input) => {
+        if (input.ready) {
+          return {
+            delta: { status: "proceeding" },
+            events: [],
+            commands: [invoke("next", {})],
+          };
+        }
+        return {
+          delta: { status: "waiting" },
+          events: [],
+          commands: [suspend({ reason: "awaiting_input", checkpoint: {} })],
+        };
+      },
+    });
+
+    // Original ran with ready=false, now run with ready=true
+    const originalOutput = {
+      delta: { status: "waiting" },
+      events: [],
+      commands: [suspend({ reason: "awaiting_input", checkpoint: {} })],
+    };
+    const snapshot = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "decide",
+      input: { ready: true },
+      artifacts: [captureArtifact("step-output", originalOutput)],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.deltaDiff?.equal).toBe(false);
+      expect(result.value.commandsDiff?.equal).toBe(false);
+      // Commands changed from suspend to invoke
+      expect(
+        result.value.commandsDiff?.entries.some((e) => e.path.includes("type")),
+      ).toBe(true);
+    }
+  });
+
+  it("returns equal commandsDiff when commands unchanged", async () => {
+    const step = defineStep({
+      name: "stable",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      run: async (input) => ({
+        delta: { result: input.value * 2 },
+        events: [],
+        commands: [invoke("next", { value: input.value })],
+      }),
+    });
+
+    const originalOutput = {
+      delta: { result: 42 },
+      events: [],
+      commands: [invoke("next", { value: 21 })],
+    };
+    const snapshot = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "stable",
+      input: { value: 21 },
+      artifacts: [captureArtifact("step-output", originalOutput)],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.deltaDiff?.equal).toBe(true);
+      expect(result.value.commandsDiff?.equal).toBe(true);
+    }
+  });
+
+  it("reads commands from step-commands artifact when present", async () => {
+    const step = defineStep({
+      name: "decide",
+      input: z.object({ id: z.number() }),
+      delta: z.object({ status: z.string() }),
+      run: async () => ({
+        delta: { status: "done" },
+        events: [],
+        commands: [invoke("next", { id: 2 })],
+      }),
+    });
+
+    const snapshot = createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "decide",
+      input: { id: 1 },
+      artifacts: [
+        captureArtifact("step-output", {
+          delta: { status: "done" },
+          events: [],
+        }),
+        captureArtifact("step-commands", [invoke("next", { id: 1 })]),
+      ],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // Original had id:1, new has id:2
+      expect(result.value.commandsDiff?.equal).toBe(false);
+      expect(result.value.commandsDiff?.entries).toEqual([
+        { path: [0, "input", "id"], before: 1, after: 2 },
+      ]);
+    }
+  });
+});
+
+describe("normalizeCommands", () => {
+  it("returns empty array for undefined or empty", () => {
+    expect(normalizeCommands(undefined)).toEqual([]);
+    expect(normalizeCommands([])).toEqual([]);
+  });
+
+  it("sorts commands by type", () => {
+    const commands = [
+      suspend({ reason: "wait", checkpoint: {} }),
+      emit("topic", {}),
+      invoke("step", {}),
+    ];
+    const normalized = normalizeCommands(commands);
+
+    expect(normalized).toHaveLength(3);
+    expect(normalized[0]!.type).toBe("emit");
+    expect(normalized[1]!.type).toBe("invoke");
+    expect(normalized[2]!.type).toBe("suspend");
+  });
+
+  it("sorts commands of same type by identifying field", () => {
+    const commands = [
+      invoke("zebra", {}),
+      invoke("alpha", {}),
+      invoke("middle", {}),
+    ];
+    const normalized = normalizeCommands(commands);
+
+    expect((normalized[0] as { step: string }).step).toBe("alpha");
+    expect((normalized[1] as { step: string }).step).toBe("middle");
+    expect((normalized[2] as { step: string }).step).toBe("zebra");
+  });
+
+  it("produces identical output for same commands in different order", () => {
+    const commands1 = [invoke("b", {}), emit("topic", {}), invoke("a", {})];
+    const commands2 = [emit("topic", {}), invoke("a", {}), invoke("b", {})];
+
+    expect(normalizeCommands(commands1)).toEqual(normalizeCommands(commands2));
+  });
+
+  it("distinguishes commands with same type and identifier but different payloads", () => {
+    const commands1 = [
+      invoke("verify", { id: 1 }),
+      invoke("verify", { id: 2 }),
+    ];
+    const commands2 = [
+      invoke("verify", { id: 2 }),
+      invoke("verify", { id: 1 }),
+    ];
+
+    // Same commands, different order → same normalized result
+    expect(normalizeCommands(commands1)).toEqual(normalizeCommands(commands2));
+
+    // But two distinct commands with different payloads remain distinct
+    const normalized = normalizeCommands(commands1);
+    expect(normalized).toHaveLength(2);
+    expect((normalized[0] as { input: { id: number } }).input.id).not.toBe(
+      (normalized[1] as { input: { id: number } }).input.id,
+    );
   });
 });

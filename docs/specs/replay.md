@@ -4,22 +4,28 @@ Deterministic replay and recomputation for Verist workflows.
 
 ## Concepts
 
-**Artifact** — A captured non-deterministic value with its content hash. Artifacts store LLM responses, external API results, and other values that would vary between executions.
+**Artifact** — A captured non-deterministic value with its content hash.
 
-**Snapshot** — Point-in-time capture of step execution. Contains input, input hash, and all artifacts needed to replay the step.
+**Snapshot** — Point-in-time capture of step execution with all artifacts needed to replay.
 
-**Replay** — Exact reproduction of past execution using stored artifacts. Output should be byte-identical to original.
+**Replay** — Exact reproduction of past execution using stored artifacts; output is byte-identical.
 
-**Recompute** — Fresh execution with current adapters. Produces diff showing what changed compared to original.
+**Recompute** — Fresh execution with current adapters; produces diffs vs. the original snapshot.
 
 ## Types
 
 ```typescript
 interface Artifact {
   hash: string; // SHA-256 of content
-  kind: "llm-input" | "llm-output" | "step-input" | "step-output" | string;
+  kind: ArtifactKind;
   content?: unknown; // Optional for compliance
 }
+
+// Reserved kinds (kernel-defined)
+// - "step-output": step's delta + events, used by replay/recompute
+// - "step-commands": step's commands, used by recompute command diffing
+// User-defined kinds (e.g., "llm-input", "llm-output") are opaque metadata
+type ArtifactKind = "step-output" | "step-commands" | (string & {});
 
 interface Snapshot {
   workflowId: string;
@@ -48,163 +54,72 @@ interface DiffEntry {
 ### Hashing
 
 ```typescript
-// Hash any JSON-serializable value
-const hash = hashValue({ name: "Alice", age: 30 });
-// => "sha256:7d1a54..."
-
-// Get both hash and serialized content
+const hash = hashValue(value);
 const { hash, content } = hashWithContent(value);
 ```
 
-Hashes are deterministic: identical values produce identical hashes regardless of key order. Uses stable JSON serialization with sorted keys.
+Hashes are deterministic: identical values produce identical hashes regardless of key order.
 
 ### Capturing Artifacts
 
 ```typescript
-// Capture with content
 const artifact = captureArtifact("llm-output", response);
-// => { hash: "sha256:...", kind: "llm-output", content: response }
-
-// Compliance mode: hash only
-const artifact = captureArtifact("llm-output", response, { hashOnly: true });
-// => { hash: "sha256:...", kind: "llm-output" }
+const hashOnly = captureArtifact("llm-output", response, { hashOnly: true });
 ```
 
 ### Creating Snapshots
 
 ```typescript
 const snapshot = createSnapshot({
-  workflowId: "verify-document",
-  workflowVersion: "1.2.0",
-  stepName: "extract",
-  input: { documentId: "doc-123" },
-  artifacts: [captureArtifact("llm-output", extractionResponse)],
+  workflowId,
+  workflowVersion,
+  stepName,
+  input,
+  artifacts,
 });
 ```
 
 ### Diffing
 
 ```typescript
-// Compare two values
 const result = diff(before, after);
-if (!result.equal) {
-  console.log(formatDiff(result));
-  // => "  age: 30 → 31"
-}
-
-// Apply diff to produce new value
 const updated = applyDiff(base, result);
 ```
 
 ### Replay
 
 ```typescript
-// Exact replay using stored artifacts
 const { output, usedArtifacts } = await replay(snapshot, async (hash) => {
   return artifactStore.get(hash);
 });
 ```
 
-Replay requires a `step-output` artifact in the snapshot. Throws `ReplayError` with code `MISSING_OUTPUT` if not found.
+Replay requires a `step-output` artifact. If missing, throw `ReplayError` with code `MISSING_OUTPUT`.
 
 ### Recompute
 
 ```typescript
-// Fresh execution with diff
-const { output, diff } = await recompute(snapshot, extractStep, ctx);
-
-if (!diff.equal) {
-  console.log("Output changed:");
-  console.log(formatDiff(diff));
-}
+const { output, deltaDiff, commandsDiff } = await recompute(
+  snapshot,
+  step,
+  ctx,
+);
 ```
 
-Recompute verifies input hash matches before execution. Throws `RecomputeError` with code `INPUT_HASH_MISMATCH` if tampered.
+Recompute verifies the input hash before execution. If it does not match, throw `RecomputeError` with code `INPUT_HASH_MISMATCH`.
 
 ### Comparing Snapshots
 
 ```typescript
-// Compare across workflow versions
-const { inputDiff, outputDiff } = compareSnapshots(v1Snapshot, v2Snapshot);
+const { inputDiff, deltaDiff, commandsDiff } = compareSnapshots(a, b);
 ```
 
-## Usage Patterns
+## Semantics
 
-### Capture During Execution
-
-Wrap adapters to capture artifacts as they execute:
-
-```typescript
-function wrapLLM(llm, artifacts) {
-  return {
-    async complete(prompt) {
-      const inputArtifact = captureArtifact("llm-input", prompt);
-      artifacts.push(inputArtifact);
-
-      const response = await llm.complete(prompt);
-
-      const outputArtifact = captureArtifact("llm-output", response);
-      artifacts.push(outputArtifact);
-
-      return response;
-    },
-  };
-}
-```
-
-### Store Artifacts Externally
-
-The replay package produces artifacts but doesn't store them. Bring your own storage:
-
-```typescript
-// After step execution
-for (const artifact of snapshot.artifacts) {
-  await db.artifacts.insert({
-    hash: artifact.hash,
-    kind: artifact.kind,
-    content: artifact.content,
-    snapshotId: snapshot.id,
-  });
-}
-
-// For replay
-const getArtifact = async (hash) => {
-  const row = await db.artifacts.findByHash(hash);
-  return row?.content;
-};
-```
-
-### Compliance Mode
-
-When content cannot be stored, use hash-only artifacts:
-
-```typescript
-const artifact = captureArtifact("llm-output", response, { hashOnly: true });
-// Content is not stored, only hash for audit correlation
-```
-
-Hash-only artifacts enable audit trails without persisting sensitive data. Replay with hash-only artifacts requires external content retrieval.
-
-### Regression Testing
-
-Compare outputs across model versions:
-
-```typescript
-// Capture baseline with GPT-4
-const baselineSnapshot = await executeAndCapture(step, input, gpt4Ctx);
-
-// Recompute with GPT-4-turbo
-const { diff } = await recompute(baselineSnapshot, step, gpt4TurboCtx);
-
-if (!diff.equal) {
-  console.log("Model change affected output:");
-  console.log(formatDiff(diff));
-}
-```
-
-## Design Notes
-
-1. **No storage in package** — Artifacts are produced/consumed; storage is external
-2. **Compliance mode** — Hash-only artifacts for regulated environments
-3. **Structural diff** — Compares JSON structure; semantic diff is out of scope
-4. **Deterministic hashing** — Sorted keys ensure consistent hashes
+- **Replay** must be byte-identical to the original output when artifacts are available.
+- **Recompute** compares current output and commands to the original snapshot.
+- **Command diffs** are first-class: control-flow changes are reviewable.
+- **First artifact wins**: if multiple artifacts of the same kind exist, the first is authoritative.
+- **Command capture is opt-in**: use `captureCommands: true` in `createSnapshotFromResult()` for full command diffing. Without explicit capture, `commandsDiff` falls back to commands embedded in `step-output` (if present) or returns `undefined`.
+- **Artifact precedence**: when both `step-commands` and `step-output` contain commands, `step-commands` is authoritative.
+- **Hash-only limits diffing**: if `commandsHashOnly: true` is used and no other source provides command content, `commandsDiff` will be `undefined`.
