@@ -48,6 +48,10 @@ export interface CommitParams<T = unknown> {
   stepId: string;
   /** Expected current version. Must be 0 for new runs. */
   expectedVersion: number;
+  /**
+   * Partial update to computed state. Omitted keys are preserved from previous computed.
+   * For initial commits (expectedVersion === 0), must represent the full computed state.
+   */
   delta: Delta<T>;
   events: AuditEvent[];
   /**
@@ -118,6 +122,9 @@ export interface StorageError {
  * - Append-only (never modified or deleted)
  * - Written atomically with state in `commit()`
  */
+// In-memory store for examples and tests
+export { createMemoryStore } from "./memory.ts";
+
 export interface RunStore {
   /**
    * Load current state snapshot for a workflow run.

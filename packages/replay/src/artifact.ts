@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Command, StepResult } from "@verist/core";
-import { hashValue } from "./hash.ts";
-import { stableStringify } from "./stringify.ts";
+import { hashValue, stableStringify } from "@verist/core";
 import type {
   Artifact,
   ArtifactKind,
@@ -115,47 +114,48 @@ function commandSemanticFields(cmd: Command): unknown {
 
 /**
  * Normalize commands for consistent hashing and comparison.
- * Commands are sorted by type, then by identifying field, then by serialized content.
- * This ensures semantically identical command sets produce identical hashes.
+ * Returns semantic projections (not full Command objects) sorted by type,
+ * then by identifying field, then by serialized content.
  *
- * Only semantic fields are considered — runtime metadata added by runners is ignored.
+ * Runtime metadata added by runners is stripped — only fields that define
+ * the command's meaning are retained. This ensures stable hashes and diffs
+ * across different runners and execution attempts.
  */
-export function normalizeCommands(commands: Command[] | undefined): Command[] {
+export function normalizeCommands(commands: Command[] | undefined): unknown[] {
   if (!commands || commands.length === 0) return [];
 
-  return [...commands].sort((a, b) => {
-    // Sort by type first
-    if (a.type !== b.type) return a.type.localeCompare(b.type);
+  return [...commands]
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type.localeCompare(b.type);
 
-    // Within same type, sort by identifying field
-    let identifierCmp = 0;
-    switch (a.type) {
-      case "invoke":
-      case "fanout":
-        identifierCmp = (a as { step: string }).step.localeCompare(
-          (b as { step: string }).step,
-        );
-        break;
-      case "emit":
-        identifierCmp = (a as { topic: string }).topic.localeCompare(
-          (b as { topic: string }).topic,
-        );
-        break;
-      case "review":
-      case "suspend":
-        identifierCmp = (a as { reason: string }).reason.localeCompare(
-          (b as { reason: string }).reason,
-        );
-        break;
-    }
+      let identifierCmp = 0;
+      switch (a.type) {
+        case "invoke":
+        case "fanout":
+          identifierCmp = (a as { step: string }).step.localeCompare(
+            (b as { step: string }).step,
+          );
+          break;
+        case "emit":
+          identifierCmp = (a as { topic: string }).topic.localeCompare(
+            (b as { topic: string }).topic,
+          );
+          break;
+        case "review":
+        case "suspend":
+          identifierCmp = (a as { reason: string }).reason.localeCompare(
+            (b as { reason: string }).reason,
+          );
+          break;
+      }
 
-    if (identifierCmp !== 0) return identifierCmp;
+      if (identifierCmp !== 0) return identifierCmp;
 
-    // Tie-breaker: deterministic serialization of semantic fields (ignores runtime metadata)
-    return stableStringify(commandSemanticFields(a)).localeCompare(
-      stableStringify(commandSemanticFields(b)),
-    );
-  });
+      return stableStringify(commandSemanticFields(a)).localeCompare(
+        stableStringify(commandSemanticFields(b)),
+      );
+    })
+    .map(commandSemanticFields);
 }
 
 /**

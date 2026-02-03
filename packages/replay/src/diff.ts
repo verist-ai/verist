@@ -1,4 +1,6 @@
-import { stableStringify } from "./stringify.ts";
+// SPDX-License-Identifier: Apache-2.0
+
+import { stableStringify } from "@verist/core";
 import type { DiffEntry, DiffResult, LayeredStateInput } from "./types.ts";
 
 /**

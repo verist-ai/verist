@@ -127,15 +127,15 @@ Human decisions survive recomputation. The overlay is never overwritten by steps
 
 ## Where each component lives
 
-| Component         | Package                         | Your responsibility               |
-| ----------------- | ------------------------------- | --------------------------------- |
-| Step definition   | `@verist/core`                  | Define step logic                 |
-| Run execution     | `@verist/core`                  | Call `run()` in your runner       |
-| Snapshot creation | `@verist/replay`                | Persist snapshots                 |
-| Replay/recompute  | `@verist/replay`                | Load snapshots, run `recompute()` |
-| State storage     | `@verist/storage-pg` (optional) | Database schema and connection    |
-| Queue             | Your choice                     | Job dispatch and retry            |
-| Review UI         | Your choice                     | Display diffs, collect overrides  |
+| Component         | Package                                  | Your responsibility                 |
+| ----------------- | ---------------------------------------- | ----------------------------------- |
+| Step definition   | `@verist/core`                           | Define step logic                   |
+| Run execution     | `@verist/core`                           | Call `run()` in your runner         |
+| Snapshot creation | `@verist/replay`                         | Persist snapshots                   |
+| Replay/recompute  | `@verist/replay`                         | Load snapshots, run `recompute()`   |
+| State storage     | `@verist/storage` + `@verist/storage-pg` | Storage contract + Postgres adapter |
+| Queue             | Your choice                              | Job dispatch and retry              |
+| Review UI         | Your choice                              | Display diffs, collect overrides    |
 
 ## Key guarantees
 

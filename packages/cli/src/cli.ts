@@ -42,6 +42,20 @@ program
   });
 
 program
+  .command("replay")
+  .description("Inspect baselines and verify hash integrity")
+  .option("--step <name>", "filter by step name")
+  .option("--label <name>", "filter by metadata label")
+  .option("--baseline <path>", "specific file or directory")
+  .option("--workflow <id>", "workflow identifier")
+  .option("--version <ver>", "workflow version")
+  .option("--verify", "recompute hashes and check integrity")
+  .action(async (opts) => {
+    const { replayCommand } = await import("./commands/replay.ts");
+    await replayCommand(opts, program.opts());
+  });
+
+program
   .command("test")
   .description("Recompute baselines and fail on diffs (CI mode)")
   .option("--step <name>", "step name to recompute")

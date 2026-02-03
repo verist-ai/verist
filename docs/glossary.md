@@ -7,6 +7,7 @@
 | **Computed**  | State derived from step deltas.                                                                           |
 | **Delta**     | Partial state update returned by a step.                                                                  |
 | **Diff**      | Comparison between original output and recomputed output.                                                 |
+| **Effective** | Read-only merge of computed + overlay: `{ ...computed, ...overlay }`. What the system acts on.            |
 | **Event**     | Audit record emitted by a step. Append-only.                                                              |
 | **Output**    | In-memory result of a step: `{ delta, events, commands? }`. Exists during a run; artifacts persist after. |
 | **Overlay**   | Human overrides applied on top of computed state. Overlay always wins.                                    |

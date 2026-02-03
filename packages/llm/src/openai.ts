@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Artifact } from "@verist/core";
 import { err, ok } from "@verist/core";
 import { hashValue } from "./hash";
-import type { LLMError, LLMProvider, LLMRequest } from "./types";
+import type {
+  LLMCompleteOpts,
+  LLMError,
+  LLMProvider,
+  LLMRequest,
+} from "./types";
 
 /**
  * OpenAI chat completion message format.
@@ -136,7 +142,7 @@ export function createOpenAI(config: OpenAIAdapterConfig): LLMProvider {
   const { client, includeRawIO = true } = config;
 
   return {
-    async complete(request: LLMRequest) {
+    async complete(request: LLMRequest, opts?: LLMCompleteOpts) {
       const params: OpenAICreateParams = {
         model: request.model,
         messages: request.messages.map((m) => ({
@@ -153,53 +159,79 @@ export function createOpenAI(config: OpenAIAdapterConfig): LLMProvider {
 
       const startTime = performance.now();
 
+      let completion;
       try {
-        const completion = await client.chat.completions.create(params);
-        const durationMs = performance.now() - startTime;
-
-        // Handle empty choices as provider error
-        const choice = completion.choices[0];
-        if (!choice) {
-          return err({
-            code: "provider_error",
-            message: "OpenAI returned no choices",
-            retryable: true,
-          });
-        }
-
-        const content = choice.message.content ?? "";
-        const promptTokens = completion.usage?.prompt_tokens ?? 0;
-        const completionTokens = completion.usage?.completion_tokens ?? 0;
-
-        // outputHash: semantic content including termination reason
-        // (truncated responses differ from complete ones)
-        const normalizedOutput = {
-          model: completion.model,
-          content,
-          finishReason: choice.finish_reason,
-        };
-
-        // inputHash: provider request params (structural changes = semantic changes)
-        const [inputHash, outputHash] = await Promise.all([
-          hashValue(params),
-          hashValue(normalizedOutput),
-        ]);
-
-        return ok({
-          content,
-          trace: {
-            model: completion.model,
-            promptTokens,
-            completionTokens,
-            durationMs,
-            inputHash,
-            outputHash,
-            ...(includeRawIO && { input: params, output: completion }),
-          },
-        });
+        completion = await client.chat.completions.create(params);
       } catch (error) {
         return err(mapOpenAIError(error));
       }
+
+      const durationMs = performance.now() - startTime;
+
+      // Handle empty choices as provider error
+      const choice = completion.choices[0];
+      if (!choice) {
+        return err({
+          code: "provider_error",
+          message: "OpenAI returned no choices",
+          retryable: true,
+        });
+      }
+
+      const content = choice.message.content ?? "";
+      const promptTokens = completion.usage?.prompt_tokens ?? 0;
+      const completionTokens = completion.usage?.completion_tokens ?? 0;
+
+      // outputHash: semantic content including termination reason
+      // (truncated responses differ from complete ones)
+      const normalizedOutput = {
+        model: completion.model,
+        content,
+        finishReason: choice.finish_reason,
+      };
+
+      // inputHash: provider request params (structural changes = semantic changes)
+      const [inputHash, outputHash] = await Promise.all([
+        hashValue(params),
+        hashValue(normalizedOutput),
+      ]);
+
+      // Emit artifacts when callback is provided (input before output).
+      if (opts?.onArtifact) {
+        const inputArtifact: Artifact = {
+          hash: inputHash,
+          kind: "llm-input",
+          content: params,
+        };
+        const outputArtifact: Artifact = {
+          hash: outputHash,
+          kind: "llm-output",
+          content: normalizedOutput,
+        };
+        try {
+          opts.onArtifact(inputArtifact);
+          opts.onArtifact(outputArtifact);
+        } catch (error) {
+          return err({
+            code: "callback_error",
+            message: `onArtifact callback threw: ${error instanceof Error ? error.message : String(error)}`,
+            retryable: false,
+          });
+        }
+      }
+
+      return ok({
+        content,
+        trace: {
+          model: completion.model,
+          promptTokens,
+          completionTokens,
+          durationMs,
+          inputHash,
+          outputHash,
+          ...(includeRawIO && { input: params, output: completion }),
+        },
+      });
     },
   };
 }

@@ -1,4 +1,7 @@
-import { describe, it, expect, mock } from "bun:test";
+// SPDX-License-Identifier: Apache-2.0
+
+import type { Artifact } from "@verist/core";
+import { describe, expect, it, mock } from "bun:test";
 import { createOpenAI, type OpenAIClientLike } from "./openai";
 
 function createMockClient(
@@ -347,6 +350,172 @@ describe("createOpenAI", () => {
 
     // outputHash should be stable despite different completion ids
     expect(result1.value.trace.outputHash).toBe(result2.value.trace.outputHash);
+  });
+
+  it("emits llm-input before llm-output when onArtifact provided", async () => {
+    const client = createMockClient({
+      model: "gpt-4o",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "Response" },
+          finish_reason: "stop",
+        },
+      ],
+    });
+    const llm = createOpenAI({ client });
+
+    const artifacts: Artifact[] = [];
+    const result = await llm.complete(
+      { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+      { onArtifact: (a) => artifacts.push(a) },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(artifacts).toHaveLength(2);
+    expect(artifacts[0]!.kind).toBe("llm-input");
+    expect(artifacts[1]!.kind).toBe("llm-output");
+  });
+
+  it("artifact content matches normalized objects used for hashing", async () => {
+    const client = createMockClient({
+      model: "gpt-4o-2024-01-01",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "Test" },
+          finish_reason: "stop",
+        },
+      ],
+    });
+    const llm = createOpenAI({ client });
+
+    const artifacts: Artifact[] = [];
+    const result = await llm.complete(
+      { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+      { onArtifact: (a) => artifacts.push(a) },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const inputArtifact = artifacts.find((a) => a.kind === "llm-input")!;
+    const outputArtifact = artifacts.find((a) => a.kind === "llm-output")!;
+
+    // Input content is the OpenAI request params
+    expect(inputArtifact.content).toEqual({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+
+    // Output content is the normalized { model, content, finishReason }
+    expect(outputArtifact.content).toEqual({
+      model: "gpt-4o-2024-01-01",
+      content: "Test",
+      finishReason: "stop",
+    });
+  });
+
+  it("artifact hashes match trace hashes", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client });
+
+    const artifacts: Artifact[] = [];
+    const result = await llm.complete(
+      { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+      { onArtifact: (a) => artifacts.push(a) },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const inputArtifact = artifacts.find((a) => a.kind === "llm-input")!;
+    const outputArtifact = artifacts.find((a) => a.kind === "llm-output")!;
+
+    expect(inputArtifact.hash).toBe(result.value.trace.inputHash);
+    expect(outputArtifact.hash).toBe(result.value.trace.outputHash);
+  });
+
+  it("same request + same response produces identical artifact hashes", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client });
+
+    const request = {
+      model: "gpt-4o",
+      messages: [{ role: "user" as const, content: "Hello" }],
+    };
+
+    const artifacts1: Artifact[] = [];
+    const artifacts2: Artifact[] = [];
+    await llm.complete(request, { onArtifact: (a) => artifacts1.push(a) });
+    await llm.complete(request, { onArtifact: (a) => artifacts2.push(a) });
+
+    expect(artifacts1[0]!.hash).toBe(artifacts2[0]!.hash);
+    expect(artifacts1[1]!.hash).toBe(artifacts2[1]!.hash);
+  });
+
+  it("returns callback_error when onArtifact throws", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client });
+
+    const result = await llm.complete(
+      { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+      {
+        onArtifact: () => {
+          throw new Error("storage full");
+        },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.error.code).toBe("callback_error");
+    expect(result.error.message).toContain("storage full");
+    expect(result.error.retryable).toBe(false);
+  });
+
+  it("no artifacts emitted when onArtifact is not provided", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client });
+
+    // No opts at all
+    const result1 = await llm.complete({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+    expect(result1.ok).toBe(true);
+
+    // Opts without onArtifact
+    const result2 = await llm.complete(
+      { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+      {},
+    );
+    expect(result2.ok).toBe(true);
+    // If we got here without error, no artifacts were emitted (no callback to call)
+  });
+
+  it("includeRawIO:false still emits artifacts with content", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client, includeRawIO: false });
+
+    const artifacts: Artifact[] = [];
+    const result = await llm.complete(
+      { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+      { onArtifact: (a) => artifacts.push(a) },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Trace omits raw IO
+    expect(result.value.trace.input).toBeUndefined();
+    expect(result.value.trace.output).toBeUndefined();
+
+    // Artifacts still emitted with content
+    expect(artifacts).toHaveLength(2);
+    expect(artifacts[0]!.content).toBeDefined();
+    expect(artifacts[1]!.content).toBeDefined();
   });
 
   it("produces different outputHash for different content", async () => {

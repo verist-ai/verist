@@ -1,4 +1,6 @@
-import type { Result, LLMTrace } from "@verist/core";
+// SPDX-License-Identifier: Apache-2.0
+
+import type { LLMTrace, OnArtifact, Result } from "@verist/core";
 
 // Re-export LLMTrace from core for convenience
 export type { LLMTrace } from "@verist/core";
@@ -36,7 +38,8 @@ export type LLMErrorCode =
   | "rate_limit"
   | "context_length"
   | "invalid_request"
-  | "provider_error";
+  | "provider_error"
+  | "callback_error";
 
 /**
  * Structured error for LLM operations.
@@ -45,6 +48,19 @@ export interface LLMError {
   code: LLMErrorCode;
   message: string;
   retryable: boolean;
+}
+
+/**
+ * Options for LLM completion calls.
+ */
+export interface LLMCompleteOpts {
+  /**
+   * Callback for emitting artifacts (llm-input, llm-output).
+   * Called synchronously on success, before the result is returned.
+   * Not called on provider errors. Input is emitted before output.
+   * If the callback throws, the call returns `callback_error` (not a provider error).
+   */
+  onArtifact?: OnArtifact;
 }
 
 /**
@@ -58,5 +74,8 @@ export interface LLMProvider {
   /**
    * Execute a completion request.
    */
-  complete(request: LLMRequest): Promise<Result<LLMResponse, LLMError>>;
+  complete(
+    request: LLMRequest,
+    opts?: LLMCompleteOpts,
+  ): Promise<Result<LLMResponse, LLMError>>;
 }
