@@ -1,5 +1,9 @@
 # Your First Step
 
+::: tip Runnable example
+Try the [Prompt Diff Quickstart](https://github.com/verist-ai/verist/tree/main/examples/prompt-diff) — a single file you can run to see replay + diff in action.
+:::
+
 Wrap one function, get replay and diff. No workflows, no queues, no complexity.
 
 ## Install

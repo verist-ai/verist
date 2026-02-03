@@ -35,6 +35,11 @@
       "types": "./src/index.ts",
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./quickstart": {
+      "types": "./src/quickstart.ts",
+      "bun": "./src/quickstart.ts",
+      "default": "./dist/quickstart.js"
     }
   },
   "types": "./dist/index.d.ts",
@@ -43,7 +48,7 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.6"
+    "@verist/core": "workspace:^"
   },
   "devDependencies": {
     "@verist/core": "workspace:*",

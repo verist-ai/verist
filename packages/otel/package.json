@@ -42,7 +42,7 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.1"
+    "@verist/core": "workspace:^"
   },
   "devDependencies": {
     "@verist/core": "workspace:*"

@@ -10,7 +10,12 @@
  * Copy and adapt for your specific needs.
  */
 
-import { run, type Context, type Step, type StepResult } from "@verist/core";
+import {
+  run,
+  type Step,
+  type StepContext,
+  type StepResult,
+} from "@verist/core";
 import { createBullMQ, type Job, type QueueAdapter } from "@verist/queue";
 import { effectiveState } from "@verist/storage";
 import {
@@ -123,14 +128,16 @@ export async function executeStep(
   const snapshot = loadResult.value;
   const currentVersion = snapshot?.version ?? 0;
 
-  // Build effective state (computed + overlay merge)
+  // Build effective state (computed + overlay merge).
+  // Cast needed: generic runner works with unknown state shapes.
+  type State = Record<string, unknown>;
   const state = effectiveState({
-    computed: snapshot?.computed ?? {},
-    overlay: snapshot?.overlay ?? {},
+    computed: (snapshot?.computed ?? {}) as State,
+    overlay: (snapshot?.overlay ?? {}) as Partial<State>,
   });
 
   // Build context
-  const context: Context = {
+  const context: StepContext = {
     adapters,
     workflowId,
     workflowVersion,

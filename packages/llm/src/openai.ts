@@ -1,6 +1,8 @@
-import { ok, err } from "@verist/core";
-import type { LLMProvider, LLMRequest, LLMError } from "./types";
+// SPDX-License-Identifier: Apache-2.0
+
+import { err, ok } from "@verist/core";
 import { hashValue } from "./hash";
+import type { LLMError, LLMProvider, LLMRequest } from "./types";
 
 /**
  * OpenAI chat completion message format.
@@ -45,11 +47,16 @@ interface OpenAIChatCompletion {
 /**
  * Structural type for OpenAI client.
  * User brings their own openai package instance.
+ *
+ * Uses `(params: any) => ...` because OpenAI SDK's overloaded `create`
+ * method is not assignable to a single-signature interface due to
+ * TypeScript's contravariant parameter checking on overloads.
  */
+// deno-lint-ignore no-explicit-any
 export interface OpenAIClientLike {
   chat: {
     completions: {
-      create(params: OpenAICreateParams): Promise<OpenAIChatCompletion>;
+      create(params: any): Promise<OpenAIChatCompletion>;
     };
   };
 }
