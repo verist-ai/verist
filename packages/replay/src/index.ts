@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Types
 export type {
   Artifact,
@@ -8,6 +10,8 @@ export type {
   DiffResult,
   LayeredStateInput,
   RecomputeResult,
+  RecomputeStatus,
+  SchemaViolation,
   Snapshot,
 } from "./types.ts";
 
@@ -25,7 +29,13 @@ export {
 export type { SnapshotFromResultOptions } from "./artifact.ts";
 
 // Diff utilities
-export { applyDiff, diff, diffEffectiveState, formatDiff } from "./diff.ts";
+export {
+  applyDiff,
+  diff,
+  diffEffectiveState,
+  formatDiff,
+  formatPath,
+} from "./diff.ts";
 
 // Load stored output
 export { loadOutput } from "./replay.ts";

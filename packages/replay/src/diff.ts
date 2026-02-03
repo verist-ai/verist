@@ -140,7 +140,14 @@ function diffRecursive(
     return;
   }
 
-  // Both are objects
+  // Non-plain objects (Date, Map, Set, class instances, etc.) — compare as
+  // opaque values rather than recursing into empty Object.keys().
+  if (!isPlainObject(before) || !isPlainObject(after)) {
+    entries.push({ path: [...path], before, after });
+    return;
+  }
+
+  // Both are plain objects
   diffObjects(
     before as Record<string, unknown>,
     after as Record<string, unknown>,
@@ -258,7 +265,12 @@ function applyEntryMut(value: unknown, entry: DiffEntry): void {
   }
 }
 
-function formatPath(path: (string | number)[]): string {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+export function formatPath(path: (string | number)[]): string {
   if (path.length === 0) return "(root)";
   return path
     .map((p, i) => (typeof p === "number" ? `[${p}]` : i === 0 ? p : `.${p}`))

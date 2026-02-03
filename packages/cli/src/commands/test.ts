@@ -19,7 +19,12 @@ interface GlobalOpts {
 
 /**
  * `verist test` — CI mode.
- * Exits 1 on diffs, 2 on fatal errors, 0 on success.
+ *
+ * Exit codes:
+ * - 0 = clean (no regressions per policy)
+ * - 1 = regressions detected (schema violations always; value changes unless
+ *       --no-fail-on-diff; command changes unless --no-fail-on-commands-diff)
+ * - 2 = infrastructure failure (config error, execution crash, corrupted baseline)
  */
 export async function testCommand(
   opts: TestOpts,
@@ -32,6 +37,7 @@ export async function testCommand(
     return;
   }
 
+  // Any failed baseline (corrupted, unreadable, execution crash) is infrastructure failure.
   if (counts.failed > 0) {
     process.exitCode = EXIT_ERROR;
     return;
@@ -40,10 +46,17 @@ export async function testCommand(
   const failOnDiff = opts.failOnDiff !== false;
   const failOnCommandsDiff = opts.failOnCommandsDiff !== false;
 
+  // Schema violations always trigger failure (exit 1, not exit 2)
+  const schemaViolationsFail = counts.schemaViolations > 0;
   const deltaTriggersFail = counts.changed > 0;
-  const commandsTriggersFail = counts.commandsChanged && failOnCommandsDiff;
+  const commandsTriggersFail = counts.commandsChanged > 0 && failOnCommandsDiff;
 
-  const shouldFail = failOnDiff && (deltaTriggersFail || commandsTriggersFail);
+  // Each concern is independent: schema violations are always fatal,
+  // value diffs respect --no-fail-on-diff, commands respect --no-fail-on-commands-diff.
+  const shouldFail =
+    schemaViolationsFail ||
+    (failOnDiff && deltaTriggersFail) ||
+    commandsTriggersFail;
 
   if (shouldFail) {
     process.exitCode = EXIT_DIFF;

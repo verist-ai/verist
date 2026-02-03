@@ -30,12 +30,16 @@ interface GlobalOpts {
 export interface DiffCounts {
   total: number;
   passed: number;
-  /** Baselines where delta OR commands differ from original. */
+  /** Baselines with value_changed status. */
   changed: number;
-  /** Baselines that failed to recompute (execution or validation error). */
+  /** Baselines with schema violations (schema_violation status). */
+  schemaViolations: number;
+  /** Baselines that failed to recompute (infrastructure error). */
   failed: number;
-  /** Whether any command diffs were detected. */
-  commandsChanged: boolean;
+  /** Baselines with command diffs (orthogonal to status). */
+  commandsChanged: number;
+  /** Baselines where structural comparison was unavailable (hash-only or missing content). */
+  uncomparable: number;
 }
 
 export interface DiffLoopResult {
@@ -143,20 +147,17 @@ export async function runDiffLoop(
   const step = config.steps[stepName];
   if (!step) {
     const available = Object.keys(config.steps).join(", ");
+    const hint = opts.baseline
+      ? ` Baseline refers to step "${stepName}" — ensure verist.config defines it.`
+      : "";
     console.error(
-      `Step "${stepName}" not found in config. Available: ${available || "(none)"}`,
+      `Step "${stepName}" not found in config. Available: ${available || "(none)"}.${hint}`,
     );
     return { counts: zeroCounts(), fatalError: true };
   }
 
   const contextFactory = createContextFactory(config.adapters);
-  const counts: DiffCounts = {
-    total: baselinePaths.length,
-    passed: 0,
-    changed: 0,
-    failed: 0,
-    commandsChanged: false,
-  };
+  const counts: DiffCounts = { ...zeroCounts(), total: baselinePaths.length };
 
   for (const path of baselinePaths) {
     let envelope;
@@ -172,7 +173,7 @@ export async function runDiffLoop(
     const ctx = contextFactory({
       workflowId: envelope.snapshot.workflowId,
       workflowVersion: envelope.snapshot.workflowVersion,
-      runId: crypto.randomUUID(),
+      runId: `recompute:${filename}`,
     });
 
     const result: Result<
@@ -186,15 +187,28 @@ export async function runDiffLoop(
       continue;
     }
 
-    const { deltaDiff, commandsDiff } = result.value;
-    const deltaChanged = deltaDiff ? !deltaDiff.equal : false;
-    const commandsChanged = commandsDiff ? !commandsDiff.equal : false;
+    // Dominance semantics: each run counts in exactly one bucket
+    const { status, commandsDiff } = result.value;
+    switch (status) {
+      case "schema_violation":
+        counts.schemaViolations++;
+        break;
+      case "value_changed":
+        counts.changed++;
+        break;
+      case "clean":
+        counts.passed++;
+        break;
+    }
 
-    if (deltaChanged || commandsChanged) {
-      counts.changed++;
-      if (commandsChanged) counts.commandsChanged = true;
-    } else {
-      counts.passed++;
+    // Track uncomparable baselines (hash-only or missing content)
+    if (!result.value.comparable) {
+      counts.uncomparable++;
+    }
+
+    // Commands are orthogonal — tracked separately
+    if (commandsDiff && !commandsDiff.equal) {
+      counts.commandsChanged++;
     }
 
     if (!globalOpts.quiet) {
@@ -210,5 +224,13 @@ export async function runDiffLoop(
 }
 
 function zeroCounts(): DiffCounts {
-  return { total: 0, passed: 0, changed: 0, failed: 0, commandsChanged: false };
+  return {
+    total: 0,
+    passed: 0,
+    changed: 0,
+    schemaViolations: 0,
+    failed: 0,
+    commandsChanged: 0,
+    uncomparable: 0,
+  };
 }

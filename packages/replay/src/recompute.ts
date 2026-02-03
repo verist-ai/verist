@@ -2,20 +2,22 @@
 
 import type {
   Command,
+  Delta,
   Result,
   Step,
   StepContext,
   StepOutput,
 } from "@verist/core";
 import { err, ok } from "@verist/core";
-import { ZodError } from "zod";
 import { captureArtifact, normalizeCommands } from "./artifact.ts";
-import { diff } from "./diff.ts";
+import { diff, formatPath } from "./diff.ts";
 import { hashValue } from "./hash.ts";
 import type {
   CaptureOptions,
   DiffResult,
   RecomputeResult,
+  RecomputeStatus,
+  SchemaViolation,
   Snapshot,
 } from "./types.ts";
 
@@ -24,13 +26,48 @@ function isStepOutputShape(value: unknown): value is { delta: unknown } {
   return value !== null && typeof value === "object" && "delta" in value;
 }
 
+/** Extract commands from a snapshot. Prefers step-commands artifact, falls back to step-output. */
+function extractSnapshotCommands(snapshot: Snapshot): Command[] | undefined {
+  const commandsArtifact = snapshot.artifacts.find(
+    (a) => a.kind === "step-commands",
+  );
+  if (
+    commandsArtifact?.content !== undefined &&
+    isCommandArray(commandsArtifact.content)
+  ) {
+    return commandsArtifact.content as Command[];
+  }
+  const outputArtifact = snapshot.artifacts.find(
+    (a) => a.kind === "step-output",
+  );
+  if (isStepOutputShape(outputArtifact?.content)) {
+    const commands = (outputArtifact.content as { commands?: unknown })
+      .commands;
+    return isCommandArray(commands) ? (commands as Command[]) : undefined;
+  }
+  return undefined;
+}
+
+/** Cheap shape check: array of objects with a string `type` field. */
+function isCommandArray(value: unknown): value is Command[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (c) =>
+        c !== null &&
+        typeof c === "object" &&
+        "type" in c &&
+        typeof (c as Record<string, unknown>).type === "string",
+    )
+  );
+}
+
 /**
  * Recompute error types.
  */
 export type RecomputeErrorCode =
   | "INPUT_HASH_MISMATCH"
   | "INPUT_VALIDATION"
-  | "OUTPUT_VALIDATION"
   | "EXECUTION_FAILED";
 
 export interface RecomputeError {
@@ -45,7 +82,13 @@ export interface RecomputeError {
 export interface RecomputeOptions {
   /** Capture artifacts for the recomputed output. Pass options or true. */
   captureArtifacts?: CaptureOptions | boolean;
-  /** Enforce step input and output schemas, matching `runStep` semantics. */
+  /**
+   * Enable schema validation:
+   * - Input: strict (returns `err(INPUT_VALIDATION)` on failure)
+   * - Output delta: observational (populates `schemaViolations`, never gates).
+   *   When output passes, the Zod-parsed delta is used for diff and returned
+   *   as `parsedDelta` (reflecting defaults, coercions, transforms).
+   */
   validate?: boolean;
 }
 
@@ -78,7 +121,7 @@ export async function recompute<TInput, TState>(
   step: Step<TInput, TState>,
   ctx: StepContext,
   options?: RecomputeOptions,
-): Promise<Result<RecomputeResult<StepOutput<TState>>, RecomputeError>> {
+): Promise<Result<RecomputeResult<TState>, RecomputeError>> {
   // Verify input hash matches
   const currentInputHash = await hashValue(snapshot.input);
   if (currentInputHash !== snapshot.inputHash) {
@@ -118,22 +161,26 @@ export async function recompute<TInput, TState>(
     });
   }
 
-  // Validate output delta against step schema if requested
+  // Validate output schema (single safeParse). When validation succeeds,
+  // use the parsed delta for diffing to match runStep semantics (reflects
+  // Zod defaults, coercions, transforms). When it fails, diff raw delta.
+  let deltaForDiff: unknown = newOutput.delta;
+  let parsedDelta: Delta<TState> | undefined;
+  let schemaViolations: SchemaViolation[] = [];
+
   if (options?.validate) {
-    const deltaResult = step.outputDeltaSchema.safeParse(newOutput.delta);
-    if (!deltaResult.success) {
-      return err({
-        code: "OUTPUT_VALIDATION",
-        message:
-          `Output validation failed for step "${step.name}": ${formatZodError(deltaResult.error)}. ` +
-          `Schema may have changed since baseline was captured. Recapture with \`verist capture\`.`,
-        cause: deltaResult.error,
-      });
+    const outputResult = step.outputDeltaSchema.safeParse(newOutput.delta);
+    if (outputResult.success) {
+      parsedDelta = outputResult.data as Delta<TState>;
+      deltaForDiff = parsedDelta;
+    } else {
+      schemaViolations = (
+        outputResult.error as import("zod").ZodError
+      ).issues.map((issue) => mapZodIssueToViolation(issue, newOutput.delta));
     }
   }
 
-  // Find original output for delta comparison.
-  // Validate shape to avoid comparing corrupted/migrated data as if valid.
+  // Diff delta against baseline
   const originalOutputArtifact = snapshot.artifacts.find(
     (a) => a.kind === "step-output",
   );
@@ -141,23 +188,13 @@ export async function recompute<TInput, TState>(
     ? (originalOutputArtifact.content as StepOutput<TState>)
     : undefined;
 
-  // Diff delta (state changes). Returns undefined if original is unavailable.
-  const deltaDiff =
-    originalOutput !== undefined
-      ? diff(originalOutput.delta, newOutput.delta)
-      : undefined;
+  const comparable = originalOutput !== undefined;
+  const deltaDiff = comparable
+    ? diff(originalOutput.delta, deltaForDiff)
+    : undefined;
 
-  // Diff commands (control-flow decisions).
-  // First try step-commands artifact, then fall back to commands in step-output.
-  const originalCommandsArtifact = snapshot.artifacts.find(
-    (a) => a.kind === "step-commands",
-  );
-  const originalCommands: Command[] | undefined =
-    originalCommandsArtifact?.content !== undefined
-      ? (originalCommandsArtifact.content as Command[])
-      : originalOutput?.commands;
-
-  // Normalize both for comparison (commands are semantically a set)
+  // Diff commands (control-flow decisions)
+  const originalCommands = extractSnapshotCommands(snapshot);
   const commandsDiff =
     originalCommands !== undefined
       ? diff(
@@ -165,6 +202,14 @@ export async function recompute<TInput, TState>(
           normalizeCommands(newOutput.commands),
         )
       : undefined;
+
+  // Compute status (highest severity wins)
+  const status: RecomputeStatus =
+    schemaViolations.length > 0
+      ? "schema_violation"
+      : deltaDiff && !deltaDiff.equal
+        ? "value_changed"
+        : "clean";
 
   // Resolve capture options: true → full content, false/undefined → skip, object → pass through
   const captureArtifacts = options?.captureArtifacts;
@@ -174,9 +219,13 @@ export async function recompute<TInput, TState>(
     captureArtifacts === true ? undefined : captureArtifacts || undefined;
 
   return ok({
-    output: newOutput,
+    output: newOutput as StepOutput<unknown>,
+    parsedDelta,
+    status,
+    comparable,
     deltaDiff,
     commandsDiff,
+    schemaViolations,
     outputArtifact: shouldCapture
       ? await captureArtifact("step-output", newOutput, captureOpts)
       : undefined,
@@ -228,29 +277,8 @@ export function compareSnapshots(
         )
       : undefined;
 
-  // Extract commands for comparison.
-  // First try step-commands artifact, then fall back to commands in step-output.
-  const originalCommandsArtifact = original.artifacts.find(
-    (a) => a.kind === "step-commands",
-  );
-  const updatedCommandsArtifact = updated.artifacts.find(
-    (a) => a.kind === "step-commands",
-  );
-
-  const originalCommands: Command[] | undefined =
-    originalCommandsArtifact?.content !== undefined
-      ? (originalCommandsArtifact.content as Command[])
-      : originalValid
-        ? (originalOutputArtifact?.content as { commands?: Command[] })
-            ?.commands
-        : undefined;
-
-  const updatedCommands: Command[] | undefined =
-    updatedCommandsArtifact?.content !== undefined
-      ? (updatedCommandsArtifact.content as Command[])
-      : updatedValid
-        ? (updatedOutputArtifact?.content as { commands?: Command[] })?.commands
-        : undefined;
+  const originalCommands = extractSnapshotCommands(original);
+  const updatedCommands = extractSnapshotCommands(updated);
 
   const commandsDiff =
     originalCommands !== undefined && updatedCommands !== undefined
@@ -263,8 +291,64 @@ export function compareSnapshots(
   return { inputDiff, deltaDiff, commandsDiff };
 }
 
-function formatZodError(error: ZodError): string {
+function formatZodError(error: import("zod").ZodError): string {
   return error.issues
-    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+    .map(
+      (issue) =>
+        `${formatPath(issue.path as (string | number)[])}: ${issue.message}`,
+    )
     .join("; ");
+}
+
+/**
+ * Map a ZodIssue to a SchemaViolation with a stable `kind` discriminator.
+ *
+ * - `invalid_type` where the actual value at the path is `undefined` → `"missing"`
+ * - `invalid_type` otherwise → `"type"`
+ * - `custom` / refinement codes → `"refinement"`
+ * - everything else → `"other"`
+ *
+ * "missing" is detected by resolving the issue path in the original value,
+ * avoiding dependence on Zod-version-specific issue fields or message formats.
+ */
+function mapZodIssueToViolation(
+  issue: import("zod").ZodError["issues"][number],
+  rootValue: unknown,
+): SchemaViolation {
+  let kind: SchemaViolation["kind"];
+
+  if (issue.code === "invalid_type") {
+    const actual = resolvePathValue(rootValue, issue.path);
+    kind = actual === undefined ? "missing" : "type";
+  } else if (
+    issue.code === "custom" ||
+    issue.code === "too_small" ||
+    issue.code === "too_big"
+  ) {
+    kind = "refinement";
+  } else {
+    kind = "other";
+  }
+
+  return {
+    path: issue.path as (string | number)[],
+    kind,
+    message: issue.message,
+  };
+}
+
+/** Resolve a dotted path in a nested value. Returns undefined if any segment is missing. */
+function resolvePathValue(value: unknown, path: PropertyKey[]): unknown {
+  let current = value;
+  for (const key of path) {
+    if (
+      current === null ||
+      current === undefined ||
+      typeof current !== "object"
+    ) {
+      return undefined;
+    }
+    current = (current as Record<PropertyKey, unknown>)[key];
+  }
+  return current;
 }

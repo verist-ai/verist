@@ -70,7 +70,8 @@ async function main() {
   const recomputeResult = unwrap(
     await recompute(snapshot, regressionStep, ctx),
   );
-  const newClaims = recomputeResult.output.delta.claims!;
+  const newClaims = (recomputeResult.output.delta as Record<string, unknown>)
+    .claims as string[];
   print(`Recompute: ${newClaims.length} claims`, "done");
   for (const claim of newClaims) console.log(`  • ${claim}`);
 

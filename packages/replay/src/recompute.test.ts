@@ -53,6 +53,7 @@ describe("recompute", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.output.delta).toEqual({ result: 42 });
+      expect(result.value.comparable).toBe(true);
       expect(result.value.deltaDiff).toBeDefined();
       expect(result.value.deltaDiff!.equal).toBe(true);
     }
@@ -160,7 +161,8 @@ describe("recompute", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.output.delta).toEqual({ result: 42 });
-      // No original to compare → diff unavailable
+      // No original to compare → not comparable
+      expect(result.value.comparable).toBe(false);
       expect(result.value.deltaDiff).toBeUndefined();
     }
   });
@@ -190,7 +192,8 @@ describe("recompute", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.output.delta).toEqual({ result: 42 });
-      // Hash-only → can't compare → diff unavailable (consistent with compareSnapshots)
+      // Hash-only → can't compare
+      expect(result.value.comparable).toBe(false);
       expect(result.value.deltaDiff).toBeUndefined();
     }
   });
@@ -770,7 +773,7 @@ describe("recompute validation", () => {
     }
   });
 
-  it("validates output delta schema when validate is true", async () => {
+  it("reports schema violations as observations when validate is true", async () => {
     const step = defineStep({
       name: "bad-output",
       input: z.object({ value: z.number() }),
@@ -782,10 +785,283 @@ describe("recompute validation", () => {
       }),
     });
 
+    const originalOutput = {
+      delta: { result: 42 },
+      events: [],
+    };
     const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "bad-output",
+      input: { value: 21 },
+      artifacts: [await captureArtifact("step-output", originalOutput)],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    // Validation is observation, not gate — always returns ok()
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.status).toBe("schema_violation");
+      expect(result.value.schemaViolations).toHaveLength(1);
+      expect(result.value.schemaViolations[0]!.kind).toBe("type");
+      expect(result.value.schemaViolations[0]!.path).toEqual(["result"]);
+      // Diff is still computed despite schema violation
+      expect(result.value.deltaDiff).toBeDefined();
+      expect(result.value.deltaDiff!.equal).toBe(false);
+    }
+  });
+
+  it("reports missing nested fields as schema violations with kind 'missing'", async () => {
+    // Top-level fields are partial (outputDeltaSchema), but nested required fields
+    // within present structures must still validate — this is the core wedge scenario.
+    const step = defineStep({
+      name: "missing-nested",
+      input: z.object({ value: z.number() }),
+      delta: z.object({
+        items: z.array(z.object({ name: z.string(), score: z.number() })),
+      }),
+      // Returns item missing required 'score' field
+      run: async () => ({
+        delta: {
+          items: [
+            { name: "test" } as unknown as { name: string; score: number },
+          ],
+        },
+        events: [],
+      }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "missing-nested",
+      input: { value: 1 },
+      artifacts: [],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.status).toBe("schema_violation");
+      expect(result.value.schemaViolations).toHaveLength(1);
+      expect(result.value.schemaViolations[0]!.kind).toBe("missing");
+      expect(result.value.schemaViolations[0]!.path).toEqual([
+        "items",
+        0,
+        "score",
+      ]);
+    }
+  });
+
+  it("schema violations + value changes coexist in one result", async () => {
+    // Pins the wedge invariant: missing field AND value change → both present
+    const step = defineStep({
+      name: "mixed",
+      input: z.object({ value: z.number() }),
+      delta: z.object({
+        claims: z.array(z.object({ text: z.string(), amount: z.number() })),
+      }),
+      run: async () => ({
+        delta: {
+          claims: [
+            { text: "Acme had strong revenue" } as unknown as {
+              text: string;
+              amount: number;
+            },
+          ],
+        },
+        events: [],
+      }),
+    });
+
+    const originalOutput = {
+      delta: {
+        claims: [{ text: "Acme reported $4.2M", amount: 4200000 }],
+      },
+      events: [],
+    };
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "mixed",
+      input: { value: 1 },
+      artifacts: [await captureArtifact("step-output", originalOutput)],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // Highest severity wins
+      expect(result.value.status).toBe("schema_violation");
+      // Schema violation: amount is missing
+      expect(result.value.schemaViolations.length).toBeGreaterThanOrEqual(1);
+      expect(
+        result.value.schemaViolations.some(
+          (v) => v.kind === "missing" && v.path.includes("amount"),
+        ),
+      ).toBe(true);
+      // Value change: text changed
+      expect(result.value.deltaDiff).toBeDefined();
+      expect(result.value.deltaDiff!.equal).toBe(false);
+      expect(
+        result.value.deltaDiff!.entries.some((e) => e.path.includes("text")),
+      ).toBe(true);
+    }
+  });
+
+  it("returns clean status when no violations and equal diff", async () => {
+    const step = defineStep({
+      name: "clean",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      run: async (input) => ({
+        delta: { result: input.value * 2 },
+        events: [],
+      }),
+    });
+
+    const originalOutput = { delta: { result: 42 }, events: [] };
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "clean",
+      input: { value: 21 },
+      artifacts: [await captureArtifact("step-output", originalOutput)],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.status).toBe("clean");
+      expect(result.value.schemaViolations).toEqual([]);
+      expect(result.value.deltaDiff!.equal).toBe(true);
+    }
+  });
+
+  it("returns value_changed status when diff but no violations", async () => {
+    const step = defineStep({
+      name: "changed",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      run: async (input) => ({
+        delta: { result: input.value * 2 },
+        events: [],
+      }),
+    });
+
+    const originalOutput = { delta: { result: 100 }, events: [] };
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "changed",
+      input: { value: 21 },
+      artifacts: [await captureArtifact("step-output", originalOutput)],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.status).toBe("value_changed");
+      expect(result.value.schemaViolations).toEqual([]);
+      expect(result.value.deltaDiff!.equal).toBe(false);
+    }
+  });
+
+  it("uses parsed delta for diff (Zod defaults don't cause false diff)", async () => {
+    // When validation succeeds, recompute uses the Zod-parsed value for diffing.
+    // This prevents false diffs from defaults/coercions — matching runStep semantics.
+    const step = defineStep({
+      name: "with-defaults",
+      input: z.object({ value: z.number() }),
+      delta: z.object({
+        result: z.number(),
+        label: z.string().default("untitled"),
+      }),
+      run: async (input) => ({
+        // Step returns without label — Zod default fills it in
+        delta: { result: input.value * 2 } as { result: number; label: string },
+        events: [],
+      }),
+    });
+
+    // Baseline was captured with the Zod-parsed output (label filled by default)
+    const originalOutput = {
+      delta: { result: 42, label: "untitled" },
+      events: [],
+    };
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "with-defaults",
+      input: { value: 21 },
+      artifacts: [await captureArtifact("step-output", originalOutput)],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // parsedDelta has the default applied
+      expect(result.value.parsedDelta).toEqual({
+        result: 42,
+        label: "untitled",
+      });
+      // Diff compares parsed delta vs baseline — no false diff
+      expect(result.value.status).toBe("clean");
+      expect(result.value.deltaDiff!.equal).toBe(true);
+    }
+  });
+
+  it("returns parsedDelta only when output validation succeeds", async () => {
+    const step = defineStep({
+      name: "typed",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      run: async () => ({
+        delta: { result: "not-a-number" as unknown as number },
+        events: [],
+      }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "typed",
       input: { value: 21 },
       artifacts: [],
     });
@@ -797,11 +1073,90 @@ describe("recompute validation", () => {
     });
     const result = await recompute(snapshot, step, ctx, { validate: true });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("OUTPUT_VALIDATION");
-      expect(result.error.message).toContain("Output validation failed");
-      expect(result.error.message).toContain("`verist capture`");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // Schema failed — parsedDelta is absent
+      expect(result.value.parsedDelta).toBeUndefined();
+      expect(result.value.schemaViolations.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("malformed step-output (missing delta key) is not comparable", async () => {
+    const step = defineStep({
+      name: "typed",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      run: async (input) => ({
+        delta: { result: input.value * 2 },
+        events: [],
+      }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "typed",
+      input: { value: 21 },
+      artifacts: [
+        // Malformed: no delta key (e.g., corrupted or migrated data)
+        { kind: "step-output", hash: "sha256:abc", content: { result: 42 } },
+      ],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.comparable).toBe(false);
+      expect(result.value.deltaDiff).toBeUndefined();
+      expect(result.value.status).toBe("clean");
+    }
+  });
+
+  it("hash-only baseline is not comparable but status is still computed", async () => {
+    const step = defineStep({
+      name: "typed",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      run: async () => ({
+        delta: { result: "not-a-number" as unknown as number },
+        events: [],
+      }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "typed",
+      input: { value: 21 },
+      artifacts: [
+        await captureArtifact(
+          "step-output",
+          { delta: { result: 42 }, events: [] },
+          { hashOnly: true },
+        ),
+      ],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // Not comparable (hash-only) but schema violations still detected
+      expect(result.value.comparable).toBe(false);
+      expect(result.value.deltaDiff).toBeUndefined();
+      expect(result.value.status).toBe("schema_violation");
+      expect(result.value.schemaViolations.length).toBeGreaterThan(0);
     }
   });
 
@@ -830,10 +1185,13 @@ describe("recompute validation", () => {
       workflowVersion: "1.0.0",
       runId: "run-1",
     });
-    // Default: no validation
+    // Default: no validation — schemaViolations should be empty
     const result = await recompute(snapshot, step, ctx);
 
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.schemaViolations).toEqual([]);
+    }
   });
 });
 
