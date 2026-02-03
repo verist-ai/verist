@@ -1,5 +1,9 @@
 # Getting Started
 
+::: tip Runnable example
+Try the [Prompt Diff Quickstart](https://github.com/verist-ai/verist/tree/main/examples/prompt-diff) — run → capture → recompute → diff in under 60 seconds.
+:::
+
 This guide covers the full Verist setup. For a minimal example, see [Your First Step](guides/first-step). For how the pieces fit together in production, see [Architecture Overview](guides/architecture).
 
 ## Install

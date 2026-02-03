@@ -47,17 +47,17 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "^0.0.6",
-    "@verist/replay": "^0.0.6",
-    "@verist/storage": "^0.0.3",
-    "drizzle-orm": "^0.44.0"
+    "@verist/core": "workspace:^",
+    "@verist/replay": "workspace:^",
+    "@verist/storage": "workspace:^",
+    "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
     "@types/pg": "^8.15.0",
     "@verist/core": "workspace:*",
     "@verist/replay": "workspace:*",
     "@verist/storage": "workspace:*",
-    "drizzle-orm": "^0.44.0",
+    "drizzle-orm": "^0.45.1",
     "pg": "^8.16.0"
   },
   "publishConfig": {
