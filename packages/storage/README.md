@@ -14,6 +14,7 @@ bun add @verist/storage @verist/core
 ## What This Package Provides
 
 - `RunStore` contract for durable workflow state
+- `createMemoryStore()` — in-memory `RunStore` for examples and tests
 - `StateSnapshot` and commit/overlay types
 - `effectiveState()` helper for computed + overlay merge
 - Typed storage conflict reasons for retry/fatal handling
@@ -63,6 +64,31 @@ Key invariants:
 - Conflict results include `reason` for typed retry/fatal decisions
 
 For a production implementation, see `@verist/storage-pg`.
+
+## In-Memory Store
+
+For examples and tests, use the built-in in-memory store:
+
+```ts
+import { createMemoryStore } from "@verist/storage";
+
+const store = createMemoryStore();
+
+// Create a new run
+await store.commit({
+  workflowId: "verify-doc",
+  runId: "run-1",
+  stepId: "extract",
+  expectedVersion: 0,
+  delta: { score: 0.8, risk: "high" },
+  events: [{ type: "scored" }],
+});
+
+// Load and apply overlay
+await store.setOverlay("verify-doc", "run-1", { risk: "low" });
+```
+
+No persistence, no outbox — events and commands are accepted but not stored.
 
 ## License
 

@@ -14,7 +14,7 @@ Replay only works when you can reconstruct exact inputs and state for a run. Hid
 
 ## Do I need a database?
 
-Yes. Verist assumes your database is the source of truth. You choose the storage layer, but state must be persisted.
+For production, yes. Verist assumes your database is the source of truth. For dev and tests, use `createMemoryStore()` from `@verist/storage` — no database required.
 
 ## Where do I start?
 

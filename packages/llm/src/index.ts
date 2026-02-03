@@ -1,20 +1,23 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { AuditEvent } from "@verist/core";
 import type { LLMProvider, LLMResponse } from "./types";
 
 // Types
 export type {
-  LLMRequest,
-  LLMMessage,
-  LLMResponse,
-  LLMErrorCode,
+  LLMCompleteOpts,
   LLMError,
+  LLMErrorCode,
+  LLMMessage,
   LLMProvider,
+  LLMRequest,
+  LLMResponse,
   LLMTrace,
 } from "./types";
 
 // OpenAI adapter
 export { createOpenAI } from "./openai";
-export type { OpenAIClientLike, OpenAIAdapterConfig } from "./openai";
+export type { OpenAIAdapterConfig, OpenAIClientLike } from "./openai";
 
 // Internal hash utility for testing/debugging. API may change.
 export { hashValue } from "./hash";

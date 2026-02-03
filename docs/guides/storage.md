@@ -25,16 +25,24 @@ Every successful step should result in three writes:
 If you skip any of them, you break replay guarantees.
 :::
 
-## Storage adapter
+## Storage adapters
 
-`@verist/storage-pg` provides:
+`@verist/storage` defines the `RunStore` contract and provides `createMemoryStore()` for dev and tests:
 
-- Optimistic concurrency
-- Computed + overlay state
+```ts
+import { createMemoryStore, effectiveState } from "@verist/storage";
+
+const store = createMemoryStore();
+```
+
+For production, use `@verist/storage-pg` which adds:
+
+- Optimistic concurrency via Postgres
+- Persistent computed + overlay state
 - Audit event persistence
-- Command persistence hooks
+- Command outbox hooks
 
-If you have strong storage infrastructure, you can implement the same contract yourself.
+You can also implement the `RunStore` contract yourself.
 
 ## Minimal commit flow
 

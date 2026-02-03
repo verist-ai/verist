@@ -59,7 +59,7 @@ const llm = createOpenAI({
 });
 ```
 
-### `LLMProvider.complete(request)`
+### `LLMProvider.complete(request, opts?)`
 
 Execute a completion request. Returns `Result<LLMResponse, LLMError>`.
 
@@ -71,11 +71,18 @@ interface LLMRequest {
   maxTokens?: number;
 }
 
+interface LLMCompleteOpts {
+  /** Callback for emitting artifacts (llm-input, llm-output). */
+  onArtifact?: OnArtifact;
+}
+
 interface LLMResponse {
   content: string;
   trace: LLMTrace;
 }
 ```
+
+When `onArtifact` is provided, the adapter emits `llm-input` and `llm-output` artifacts on success (input before output). Not called on errors.
 
 ### `llmEvent(type, response, payload?)`
 

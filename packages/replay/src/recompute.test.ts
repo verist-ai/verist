@@ -852,9 +852,9 @@ describe("normalizeCommands", () => {
     const normalized = normalizeCommands(commands);
 
     expect(normalized).toHaveLength(3);
-    expect(normalized[0]!.type).toBe("emit");
-    expect(normalized[1]!.type).toBe("invoke");
-    expect(normalized[2]!.type).toBe("suspend");
+    expect((normalized[0] as { type: string }).type).toBe("emit");
+    expect((normalized[1] as { type: string }).type).toBe("invoke");
+    expect((normalized[2] as { type: string }).type).toBe("suspend");
   });
 
   it("sorts commands of same type by identifying field", () => {
@@ -895,6 +895,24 @@ describe("normalizeCommands", () => {
     expect(normalized).toHaveLength(2);
     expect((normalized[0] as { input: { id: number } }).input.id).not.toBe(
       (normalized[1] as { input: { id: number } }).input.id,
+    );
+  });
+
+  it("strips runtime metadata — only semantic fields affect hash", () => {
+    // Simulate runner-added fields on Command objects
+    const withMetadata = [
+      {
+        ...invoke("step", { id: 1 }),
+        runId: "run-1",
+        attempt: 3,
+        createdAt: Date.now(),
+      },
+    ] as unknown as import("@verist/core").Command[];
+    const withoutMetadata = [invoke("step", { id: 1 })];
+
+    // Normalized output should be identical — runtime fields stripped
+    expect(normalizeCommands(withMetadata)).toEqual(
+      normalizeCommands(withoutMetadata),
     );
   });
 });

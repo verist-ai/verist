@@ -85,7 +85,7 @@ if (output.ok) {
 
 ### Hashing
 
-- `hashValue(value)` — SHA-256 hash of JSON-serializable value (async)
+- `hashValue(value)` — SHA-256 hash of JSON-serializable value (re-exported from `@verist/core`)
 - `hashWithContent(value)` — Returns both hash and serialized content (async)
 
 ### Artifacts

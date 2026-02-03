@@ -13,17 +13,19 @@ model v2 → computed = 0.38
 effective = 0.90  ← human override preserved
 ```
 
-## The two-layer state model
+## The three-layer state model
 
-| Layer        | Source             |
-| ------------ | ------------------ |
-| **computed** | What steps produce |
-| **overlay**  | Human corrections  |
-
-Effective state:
+| Layer         | Source                        |
+| ------------- | ----------------------------- |
+| **computed**  | What steps produce            |
+| **overlay**   | Human corrections             |
+| **effective** | `{ ...computed, ...overlay }` |
 
 ```ts
-const effective = { ...computed, ...overlay };
+import { effectiveState } from "@verist/storage";
+
+const effective = effectiveState(snapshot);
+// equivalent to { ...snapshot.computed, ...snapshot.overlay }
 ```
 
 Overlay always wins. Human corrections survive recompute.

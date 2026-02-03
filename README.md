@@ -114,10 +114,15 @@ Verist is not a chat framework or agent runtime. It's the trust layer that makes
 | -------------------- | --------------------------------------------- |
 | `@verist/core`       | Step/workflow definition, execution           |
 | `@verist/replay`     | Artifact capture, replay, recompute with diff |
-| `@verist/storage-pg` | PostgreSQL storage with overlay support       |
+| `@verist/cli`        | CLI — replay, diff, and inspect baselines     |
+| `@verist/llm`        | LLM provider adapters with tracing            |
+| `@verist/storage`    | Storage interface and layered state model     |
+| `@verist/storage-pg` | PostgreSQL storage adapter (Drizzle ORM)      |
+| `@verist/artifacts`  | Content-addressable artifact storage          |
 | `@verist/pipeline`   | Sequential step composition                   |
 | `@verist/batch`      | Parallel execution with concurrency control   |
-| `@verist/llm`        | LLM adapters (OpenAI, Anthropic)              |
+| `@verist/queue`      | Job queue adapter for distributed execution   |
+| `@verist/otel`       | OpenTelemetry tracing adapter                 |
 
 ## Documentation
 
