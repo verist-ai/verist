@@ -1,5 +1,11 @@
 # @verist/llm
 
+## 0.0.5
+
+### Patch Changes
+
+- b5814f0: Widen `OpenAIClientLike.create` param type to accept OpenAI SDK's overloaded method signatures
+
 ## 0.0.4
 
 ### Patch Changes

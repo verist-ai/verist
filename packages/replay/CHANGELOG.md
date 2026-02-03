@@ -1,5 +1,11 @@
 # @verist/replay
 
+## 0.0.7
+
+### Patch Changes
+
+- b5814f0: Add `@verist/replay/quickstart` subpath with `capture`, `recompute`, and `diff` helpers for minimal getting-started examples
+
 ## 0.0.6
 
 ### Patch Changes
