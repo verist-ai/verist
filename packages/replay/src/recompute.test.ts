@@ -732,6 +732,111 @@ describe("recompute command diffing", () => {
   });
 });
 
+describe("recompute validation", () => {
+  const contextFactory = createContextFactory({});
+
+  it("validates input schema when validate is true", async () => {
+    const step = defineStep({
+      name: "typed",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      run: async (input) => ({
+        delta: { result: input.value * 2 },
+        events: [],
+      }),
+    });
+
+    // Snapshot with string value instead of number
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "typed",
+      input: { value: "not-a-number" },
+      artifacts: [],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INPUT_VALIDATION");
+      expect(result.error.message).toContain("Input validation failed");
+      expect(result.error.message).toContain("`verist capture`");
+    }
+  });
+
+  it("validates output delta schema when validate is true", async () => {
+    const step = defineStep({
+      name: "bad-output",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      // Returns wrong type for delta
+      run: async () => ({
+        delta: { result: "not-a-number" as unknown as number },
+        events: [],
+      }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "bad-output",
+      input: { value: 21 },
+      artifacts: [],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    const result = await recompute(snapshot, step, ctx, { validate: true });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("OUTPUT_VALIDATION");
+      expect(result.error.message).toContain("Output validation failed");
+      expect(result.error.message).toContain("`verist capture`");
+    }
+  });
+
+  it("skips validation when validate is false (default)", async () => {
+    const step = defineStep({
+      name: "lenient",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ result: z.number() }),
+      // Works despite bad input because validation is off
+      run: async () => ({
+        delta: { result: 42 },
+        events: [],
+      }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "lenient",
+      input: { value: "not-a-number" },
+      artifacts: [],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+    // Default: no validation
+    const result = await recompute(snapshot, step, ctx);
+
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe("normalizeCommands", () => {
   it("returns empty array for undefined or empty", () => {
     expect(normalizeCommands(undefined)).toEqual([]);

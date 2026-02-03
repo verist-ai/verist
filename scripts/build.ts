@@ -18,6 +18,7 @@ const buildOrder = [
   "batch",
   "storage",
   "replay",
+  "cli",
   "llm",
   "queue",
   "otel",

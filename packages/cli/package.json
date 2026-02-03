@@ -1,0 +1,64 @@
+{
+  "name": "@verist/cli",
+  "version": "0.0.1",
+  "description": "CLI for Verist workflows — replay, diff, and inspect AI decisions",
+  "keywords": [
+    "verist",
+    "ai",
+    "llm",
+    "workflow",
+    "cli",
+    "replay",
+    "diff",
+    "audit"
+  ],
+  "license": "Apache-2.0",
+  "author": "Verist <hello@verist.dev> (https://verist.dev/)",
+  "homepage": "https://verist.dev/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/verist-ai/verist.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/verist-ai/verist/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/koistya"
+  },
+  "type": "module",
+  "bin": {
+    "verist": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./cli": {
+      "bun": "./src/cli.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "types": "./src/index.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "peerDependencies": {
+    "@verist/core": "workspace:^",
+    "@verist/replay": "workspace:^"
+  },
+  "devDependencies": {
+    "@verist/core": "workspace:*",
+    "@verist/replay": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
+  }
+}

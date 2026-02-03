@@ -5,10 +5,20 @@ import { hashValue } from "./hash.ts";
 import { stableStringify } from "./stringify.ts";
 import type {
   Artifact,
+  ArtifactKind,
   CaptureOptions,
   CreateSnapshotParams,
   Snapshot,
 } from "./types.ts";
+
+/**
+ * Artifact kinds owned by the kernel. Only `createSnapshotFromResult`
+ * may produce these — user code and adapters must not emit them.
+ */
+export const RESERVED_ARTIFACT_KINDS: ReadonlySet<ArtifactKind> = new Set([
+  "step-output",
+  "step-commands",
+]);
 
 /**
  * Capture a value as an artifact with its content hash.
@@ -194,6 +204,15 @@ export async function createSnapshotFromResult<TInput, TDelta>(
       },
     );
     artifacts.push(commandsArtifact);
+  }
+
+  // Guard: reject user-supplied artifacts with reserved kinds
+  for (const a of options?.artifacts ?? []) {
+    if (RESERVED_ARTIFACT_KINDS.has(a.kind)) {
+      throw new Error(
+        `Artifact kind "${a.kind}" is reserved by the kernel. Use a custom kind instead.`,
+      );
+    }
   }
 
   artifacts.push(...(options?.artifacts ?? []));
