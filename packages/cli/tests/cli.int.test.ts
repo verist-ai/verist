@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -113,7 +114,7 @@ describe("verist CLI integration", () => {
       tmpDir,
     );
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("unchanged");
+    expect(stdout).toContain("clean");
   });
 
   it("capture + test: exits 0 when no diffs (deterministic step)", async () => {
@@ -218,8 +219,8 @@ export default {
       "0.0.0",
       "double",
     );
-    const files = require("fs").readdirSync(baselinesDir);
-    writeFileSync(join(baselinesDir, files[0]), "not valid json");
+    const files = readdirSync(baselinesDir);
+    writeFileSync(join(baselinesDir, files[0]!), "not valid json");
 
     const { stderr, exitCode } = await runCli(
       ["test", "--step", "double"],

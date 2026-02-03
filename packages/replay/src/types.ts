@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import type { Delta, StepOutput } from "@verist/core";
+
 /**
  * Classification of what an artifact represents.
  *
@@ -95,14 +99,53 @@ export interface LayeredStateInput<T> {
 }
 
 /**
+ * A single schema violation detected during output validation.
+ * Machine-readable: `kind` enables grouping and counting without parsing messages.
+ */
+export interface SchemaViolation {
+  /** Path to the violating value (Zod issue path) */
+  path: (string | number)[];
+  /** Stable discriminator for the violation category */
+  kind: "missing" | "type" | "refinement" | "other";
+  /** Human-readable description */
+  message: string;
+}
+
+/**
+ * Highest-severity classification of a recompute result.
+ *
+ * - `"clean"` — no value changes, no schema violations
+ * - `"value_changed"` — value diffs only, no schema violations
+ * - `"schema_violation"` — schema violations present (value changes may also exist)
+ *
+ * Status reflects output semantics only — command changes are orthogonal.
+ * When `comparable` is `false`, `"clean"` means no schema violations were found,
+ * not that values were verified equal (value comparison did not run).
+ */
+export type RecomputeStatus = "clean" | "value_changed" | "schema_violation";
+
+/**
  * Result of recomputation including diffs from original.
  */
-export interface RecomputeResult<T> {
-  /** The recomputed output */
-  output: T;
+export interface RecomputeResult<TDelta> {
+  /** Raw recomputed output (always present, typed as `unknown` — use `parsedDelta` for typed access) */
+  output: StepOutput<unknown>;
+  /**
+   * Zod-parsed delta, only present when output validation succeeds.
+   * Reflects transforms, defaults, and coercions applied by the schema.
+   */
+  parsedDelta?: Delta<TDelta>;
+  /** Highest-severity classification of the result */
+  status: RecomputeStatus;
+  /**
+   * Whether the baseline had content available for structural comparison.
+   * `false` when baseline is hash-only, missing, or malformed (no `delta` key).
+   * Schema violations can exist with `comparable: true`.
+   */
+  comparable: boolean;
   /**
    * Diff between original and recomputed delta (state changes).
-   * `undefined` if original is unavailable for comparison (hash-only or missing).
+   * `undefined` when `comparable` is `false`.
    */
   deltaDiff: DiffResult | undefined;
   /**
@@ -110,6 +153,8 @@ export interface RecomputeResult<T> {
    * `undefined` if original commands are unavailable for comparison.
    */
   commandsDiff: DiffResult | undefined;
+  /** Schema violations detected during output validation (empty if none) */
+  schemaViolations: SchemaViolation[];
   /** Captured artifact of the recomputed output (when captureArtifacts option is set) */
   outputArtifact?: Artifact;
 }

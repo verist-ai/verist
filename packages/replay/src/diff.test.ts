@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "bun:test";
 import { applyDiff, diff, diffEffectiveState, formatDiff } from "./diff.ts";
 
@@ -136,6 +138,20 @@ describe("diff", () => {
     expect(result.entries).toEqual([
       { path: [], before: { a: 1 }, after: null },
     ]);
+  });
+
+  it("treats non-plain objects as opaque values", () => {
+    // Non-plain objects (Date, Map, etc.) are compared by reference, not by
+    // recursing into Object.keys() (which would produce false equality).
+    expect(diff(new Date(0), new Date(1)).equal).toBe(false);
+    expect(diff({ d: new Date(0) }, { d: new Date(1) })).toEqual({
+      equal: false,
+      entries: [{ path: ["d"], before: new Date(0), after: new Date(1) }],
+    });
+
+    // Same reference is still identity-equal
+    const d = new Date(0);
+    expect(diff(d, d).equal).toBe(true);
   });
 
   it("produces deterministic entry order regardless of object key order", () => {

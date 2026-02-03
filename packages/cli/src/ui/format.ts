@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { RecomputeError, RecomputeResult } from "@verist/replay";
-import { formatDiff } from "@verist/replay";
+import { formatDiff, formatPath } from "@verist/replay";
 
 /**
  * Format an error for CLI output.
@@ -23,25 +23,42 @@ export function formatBaselineResult(
   result: RecomputeResult<unknown>,
 ): string {
   const lines: string[] = [];
+  const { status, deltaDiff, commandsDiff, schemaViolations } = result;
 
-  const { deltaDiff, commandsDiff } = result;
+  const statusLabel = !result.comparable
+    ? `${status} (diff unavailable)`
+    : status;
+  lines.push(`${filename} — ${statusLabel}`);
+
+  if (schemaViolations.length > 0) {
+    lines.push("");
+    lines.push("  schema violations:");
+    for (const v of schemaViolations) {
+      lines.push(`    ${formatPath(v.path)}: ${v.kind} (${v.message})`);
+    }
+  }
 
   if (deltaDiff && !deltaDiff.equal) {
-    lines.push(`${filename} — delta changed:`);
-    lines.push(formatDiff(deltaDiff));
-  } else if (deltaDiff?.equal) {
-    lines.push(`${filename} — delta unchanged`);
-  } else {
-    lines.push(`${filename} — delta diff unavailable (hash-only baseline)`);
+    lines.push("");
+    lines.push("  value changes:");
+    // Indent each line of the formatted diff
+    lines.push(
+      formatDiff(deltaDiff)
+        .split("\n")
+        .map((line) => `    ${line}`)
+        .join("\n"),
+    );
   }
 
   if (commandsDiff && !commandsDiff.equal) {
-    lines.push(`  commands changed:`);
-    lines.push(formatDiff(commandsDiff));
-  } else if (commandsDiff?.equal) {
-    // Commands match, no output needed
-  } else if (commandsDiff === undefined) {
-    // Commands not captured — intentionally silent to reduce noise
+    lines.push("");
+    lines.push("  commands changed:");
+    lines.push(
+      formatDiff(commandsDiff)
+        .split("\n")
+        .map((line) => `    ${line}`)
+        .join("\n"),
+    );
   }
 
   return lines.join("\n");
@@ -54,12 +71,21 @@ export function formatSummary(counts: {
   total: number;
   passed: number;
   changed: number;
+  schemaViolations: number;
   failed: number;
+  commandsChanged: number;
+  uncomparable: number;
 }): string {
   const parts: string[] = [];
   parts.push(`${counts.total} baseline(s)`);
-  if (counts.passed > 0) parts.push(`${counts.passed} unchanged`);
+  if (counts.passed > 0) parts.push(`${counts.passed} clean`);
   if (counts.changed > 0) parts.push(`${counts.changed} changed`);
+  if (counts.schemaViolations > 0)
+    parts.push(`${counts.schemaViolations} schema violations`);
+  if (counts.commandsChanged > 0)
+    parts.push(`${counts.commandsChanged} commands changed`);
+  if (counts.uncomparable > 0)
+    parts.push(`${counts.uncomparable} diff unavailable`);
   if (counts.failed > 0) parts.push(`${counts.failed} failed`);
   return parts.join(", ");
 }

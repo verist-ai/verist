@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Command } from "commander";
+import { pathToFileURL } from "node:url";
 import { EXIT_ERROR } from "./exitCodes.ts";
 
 const program = new Command();
@@ -86,6 +87,9 @@ export async function run(
 }
 
 // Auto-run when executed as a script
-if (import.meta.main ?? import.meta.url === `file://${process.argv[1]}`) {
+if (
+  import.meta.main ??
+  (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+) {
   run();
 }

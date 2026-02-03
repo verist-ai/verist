@@ -86,7 +86,7 @@ export function formatReplayEntry(
 
   // Verification result
   if (verification) {
-    const counts = `${verification.checked} checked${verification.skipped > 0 ? `, ${verification.skipped} hash-only skipped` : ""}`;
+    const counts = `${verification.checked} checked${verification.skipped > 0 ? `, ${verification.skipped} skipped (no content)` : ""}`;
     if (verification.valid && verification.checked === 0) {
       lines.push(
         `  Verify:    \u2713 no content to verify (hash-only baseline)`,

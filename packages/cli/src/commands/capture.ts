@@ -138,7 +138,7 @@ export async function capture(
 
   if (!globalOpts.quiet) {
     console.log(
-      `\n${formatSummary({ total: inputFiles.length, passed: counts.captured, changed: 0, failed: counts.failed })}`,
+      `\n${formatSummary({ total: inputFiles.length, passed: counts.captured, changed: 0, schemaViolations: 0, failed: counts.failed, commandsChanged: 0, uncomparable: 0 })}`,
     );
   }
 
