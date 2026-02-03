@@ -96,7 +96,8 @@ const ctx = createContextFactory({
 const recomputeResult = await recompute(snapshot, verifyDocument, ctx);
 
 if (recomputeResult.ok) {
-  const { deltaDiff } = recomputeResult.value;
+  const { status, deltaDiff } = recomputeResult.value;
+  console.log("Status:", status); // "clean" | "value_changed" | "schema_violation"
   if (deltaDiff && !deltaDiff.equal) {
     console.log(formatDiff(deltaDiff));
     // Shows exactly which fields changed

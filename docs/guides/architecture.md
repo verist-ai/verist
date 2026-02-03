@@ -87,13 +87,13 @@ Runner captures snapshot (if needed)
 Load snapshot from store
        │
        ▼
-recompute(snapshot, step, newCtx)
+recompute(snapshot, step, newCtx, { validate: true })
        │
        ▼
 Compare original vs new output
        │
        ▼
-Return { deltaDiff, commandsDiff }
+Return { status, deltaDiff, commandsDiff, schemaViolations }
        │
        ▼
 Review UI shows diff

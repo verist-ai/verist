@@ -111,10 +111,16 @@ const ctx = createContextFactory({
   runId: "recompute-1",
 });
 
-const recomputeResult = await recompute(snapshot, verifyDocument, ctx);
+const recomputeResult = await recompute(snapshot, verifyDocument, ctx, {
+  validate: true,
+});
 
 if (recomputeResult.ok) {
-  const { deltaDiff, commandsDiff } = recomputeResult.value;
+  const { status, deltaDiff, commandsDiff, schemaViolations } =
+    recomputeResult.value;
+
+  if (status === "schema_violation")
+    console.log("Violations:", schemaViolations);
   if (deltaDiff && !deltaDiff.equal) console.log(formatDiff(deltaDiff));
   if (commandsDiff && !commandsDiff.equal)
     console.log(formatDiff(commandsDiff));
@@ -127,10 +133,13 @@ if (recomputeResult.ok) {
 | ----------------------- | ------------------------------------------- |
 | State delta             | `deltaDiff` from `recompute()`              |
 | Control flow            | `commandsDiff` (requires `captureCommands`) |
+| Schema violations       | `schemaViolations` (requires `validate`)    |
 | Inputs across snapshots | `inputDiff` from `compareSnapshots()`       |
 
+The `status` field classifies each result: `"clean"`, `"value_changed"`, or `"schema_violation"` (highest severity wins). Command changes are orthogonal and tracked separately.
+
 ::: info
-Events are audit logs and are **not** diffed. If original output is missing or hash-only, `deltaDiff` is `undefined`.
+Events are audit logs and are **not** diffed. If original output is missing or hash-only, `comparable` is `false` and `deltaDiff` is `undefined`.
 :::
 
 ## Replay vs recompute

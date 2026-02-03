@@ -54,14 +54,24 @@ Later, recompute with a fresh execution and compare:
 ```typescript
 import { recompute, formatDiff } from "@verist/replay";
 
-const recomputed = await recompute(snapshot, step, ctx);
+const recomputed = await recompute(snapshot, step, ctx, { validate: true });
 
 if (recomputed.ok) {
-  const { deltaDiff, commandsDiff } = recomputed.value;
+  const { status, deltaDiff, commandsDiff, schemaViolations } =
+    recomputed.value;
 
-  if (deltaDiff && !deltaDiff.equal) {
-    console.log("State changed:", formatDiff(deltaDiff));
+  switch (status) {
+    case "schema_violation":
+      console.log("Schema violations:", schemaViolations);
+      break;
+    case "value_changed":
+      console.log("State changed:", formatDiff(deltaDiff!));
+      break;
+    case "clean":
+      console.log("No regressions");
+      break;
   }
+
   if (commandsDiff && !commandsDiff.equal) {
     console.log("Control flow changed:", formatDiff(commandsDiff));
   }
@@ -99,12 +109,13 @@ if (output.ok) {
 - `diff(before, after)` — Generate structural diff
 - `applyDiff(base, diff)` — Apply diff to produce new value
 - `formatDiff(diff)` — Human-readable diff output
+- `formatPath(path)` — Format a path array as a dotted string
 - `diffEffectiveState(before, after)` — Diff layered states by effective view
 
 ### Replay
 
 - `loadOutput(snapshot)` — Load stored output from snapshot (async)
-- `recompute(snapshot, step, ctx)` — Fresh execution with diff (async)
+- `recompute(snapshot, step, ctx, options?)` — Fresh execution with diff (async)
 - `compareSnapshots(original, updated)` — Compare two snapshots
 
 ## Design

@@ -145,7 +145,7 @@ Steps write to computed (via delta). Only your review UI writes to overlay.
 ```ts
 const result = await recompute(snapshot, step, newCtx);
 if (result.ok) {
-  await store.commit(result.value.newOutput.delta); // [!code error]
+  await store.commit(result.value.output.delta); // [!code error]
 }
 ```
 

@@ -55,6 +55,10 @@ Recompute can surface errors that never happened in the original run:
 
 Treat error diffs as high-priority regressions in review.
 
+::: info
+Output validation in `recompute()` is **observational** – it populates `schemaViolations` instead of returning an error. This lets you see schema issues alongside value diffs rather than short-circuiting. Input validation remains strict (`err(INPUT_VALIDATION)`).
+:::
+
 ## Audit
 
 - Persist `StepError` details alongside the run
