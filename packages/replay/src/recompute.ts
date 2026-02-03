@@ -8,6 +8,7 @@ import type {
   StepOutput,
 } from "@verist/core";
 import { err, ok } from "@verist/core";
+import { ZodError } from "zod";
 import { captureArtifact, normalizeCommands } from "./artifact.ts";
 import { diff } from "./diff.ts";
 import { hashValue } from "./hash.ts";
@@ -26,7 +27,11 @@ function isStepOutputShape(value: unknown): value is { delta: unknown } {
 /**
  * Recompute error types.
  */
-export type RecomputeErrorCode = "INPUT_HASH_MISMATCH" | "EXECUTION_FAILED";
+export type RecomputeErrorCode =
+  | "INPUT_HASH_MISMATCH"
+  | "INPUT_VALIDATION"
+  | "OUTPUT_VALIDATION"
+  | "EXECUTION_FAILED";
 
 export interface RecomputeError {
   code: RecomputeErrorCode;
@@ -40,6 +45,8 @@ export interface RecomputeError {
 export interface RecomputeOptions {
   /** Capture artifacts for the recomputed output. Pass options or true. */
   captureArtifacts?: CaptureOptions | boolean;
+  /** Enforce step input and output schemas, matching `runStep` semantics. */
+  validate?: boolean;
 }
 
 /**
@@ -81,16 +88,48 @@ export async function recompute<TInput, TState>(
     });
   }
 
+  // Validate input against step schema if requested.
+  // When validating, use the parsed result (respects Zod transforms/defaults)
+  // to match runStep semantics.
+  let stepInput: TInput = snapshot.input as TInput;
+  if (options?.validate) {
+    const inputResult = step.inputSchema.safeParse(snapshot.input);
+    if (!inputResult.success) {
+      return err({
+        code: "INPUT_VALIDATION",
+        message:
+          `Input validation failed for step "${step.name}": ${formatZodError(inputResult.error)}. ` +
+          `Schema may have changed since baseline was captured. Recapture with \`verist capture\`.`,
+        cause: inputResult.error,
+      });
+    }
+    stepInput = inputResult.data as TInput;
+  }
+
   // Execute the step with fresh adapters
   let newOutput: StepOutput<TState>;
   try {
-    newOutput = await step.run(snapshot.input as TInput, ctx);
+    newOutput = await step.run(stepInput, ctx);
   } catch (cause) {
     return err({
       code: "EXECUTION_FAILED",
       message: cause instanceof Error ? cause.message : String(cause),
       cause,
     });
+  }
+
+  // Validate output delta against step schema if requested
+  if (options?.validate) {
+    const deltaResult = step.outputDeltaSchema.safeParse(newOutput.delta);
+    if (!deltaResult.success) {
+      return err({
+        code: "OUTPUT_VALIDATION",
+        message:
+          `Output validation failed for step "${step.name}": ${formatZodError(deltaResult.error)}. ` +
+          `Schema may have changed since baseline was captured. Recapture with \`verist capture\`.`,
+        cause: deltaResult.error,
+      });
+    }
   }
 
   // Find original output for delta comparison.
@@ -222,4 +261,10 @@ export function compareSnapshots(
       : undefined;
 
   return { inputDiff, deltaDiff, commandsDiff };
+}
+
+function formatZodError(error: ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+    .join("; ");
 }

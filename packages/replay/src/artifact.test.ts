@@ -7,6 +7,7 @@ import {
   captureArtifact,
   createSnapshot,
   createSnapshotFromResult,
+  RESERVED_ARTIFACT_KINDS,
 } from "./artifact.ts";
 import { hashValue } from "./hash.ts";
 
@@ -254,6 +255,43 @@ describe("createSnapshotFromResult", () => {
     expect(commandsArtifact).toBeDefined();
     expect(commandsArtifact!.hash).toMatch(/^sha256:/);
     expect(commandsArtifact!.content).toBeUndefined();
+  });
+
+  it("throws on reserved artifact kind in options.artifacts", async () => {
+    const result: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: { delta: { status: "done" }, events: [] },
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    for (const kind of RESERVED_ARTIFACT_KINDS) {
+      const reserved = await captureArtifact(kind, { data: "test" });
+      await expect(
+        createSnapshotFromResult(result, { artifacts: [reserved] }),
+      ).rejects.toThrow(`Artifact kind "${kind}" is reserved by the kernel`);
+    }
+  });
+
+  it("allows custom artifact kinds in options.artifacts", async () => {
+    const result: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: { delta: { status: "done" }, events: [] },
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    const custom = await captureArtifact("llm-output", { data: "test" });
+    const snapshot = await createSnapshotFromResult(result, {
+      artifacts: [custom],
+    });
+
+    expect(snapshot.artifacts).toHaveLength(2);
+    expect(snapshot.artifacts[1]!.kind).toBe("llm-output");
   });
 
   it("normalizes commands for consistent hashing", async () => {

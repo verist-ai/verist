@@ -28,7 +28,7 @@
     },
     "packages/artifacts": {
       "name": "@verist/artifacts",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "devDependencies": {
         "@verist/core": "workspace:*",
       },
@@ -47,6 +47,24 @@
         "@verist/core": "workspace:^",
       },
     },
+    "packages/cli": {
+      "name": "@verist/cli",
+      "version": "0.0.1",
+      "bin": {
+        "verist": "./dist/cli.js",
+      },
+      "dependencies": {
+        "commander": "^14.0.3",
+      },
+      "devDependencies": {
+        "@verist/core": "workspace:*",
+        "@verist/replay": "workspace:*",
+      },
+      "peerDependencies": {
+        "@verist/core": "workspace:^",
+        "@verist/replay": "workspace:^",
+      },
+    },
     "packages/core": {
       "name": "@verist/core",
       "version": "0.0.6",
@@ -59,7 +77,7 @@
     },
     "packages/llm": {
       "name": "@verist/llm",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "devDependencies": {
         "@verist/core": "workspace:*",
       },
@@ -69,7 +87,7 @@
     },
     "packages/otel": {
       "name": "@verist/otel",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "devDependencies": {
         "@verist/core": "workspace:*",
       },
@@ -108,7 +126,7 @@
     },
     "packages/replay": {
       "name": "@verist/replay",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "devDependencies": {
         "@verist/core": "workspace:*",
         "zod": "^4.3.6",
@@ -129,7 +147,7 @@
     },
     "packages/storage-pg": {
       "name": "@verist/storage-pg",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "devDependencies": {
         "@types/pg": "^8.15.0",
         "@verist/core": "workspace:*",
@@ -389,6 +407,8 @@
 
     "@verist/batch": ["@verist/batch@workspace:packages/batch"],
 
+    "@verist/cli": ["@verist/cli@workspace:packages/cli"],
+
     "@verist/core": ["@verist/core@workspace:packages/core"],
 
     "@verist/llm": ["@verist/llm@workspace:packages/llm"],
@@ -505,7 +525,7 @@
 
     "comma-separated-tokens": ["comma-separated-tokens@2.0.3", "", {}, "sha512-Fu4hJdvzeylCfQPp9SGWidpzrMs7tTrlu6Vb8XGaRGck8QSNZJJp538Wrb60Lax4fPwR64ViY468OIUTbRlGZg=="],
 
-    "commander": ["commander@13.1.0", "", {}, "sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw=="],
+    "commander": ["commander@14.0.3", "", {}, "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="],
 
     "commondir": ["commondir@1.0.1", "", {}, "sha512-W9pAhw0ja1Edb5GVdIF1mjZw/ASI0AlShXM83UUGe2DVr5TdAPEA1OA8m/g8zWp9x6On7gqufY+FatDbC3MDQg=="],
 
@@ -1034,6 +1054,8 @@
     "@manypkg/get-packages/@changesets/types": ["@changesets/types@4.1.0", "", {}, "sha512-LDQvVDv5Kb50ny2s25Fhm3d9QSZimsoUGBsUioj6MC3qbMUCuC8GPIvk/M6IvXx3lYhAs0lwWUQLb+VIEUCECw=="],
 
     "@manypkg/get-packages/fs-extra": ["fs-extra@8.1.0", "", { "dependencies": { "graceful-fs": "^4.2.0", "jsonfile": "^4.0.0", "universalify": "^0.1.0" } }, "sha512-yhlQgA6mnOJUKOsRUFsgJdQCvkKhcz8tlZG5HBQfReYZy46OwLcY+Zia0mtdHsOo9y/hP+CxMN0TU9QxoOtG4g=="],
+
+    "gh-pages/commander": ["commander@13.1.0", "", {}, "sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw=="],
 
     "gh-pages/fs-extra": ["fs-extra@11.3.3", "", { "dependencies": { "graceful-fs": "^4.2.0", "jsonfile": "^6.0.1", "universalify": "^2.0.0" } }, "sha512-VWSRii4t0AFm6ixFFmLLx1t7wS1gh+ckoa84aOeapGum0h+EZd1EhEumSB+ZdDLnEPuucsVB9oB7cxJHap6Afg=="],
 
