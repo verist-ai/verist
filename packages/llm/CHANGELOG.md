@@ -1,5 +1,11 @@
 # @verist/llm
 
+## 0.0.6
+
+### Patch Changes
+
+- dbed3be: Add `onArtifact` callback to `complete()` for emitting `llm-input` and `llm-output` artifacts
+
 ## 0.0.5
 
 ### Patch Changes

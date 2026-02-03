@@ -1,5 +1,11 @@
 # @verist/storage
 
+## 0.0.4
+
+### Patch Changes
+
+- dbed3be: Add `createMemoryStore()` — in-memory `RunStore` for examples and tests
+
 ## 0.0.3
 
 ### Patch Changes
