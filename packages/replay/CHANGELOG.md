@@ -1,5 +1,11 @@
 # @verist/replay
 
+## 0.0.8
+
+### Patch Changes
+
+- f6b283f: Add reserved artifact kind validation and optional schema validation in recompute
+
 ## 0.0.7
 
 ### Patch Changes
