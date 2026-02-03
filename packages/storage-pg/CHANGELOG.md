@@ -1,5 +1,13 @@
 # @verist/storage-pg
 
+## 0.0.4
+
+### Patch Changes
+
+- b5814f0: Bump drizzle-orm peer dependency to ^0.45.1
+- Updated dependencies [b5814f0]
+  - @verist/replay@0.0.7
+
 ## 0.0.3
 
 ### Patch Changes
