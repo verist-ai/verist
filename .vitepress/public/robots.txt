@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://verist.dev/sitemap.xml
+Sitemap: https://verist.dev/llms.txt

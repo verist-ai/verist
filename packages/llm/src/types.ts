@@ -13,6 +13,8 @@ export interface LLMRequest {
   messages: LLMMessage[];
   temperature?: number;
   maxTokens?: number;
+  /** Request JSON output. Maps to provider-specific JSON mode (e.g. OpenAI response_format). */
+  responseFormat?: "json";
 }
 
 /**

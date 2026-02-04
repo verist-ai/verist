@@ -141,6 +141,53 @@ describe("createOpenAI", () => {
     expect(params.max_tokens).toBe(100);
   });
 
+  it("passes response_format when responseFormat is json", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client });
+
+    await llm.complete({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Return JSON" }],
+      responseFormat: "json",
+    });
+
+    const createFn = client.chat.completions.create as ReturnType<typeof mock>;
+    const params = createFn.mock.calls[0]![0];
+    expect(params.response_format).toEqual({ type: "json_object" });
+  });
+
+  it("omits response_format when responseFormat is not set", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client });
+
+    await llm.complete({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+
+    const createFn = client.chat.completions.create as ReturnType<typeof mock>;
+    const params = createFn.mock.calls[0]![0];
+    expect(params.response_format).toBeUndefined();
+  });
+
+  it("responseFormat changes inputHash", async () => {
+    const client = createMockClient({});
+    const llm = createOpenAI({ client });
+
+    const messages = [{ role: "user" as const, content: "Hello" }];
+    const without = await llm.complete({ model: "gpt-4o", messages });
+    const with_ = await llm.complete({
+      model: "gpt-4o",
+      messages,
+      responseFormat: "json",
+    });
+
+    expect(without.ok && with_.ok).toBe(true);
+    if (!without.ok || !with_.ok) return;
+
+    expect(without.value.trace.inputHash).not.toBe(with_.value.trace.inputHash);
+  });
+
   it("handles null content in response", async () => {
     const client = createMockClient({
       choices: [

@@ -26,6 +26,7 @@
     "srcpack": "^0.1.15",
     "typescript": "^5.9.3",
     "vitepress": "^2.0.0-alpha.15",
+    "vitepress-plugin-llms": "^1.11.0",
     "vue": "^3.5.27",
     "zod": "^4.3.6"
   },
