@@ -1,5 +1,25 @@
 # @verist/storage-pg
 
+## 0.0.11
+
+### Patch Changes
+
+- 61aba83: Add generic type parameter to `RunStore.load<T>()`
+
+  `load<T>()` now accepts a type parameter like `commit<T>()` and `setOverlay<T>()`, returning `StateSnapshot<T>` instead of `StateSnapshot<unknown>`. Eliminates manual casts at call sites.
+
+  ```ts
+  const snap = await store.load<MyState>(workflowId, runId);
+  snap.value!.computed.score; // typed
+  ```
+
+- Updated dependencies [61aba83]
+- Updated dependencies [61aba83]
+- Updated dependencies [61aba83]
+  - @verist/core@0.0.7
+  - @verist/storage@0.0.6
+  - @verist/replay@0.0.12
+
 ## 0.0.10
 
 ### Patch Changes

@@ -1,5 +1,25 @@
 # @verist/core
 
+## 0.0.7
+
+### Patch Changes
+
+- 61aba83: Add `adapters` type hint field to `defineStep()` for adapter inference
+
+  `StepConfig` now accepts an optional `adapters` phantom field that lets TypeScript infer custom adapter types without manual `ctx` annotation.
+
+  ```ts
+  defineStep({
+    name: "extract",
+    input: z.object({ text: z.string() }),
+    delta: z.object({ title: z.string() }),
+    adapters: {} as { llm: LLMProvider },
+    run: async (input, ctx) => {
+      ctx.adapters.llm; // fully typed
+    },
+  });
+  ```
+
 ## 0.0.6
 
 ### Patch Changes

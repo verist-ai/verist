@@ -1,6 +1,6 @@
 {
   "name": "@verist/otel",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "OpenTelemetry tracing adapter for workflow observability",
   "keywords": [
     "verist",

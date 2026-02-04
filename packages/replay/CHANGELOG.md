@@ -1,5 +1,12 @@
 # @verist/replay
 
+## 0.0.12
+
+### Patch Changes
+
+- Updated dependencies [61aba83]
+  - @verist/core@0.0.7
+
 ## 0.0.11
 
 ### Patch Changes
