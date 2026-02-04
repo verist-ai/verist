@@ -1,5 +1,11 @@
 # @verist/core
 
+## 0.0.8
+
+### Patch Changes
+
+- eab0dd8: Fix type inference issues: wrap `run()` input with `NoInfer` to prevent `z.enum()` literal widening, add `TAdapters` generic to `recompute()`, and fix invalid `as const` JSDoc example
+
 ## 0.0.7
 
 ### Patch Changes

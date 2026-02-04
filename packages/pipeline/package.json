@@ -1,6 +1,6 @@
 {
   "name": "@verist/pipeline",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Pipeline composition for Verist workflow steps",
   "keywords": [
     "verist",
