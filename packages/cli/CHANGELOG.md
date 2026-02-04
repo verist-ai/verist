@@ -1,5 +1,13 @@
 # @verist/cli
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [61aba83]
+  - @verist/core@0.0.7
+  - @verist/replay@0.0.12
+
 ## 0.0.5
 
 ### Patch Changes

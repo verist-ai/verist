@@ -1,6 +1,6 @@
 {
   "name": "@verist/batch",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Batch execution for Verist workflow steps",
   "keywords": [
     "verist",

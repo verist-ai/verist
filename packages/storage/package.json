@@ -1,6 +1,6 @@
 {
   "name": "@verist/storage",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Storage interface for workflow state with three-layer model (computed, overlay, effective)",
   "keywords": [
     "verist",

@@ -1,5 +1,25 @@
 # @verist/storage
 
+## 0.0.6
+
+### Patch Changes
+
+- 61aba83: Accept interfaces in `effectiveState<T>()`
+
+  Changed type constraint from `T extends Record<string, unknown>` to `T extends object`. TS interfaces lack implicit index signatures, so `Record<string, unknown>` rejected them at call sites.
+
+- 61aba83: Add generic type parameter to `RunStore.load<T>()`
+
+  `load<T>()` now accepts a type parameter like `commit<T>()` and `setOverlay<T>()`, returning `StateSnapshot<T>` instead of `StateSnapshot<unknown>`. Eliminates manual casts at call sites.
+
+  ```ts
+  const snap = await store.load<MyState>(workflowId, runId);
+  snap.value!.computed.score; // typed
+  ```
+
+- Updated dependencies [61aba83]
+  - @verist/core@0.0.7
+
 ## 0.0.5
 
 ### Patch Changes
