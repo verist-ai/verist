@@ -31,19 +31,13 @@ features:
     details: Manual corrections are preserved through recomputation. The system remembers your authority.
 ---
 
-## Built for when AI decisions need to be
+---
 
-- **Reproduced** months later for an audit or investigation
-- **Reviewed** by humans before going live
-- **Safely recomputed** after model or prompt changes
+<TerminalDemo />
 
-## Mental model
+<GitAnalogy />
 
-```text
-change prompt → recompute → see diff → approve → ship
-```
-
-Think of it as Git for AI decisions: inputs and artifacts are commits, recompute produces a reviewable diff, human overrides are explicit.
+<UseCaseSpotlight />
 
 ## How it differs
 

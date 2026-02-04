@@ -226,7 +226,7 @@ export async function run<
   TAdapters extends BaseAdapters = BaseAdapters,
 >(
   step: Step<TInput, TDelta, TAdapters>,
-  input: TInput,
+  input: NoInfer<TInput>,
   options: RunOptions<TAdapters>,
 ): Promise<Result<StepResult<TInput, TDelta>, StepError>> {
   const workflowId = options.workflowId ?? step.name;

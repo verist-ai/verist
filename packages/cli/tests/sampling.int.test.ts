@@ -239,7 +239,7 @@ describe("--meta", () => {
     );
     expect(exitCode).toBe(0);
     expect(stdout).toContain("1 baseline(s)");
-  });
+  }, 15_000);
 
   it("--meta filtering in test", async () => {
     // Capture both with different meta
@@ -284,7 +284,7 @@ describe("--meta", () => {
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.counts.total).toBe(1);
-  });
+  }, 15_000);
 });
 
 describe("--label", () => {
@@ -301,6 +301,7 @@ describe("--label", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  // Each test spawns 3 CLI subprocesses (2 captures + 1 command)
   it("--label filters baselines in test command", async () => {
     await runCli(
       [
@@ -334,7 +335,7 @@ describe("--label", () => {
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.counts.total).toBe(1);
-  });
+  }, 15_000);
 
   it("--label filters baselines in diff command", async () => {
     await runCli(
@@ -369,5 +370,5 @@ describe("--label", () => {
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.counts.total).toBe(1);
-  });
+  }, 15_000);
 });
