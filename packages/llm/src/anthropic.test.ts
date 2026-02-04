@@ -168,6 +168,23 @@ describe("createAnthropic", () => {
     expect(params.max_tokens).toBe(100);
   });
 
+  it("ignores responseFormat without error", async () => {
+    const client = createMockClient({
+      content: [{ type: "text", text: '{"key": "value"}' }],
+    });
+    const llm = createAnthropic({ client });
+
+    const result = await llm.complete({
+      model: "claude-sonnet-4-20250514",
+      messages: [{ role: "user", content: "Return JSON" }],
+      responseFormat: "json",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.content).toBe('{"key": "value"}');
+  });
+
   it("maps end_turn to stop finish reason", async () => {
     const client = createMockClient({ stop_reason: "end_turn" });
     const llm = createAnthropic({ client });

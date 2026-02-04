@@ -27,6 +27,7 @@ interface OpenAICreateParams {
   messages: OpenAIMessage[];
   temperature?: number;
   max_tokens?: number;
+  response_format?: { type: "json_object" };
 }
 
 /**
@@ -154,6 +155,9 @@ export function createOpenAI(config: OpenAIAdapterConfig): LLMProvider {
         }),
         ...(request.maxTokens !== undefined && {
           max_tokens: request.maxTokens,
+        }),
+        ...(request.responseFormat === "json" && {
+          response_format: { type: "json_object" as const },
         }),
       };
 
