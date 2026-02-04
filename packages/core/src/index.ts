@@ -18,7 +18,13 @@ export {
 export type { Result } from "./result.ts";
 
 // Utility types
-export type { BaseAdapters, Delta, Infer } from "./types.ts";
+export type {
+  AdaptersOption,
+  BaseAdapters,
+  Delta,
+  Infer,
+  OptionsArg,
+} from "./types.ts";
 
 // Audit events
 export { AuditEventSchema, LLMTraceSchema } from "./event.ts";

@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
+  AdaptersOption,
   BaseAdapters,
   Command,
   Delta,
+  OnArtifact,
+  OptionsArg,
   Result,
   Step,
-  StepContext,
   StepOutput,
 } from "@verist/core";
-import { err, ok } from "@verist/core";
+import { createContextFactory, err, ok } from "@verist/core";
 import { captureArtifact, normalizeCommands } from "./artifact.ts";
 import { diff, formatPath } from "./diff.ts";
 import { hashValue } from "./hash.ts";
@@ -79,8 +81,16 @@ export interface RecomputeError {
 
 /**
  * Options for recomputation.
+ * `adapters` is required when the step declares adapters, optional otherwise.
  */
-export interface RecomputeOptions {
+export type RecomputeOptions<TAdapters extends BaseAdapters = BaseAdapters> =
+  RecomputeOptionsBase & AdaptersOption<TAdapters>;
+
+interface RecomputeOptionsBase {
+  /** Override runId. Defaults to random UUID. */
+  runId?: string;
+  /** Callback for capturing artifacts during execution. */
+  onArtifact?: OnArtifact;
   /** Capture artifacts for the recomputed output. Pass options or true. */
   captureArtifacts?: CaptureOptions | boolean;
   /**
@@ -111,14 +121,15 @@ export interface RecomputeOptions {
  *
  * @example
  * ```typescript
- * const result = await recompute(snapshot, extractStep, ctx);
+ * const result = await recompute(snapshot, extractStep, {
+ *   adapters: { llm },
+ *   runId: `recompute-${id}`,
+ *   validate: true,
+ * });
  * if (result.ok) {
  *   const { deltaDiff, commandsDiff } = result.value;
  *   if (deltaDiff && !deltaDiff.equal) {
  *     console.log("State changed:", formatDiff(deltaDiff));
- *   }
- *   if (commandsDiff && !commandsDiff.equal) {
- *     console.log("Control flow changed:", formatDiff(commandsDiff));
  *   }
  * }
  * ```
@@ -130,9 +141,30 @@ export async function recompute<
 >(
   snapshot: Snapshot,
   step: Step<TInput, TDelta, TAdapters>,
-  ctx: StepContext<TAdapters>,
-  options?: RecomputeOptions,
+  ...args: OptionsArg<TAdapters, RecomputeOptions<TAdapters>>
 ): Promise<Result<RecomputeResult<TDelta>, RecomputeError>> {
+  const options = (args[0] ?? {}) as RecomputeOptions<TAdapters>;
+  const adapters = options.adapters ?? ({} as TAdapters);
+
+  let runId = options.runId;
+  if (!runId) {
+    if (typeof crypto?.randomUUID !== "function") {
+      throw new Error(
+        "recompute() requires Web Crypto API (Node 20+, Bun, Deno, modern browsers). " +
+          "Provide runId explicitly or upgrade your runtime.",
+      );
+    }
+    runId = crypto.randomUUID();
+  }
+
+  // Derive context from snapshot metadata + options
+  const ctx = createContextFactory(adapters)({
+    workflowId: snapshot.workflowId,
+    workflowVersion: snapshot.workflowVersion,
+    runId,
+    onArtifact: options.onArtifact,
+  });
+
   // Verify input hash matches
   const currentInputHash = await hashValue(snapshot.input);
   if (currentInputHash !== snapshot.inputHash) {
@@ -146,7 +178,7 @@ export async function recompute<
   // When validating, use the parsed result (respects Zod transforms/defaults)
   // to match runStep semantics.
   let stepInput = snapshot.input as TInput;
-  if (options?.validate) {
+  if (options.validate) {
     const inputResult = step.inputSchema.safeParse(snapshot.input);
     if (!inputResult.success) {
       return err({
@@ -179,7 +211,7 @@ export async function recompute<
   let parsedDelta: Delta<TDelta> | undefined;
   let schemaViolations: SchemaViolation[] = [];
 
-  if (options?.validate) {
+  if (options.validate) {
     const outputSchema = options.strictOutput
       ? step.deltaSchema
       : step.outputDeltaSchema;
@@ -226,7 +258,7 @@ export async function recompute<
         : "clean";
 
   // Resolve capture options: true → full content, false/undefined → skip, object → pass through
-  const captureArtifacts = options?.captureArtifacts;
+  const captureArtifacts = options.captureArtifacts;
   const shouldCapture =
     captureArtifacts !== undefined && captureArtifacts !== false;
   const captureOpts =

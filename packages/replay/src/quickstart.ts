@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
+  BaseAdapters,
+  OptionsArg,
   Result,
   Step,
-  StepContext,
-  StepOutput,
   StepResult,
 } from "@verist/core";
 import type { SnapshotFromResultOptions } from "./artifact.ts";
@@ -21,13 +21,16 @@ export async function capture<TInput, TDelta>(
   return createSnapshotFromResult(result, options);
 }
 
-export async function recompute<TInput, TState>(
+export async function recompute<
+  TInput,
+  TDelta,
+  TAdapters extends BaseAdapters = BaseAdapters,
+>(
   snapshot: Snapshot,
-  step: Step<TInput, TState>,
-  ctx: StepContext,
-  options?: RecomputeOptions,
-): Promise<Result<RecomputeResult<StepOutput<TState>>, RecomputeError>> {
-  return recomputeFull(snapshot, step, ctx, options);
+  step: Step<TInput, TDelta, TAdapters>,
+  ...args: OptionsArg<TAdapters, RecomputeOptions<TAdapters>>
+): Promise<Result<RecomputeResult<TDelta>, RecomputeError>> {
+  return recomputeFull(snapshot, step, ...args);
 }
 
 export function diff(result: DiffResult | undefined): string {

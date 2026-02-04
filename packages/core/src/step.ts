@@ -41,6 +41,9 @@ export interface StepOutput<TDelta> {
 
 /**
  * Configuration for defining a step.
+ *
+ * Adapter types are inferred from the `ctx` parameter annotation on `run`.
+ * Steps without adapters can omit the annotation entirely.
  */
 export interface StepConfig<
   TInput,
@@ -54,8 +57,6 @@ export interface StepConfig<
    * The delta returned by run() is validated as Partial<delta>.
    */
   delta: z.ZodType<TDelta>;
-  /** Type hint for adapter inference. Value is ignored at runtime. */
-  adapters?: TAdapters;
   run: (
     input: TInput,
     ctx: StepContext<TAdapters>,
@@ -95,8 +96,7 @@ export interface Step<
  *   name: "extract",
  *   input: z.object({ documentId: z.string() }),
  *   delta: z.object({ claims: z.array(z.string()) }),
- *   adapters: {} as { db: DbAdapter },
- *   run: async (input, ctx) => {
+ *   run: async (input, ctx: StepContext<{ db: DbAdapter }>) => {
  *     // ctx.adapters.db is fully typed
  *     const doc = await ctx.adapters.db.getDocument(input.documentId);
  *     return {

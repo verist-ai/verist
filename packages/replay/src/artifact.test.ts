@@ -138,6 +138,7 @@ describe("createSnapshotFromResult", () => {
       workflowId: "verify-doc",
       workflowVersion: "1.2.0",
       runId: "run-456",
+      artifacts: [],
     };
 
     const snapshot = await createSnapshotFromResult(result);
@@ -163,6 +164,7 @@ describe("createSnapshotFromResult", () => {
         delta: { data: "secret" },
         events: [],
       },
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -186,6 +188,7 @@ describe("createSnapshotFromResult", () => {
         delta: { summary: "A summary" },
         events: [],
       },
+      artifacts: [],
       stepName: "summarize",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -212,6 +215,7 @@ describe("createSnapshotFromResult", () => {
         events: [],
         commands: [invoke("next", { id: "doc-123" })],
       },
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -238,6 +242,7 @@ describe("createSnapshotFromResult", () => {
         events: [],
         commands: [invoke("next", { id: "doc-123" })],
       },
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -261,6 +266,7 @@ describe("createSnapshotFromResult", () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
       output: { delta: { status: "done" }, events: [] },
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -279,6 +285,7 @@ describe("createSnapshotFromResult", () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
       output: { delta: { status: "done" }, events: [] },
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -302,6 +309,7 @@ describe("createSnapshotFromResult", () => {
         events: [],
         commands: [invoke("b", {}), invoke("a", {})],
       },
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -315,6 +323,7 @@ describe("createSnapshotFromResult", () => {
         events: [],
         commands: [invoke("a", {}), invoke("b", {})],
       },
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
