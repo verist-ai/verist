@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, expectTypeOf, it } from "bun:test";
 import { effectiveState, type StateSnapshot } from "./index.ts";
 import { createMemoryStore } from "./memory.ts";
 
@@ -124,12 +124,10 @@ describe("createMemoryStore", () => {
     await store.setOverlay("wf-1", "run-1", { risk: "low" });
 
     // Verify effective before recompute
-    const before = await store.load("wf-1", "run-1");
+    const before = await store.load<TestState>("wf-1", "run-1");
     expect(before.ok).toBe(true);
-    if (!before.ok) return;
-    const effectiveBefore = effectiveState(
-      before.value as StateSnapshot<TestState>,
-    );
+    if (!before.ok || !before.value) return;
+    const effectiveBefore = effectiveState(before.value);
     expect(effectiveBefore).toEqual({ score: 0.8, risk: "low" });
 
     // Recompute: new computed score, risk stays "high" in computed
@@ -200,6 +198,31 @@ describe("createMemoryStore", () => {
     expect(result.value.overlay).toEqual({ risk: "low" });
     const effective = effectiveState(result.value as StateSnapshot<TestState>);
     expect(effective.score).toBe(0.8);
+  });
+
+  it("load<T> returns typed snapshot", async () => {
+    const store = createMemoryStore();
+    await store.commit<TestState>({
+      workflowId: "wf-1",
+      runId: "run-1",
+      stepId: "step-1",
+      expectedVersion: 0,
+      delta: { score: 0.8, risk: "high" },
+      events: [],
+    });
+
+    // Typed load: computed carries TestState
+    const typed = await store.load<TestState>("wf-1", "run-1");
+    if (typed.ok && typed.value) {
+      expectTypeOf(typed.value.computed).toEqualTypeOf<TestState>();
+      expectTypeOf(typed.value.overlay).toEqualTypeOf<Partial<TestState>>();
+    }
+
+    // Untyped load: defaults to unknown
+    const untyped = await store.load("wf-1", "run-1");
+    if (untyped.ok && untyped.value) {
+      expectTypeOf(untyped.value.computed).toEqualTypeOf<unknown>();
+    }
   });
 
   it("load returns a clone (mutations do not affect store)", async () => {
