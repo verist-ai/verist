@@ -1,6 +1,6 @@
 {
   "name": "@verist/core",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Deterministic workflow kernel for AI systems — define steps, state deltas, and audit events",
   "keywords": [
     "verist",

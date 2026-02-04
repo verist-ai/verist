@@ -1,5 +1,12 @@
 # @verist/pipeline
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [a07b649]
+  - @verist/core@0.0.9
+
 ## 0.0.5
 
 ### Patch Changes

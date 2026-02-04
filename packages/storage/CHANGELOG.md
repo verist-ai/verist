@@ -1,5 +1,12 @@
 # @verist/storage
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [a07b649]
+  - @verist/core@0.0.9
+
 ## 0.0.7
 
 ### Patch Changes
