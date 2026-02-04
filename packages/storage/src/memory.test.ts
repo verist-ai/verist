@@ -6,6 +6,13 @@ import { createMemoryStore } from "./memory.ts";
 
 type TestState = { score: number; risk: string };
 
+// Interface (not type alias) — verifies effectiveState accepts interfaces,
+// which lack implicit index signatures and fail with Record<string, unknown>.
+interface ITestState {
+  score: number;
+  risk: string;
+}
+
 describe("createMemoryStore", () => {
   it("load returns null for non-existent run", async () => {
     const store = createMemoryStore();
@@ -223,6 +230,27 @@ describe("createMemoryStore", () => {
     if (untyped.ok && untyped.value) {
       expectTypeOf(untyped.value.computed).toEqualTypeOf<unknown>();
     }
+  });
+
+  it("effectiveState accepts interface-typed state", async () => {
+    const store = createMemoryStore();
+    await store.commit({
+      workflowId: "wf-1",
+      runId: "run-1",
+      stepId: "step-1",
+      expectedVersion: 0,
+      delta: { score: 0.8, risk: "high" },
+      events: [],
+    });
+
+    const result = await store.load<ITestState>("wf-1", "run-1");
+    expect(result.ok).toBe(true);
+    if (!result.ok || !result.value) return;
+
+    // Would fail to compile if effectiveState required Record<string, unknown>
+    const effective = effectiveState(result.value);
+    expectTypeOf(effective).toEqualTypeOf<ITestState>();
+    expect(effective).toEqual({ score: 0.8, risk: "high" });
   });
 
   it("load returns a clone (mutations do not affect store)", async () => {

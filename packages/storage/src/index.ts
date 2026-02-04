@@ -19,9 +19,8 @@ export interface LayeredState<T> {
  * Overlay keys take precedence over computed values.
  * Note: explicit undefined in overlay will override computed (avoid storing undefined).
  */
-export function effectiveState<T extends Record<string, unknown>>(
-  state: LayeredState<T>,
-): T {
+// `object` not `Record<string, unknown>` — TS interfaces lack implicit index signatures
+export function effectiveState<T extends object>(state: LayeredState<T>): T {
   return { ...state.computed, ...state.overlay };
 }
 

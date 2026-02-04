@@ -17,6 +17,21 @@ type PartialableSchema<T> = z.ZodType<T> & {
  * The external runner/orchestrator interprets and executes them.
  */
 export interface StepOutput<TDelta> {
+  /**
+   * Partial state update. Only include fields that changed.
+   *
+   * Note: TypeScript widens ternary results (e.g. `x ? "a" : "b"` becomes
+   * `string`). For literal union deltas, use `as const` or an explicit
+   * type annotation to preserve narrowing:
+   *
+   * ```ts
+   * // ❌ widens to string
+   * delta: { status: cond ? "ok" : "error" }
+   *
+   * // ✅ preserves literal union
+   * delta: { status: cond ? "ok" : "error" } as const
+   * ```
+   */
   delta: Delta<TDelta>;
   events: AuditEvent[];
   commands?: Command[];
@@ -37,6 +52,8 @@ export interface StepConfig<
    * The delta returned by run() is validated as Partial<delta>.
    */
   delta: z.ZodType<TDelta>;
+  /** Type hint for adapter inference. Value is ignored at runtime. */
+  adapters?: TAdapters;
   run: (
     input: TInput,
     ctx: StepContext<TAdapters>,
@@ -76,7 +93,9 @@ export interface Step<
  *   name: "extract",
  *   input: z.object({ documentId: z.string() }),
  *   delta: z.object({ claims: z.array(z.string()) }),
+ *   adapters: {} as { db: DbAdapter },
  *   run: async (input, ctx) => {
+ *     // ctx.adapters.db is fully typed
  *     const doc = await ctx.adapters.db.getDocument(input.documentId);
  *     return {
  *       delta: { claims: ["claim1"] },

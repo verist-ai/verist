@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, expectTypeOf, it } from "bun:test";
 import { z } from "zod";
 import type { Artifact } from "./artifact.ts";
 import { createContextFactory } from "./context.ts";
@@ -20,7 +20,8 @@ describe("runStep", () => {
     name: "test",
     input: z.object({ input: z.number() }),
     delta: z.object({ output: z.number() }),
-    run: async (input: { input: number }, ctx: { adapters: TestAdapters }) => ({
+    adapters: {} as TestAdapters,
+    run: async (input, ctx) => ({
       delta: { output: input.input + ctx.adapters.db.getValue() },
       events: [{ type: "computed", payload: { input: input.input } }],
     }),
@@ -118,6 +119,21 @@ describe("runStep", () => {
     }
   });
 
+  it("infers adapter types from adapters field", () => {
+    defineStep({
+      name: "typed-adapters",
+      input: z.object({ x: z.number() }),
+      delta: z.object({ y: z.number() }),
+      adapters: {} as TestAdapters,
+      run: async (_input, ctx) => {
+        // Compile-time proof: ctx.adapters is inferred as TestAdapters
+        expectTypeOf(ctx.adapters).toEqualTypeOf<TestAdapters>();
+        expectTypeOf(ctx.adapters.db.getValue).toEqualTypeOf<() => number>();
+        return { delta: { y: 1 }, events: [] };
+      },
+    });
+  });
+
   it("allows partial output delta", async () => {
     const partialStep = defineStep({
       name: "partial",
@@ -202,7 +218,8 @@ describe("run", () => {
       name: "prefixed",
       input: z.object({ text: z.string() }),
       delta: z.object({ result: z.string() }),
-      run: async (input, ctx: { adapters: MyAdapters }) => ({
+      adapters: {} as MyAdapters,
+      run: async (input, ctx) => ({
         delta: { result: `${ctx.adapters.prefix}${input.text}` },
         events: [],
       }),
