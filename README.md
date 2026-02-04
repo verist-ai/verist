@@ -38,12 +38,22 @@ Verist is not logging or observability — it is deterministic replay with revie
 ## Install
 
 ```bash
-npm install @verist/core @verist/replay zod
+npm install @verist/core @verist/replay @verist/cli zod
 ```
 
 ## Quickstart
 
-See what breaks when you change a prompt — in under 60 seconds:
+Get started with no API keys — `verist init` scaffolds a deterministic step using regex extraction:
+
+```bash
+npx verist init
+npx verist capture --step parse-contact --input "verist/inputs/*.json"
+npx verist test --step parse-contact
+```
+
+### Next: LLM Diffs
+
+Once you have API keys, define an LLM-powered step and see what changes when you modify prompts:
 
 ```bash
 OPENAI_API_KEY=sk-... bun examples/prompt-diff/quickstart.ts
@@ -99,6 +109,17 @@ const recomputeResult = unwrap(
 console.log(formatDiff(recomputeResult.deltaDiff));
 ```
 
+## CI Integration
+
+Use `--format json` or `--format markdown` for machine-readable output:
+
+```bash
+verist test --step extract-claims --format json    # structured JSON for scripts
+verist test --step extract-claims --format markdown # PR comment summary
+```
+
+See [CI Integration Guide](./docs/guides/ci-integration.md) for GitHub Actions examples.
+
 ## When to Use
 
 - **Prompt iteration** — Test changes against production history before deploying
@@ -127,6 +148,7 @@ Verist is not a chat framework or agent runtime. It's the trust layer that makes
 ## Documentation
 
 - [Getting Started](https://verist.dev/getting-started)
+- [CI Integration Guide](./docs/guides/ci-integration.md)
 - [Replay and Diff Guide](https://verist.dev/guides/replay-and-diff)
 
 ## Links

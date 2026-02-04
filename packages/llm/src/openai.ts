@@ -182,15 +182,16 @@ export function createOpenAI(config: OpenAIAdapterConfig): LLMProvider {
       const promptTokens = completion.usage?.prompt_tokens ?? 0;
       const completionTokens = completion.usage?.completion_tokens ?? 0;
 
-      // outputHash: semantic content including termination reason
-      // (truncated responses differ from complete ones)
+      // outputHash: normalized shape shared across adapters — enables cross-provider comparison.
+      // inputHash: provider-specific params (OpenAI wire format). Switching providers changes
+      // input hashes even for logically equivalent prompts. This is intentional — the audit trail
+      // records what was actually sent to the provider.
       const normalizedOutput = {
         model: completion.model,
         content,
         finishReason: choice.finish_reason,
       };
 
-      // inputHash: provider request params (structural changes = semantic changes)
       const [inputHash, outputHash] = await Promise.all([
         hashValue(params),
         hashValue(normalizedOutput),

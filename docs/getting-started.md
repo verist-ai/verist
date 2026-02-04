@@ -1,26 +1,40 @@
 # Getting Started
 
-::: tip Runnable example
-Try the [Prompt Diff Quickstart](https://github.com/verist-ai/verist/tree/main/examples/prompt-diff) — run → capture → recompute → diff in under 60 seconds.
+::: tip Zero-config quickstart
+Run `verist init` to scaffold a working project with no API keys needed.
 :::
 
-This guide covers the full Verist setup. For a minimal example, see [Your First Step](guides/first-step). For how the pieces fit together in production, see [Architecture Overview](guides/architecture).
+This guide covers both CLI and programmatic usage. For how the pieces fit together in production, see [Architecture Overview](guides/architecture).
 
 ## Install
 
 ::: code-group
 
 ```bash [bun]
-bun add @verist/core @verist/replay zod
+bun add @verist/core @verist/replay @verist/cli zod
 ```
 
 ```bash [npm]
-npm install @verist/core @verist/replay zod
+npm install @verist/core @verist/replay @verist/cli zod
 ```
 
 :::
 
-## Core concepts
+## CLI Quickstart
+
+The fastest way to see Verist in action — no API keys required:
+
+```bash
+npx verist init
+npx verist capture --step parse-contact --input "verist/inputs/*.json"
+npx verist test --step parse-contact
+```
+
+This scaffolds a `parse-contact` step that extracts name, email, and phone via regex. Edit the step logic, re-run `verist test`, and see the diff.
+
+## Programmatic API
+
+### Core concepts
 
 Each step returns:
 
@@ -32,7 +46,7 @@ Each step returns:
 (input, context) → { delta, events, commands? }
 ```
 
-## Define and run a step
+### Define and run a step
 
 ```ts
 import { z } from "zod";
@@ -95,6 +109,34 @@ const result = await run(
     runId: "run-1",
   },
 );
+```
+
+## LLM Providers
+
+Verist supports OpenAI and Anthropic via `@verist/llm`. Any OpenAI-compatible API (Ollama, Azure OpenAI, etc.) works via the `baseURL` option.
+
+```ts
+import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
+import { createOpenAI, createAnthropic } from "@verist/llm";
+
+// OpenAI (or any compatible API via baseURL)
+const openai = createOpenAI({
+  client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+});
+
+// Anthropic
+const anthropic = createAnthropic({
+  client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+});
+
+// Ollama, Azure, etc.
+const ollama = createOpenAI({
+  client: new OpenAI({
+    baseURL: "http://localhost:11434/v1",
+    apiKey: "ollama",
+  }),
+});
 ```
 
 ## Runner wiring

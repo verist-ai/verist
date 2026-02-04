@@ -20,20 +20,17 @@ npm install @verist/replay
 Use `createSnapshotFromResult` after step execution:
 
 ```typescript
-import { runStep, createContextFactory } from "@verist/core";
+import { run } from "@verist/core";
 import {
   createSnapshotFromResult,
   recompute,
   formatDiff,
 } from "@verist/replay";
 
-const result = await runStep({
-  step,
-  input,
-  contextFactory: createContextFactory(adapters),
+const result = await run(step, input, {
+  adapters,
   workflowId: "verify-doc",
   workflowVersion: "1.0.0",
-  runId: crypto.randomUUID(),
 });
 
 if (result.ok) {

@@ -8,6 +8,8 @@ interface TestOpts {
   baseline?: string;
   workflow?: string;
   version?: string;
+  format?: "text" | "json" | "markdown";
+  meta?: string[];
   failOnDiff?: boolean;
   failOnCommandsDiff?: boolean;
 }

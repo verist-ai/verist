@@ -8,6 +8,8 @@ interface DiffOpts {
   baseline?: string;
   workflow?: string;
   version?: string;
+  format?: "text" | "json" | "markdown";
+  meta?: string[];
 }
 
 interface GlobalOpts {

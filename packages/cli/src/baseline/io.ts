@@ -22,6 +22,8 @@ export interface BaselineMetadata {
   label?: string;
   /** Whether commands were captured in the snapshot. */
   commandsCaptured: boolean;
+  /** User-defined key-value metadata for filtering. */
+  meta?: Record<string, string>;
 }
 
 /**

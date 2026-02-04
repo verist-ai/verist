@@ -15,6 +15,7 @@ interface ReplayOpts {
   workflow?: string;
   version?: string;
   verify?: boolean;
+  meta?: string[];
 }
 
 interface GlobalOpts {
@@ -85,13 +86,19 @@ export async function replayCommand(
     return;
   }
 
-  // Filter by label if specified
+  // Parse --meta filter
+  const metaFilter = parseMetaFilter(opts.meta);
+
+  // Filter by label and metadata
   let envelopes: Array<{ path: string; envelope: BaselineEnvelope }> = [];
   let readErrors = 0;
   for (const path of baselinePaths) {
     try {
       const envelope = readBaseline(path);
       if (opts.label && envelope.metadata.label !== opts.label) {
+        continue;
+      }
+      if (metaFilter && !matchesMeta(envelope.metadata.meta, metaFilter)) {
         continue;
       }
       envelopes.push({ path, envelope });
@@ -102,9 +109,13 @@ export async function replayCommand(
   }
 
   if (envelopes.length === 0) {
+    const filters = [
+      opts.label ? `label "${opts.label}"` : null,
+      metaFilter ? `meta filter` : null,
+    ].filter(Boolean);
     console.error(
-      opts.label
-        ? `No baselines found with label "${opts.label}".`
+      filters.length > 0
+        ? `No baselines found matching ${filters.join(" and ")}.`
         : "No baseline files found.",
     );
     process.exitCode = EXIT_ERROR;
@@ -113,6 +124,7 @@ export async function replayCommand(
 
   let verifiedCount = 0;
   let mismatchCount = 0;
+  let skippedCount = 0;
 
   for (const { path, envelope } of envelopes) {
     const filename = basename(path);
@@ -174,7 +186,9 @@ export async function replayCommand(
         skipped,
       };
 
-      if (verification.valid) {
+      if (verification.checked === 0) {
+        skippedCount++;
+      } else if (verification.valid) {
         verifiedCount++;
       } else {
         mismatchCount++;
@@ -191,6 +205,7 @@ export async function replayCommand(
         envelopes.length,
         opts.verify ? verifiedCount : undefined,
         opts.verify ? mismatchCount : undefined,
+        opts.verify ? skippedCount : undefined,
       ),
     );
   }
@@ -198,4 +213,33 @@ export async function replayCommand(
   if (readErrors > 0) {
     process.exitCode = EXIT_ERROR;
   }
+}
+
+/** Parse repeatable `--meta key=value` into a filter record. */
+function parseMetaFilter(
+  raw: string[] | undefined,
+): Record<string, string> | undefined {
+  if (!raw || raw.length === 0) return undefined;
+  const result: Record<string, string> = {};
+  for (const entry of raw) {
+    const eq = entry.indexOf("=");
+    if (eq === -1) {
+      result[entry] = "";
+    } else {
+      result[entry.slice(0, eq)] = entry.slice(eq + 1);
+    }
+  }
+  return result;
+}
+
+/** Check if baseline metadata matches all filter entries. */
+function matchesMeta(
+  meta: Record<string, string> | undefined,
+  filter: Record<string, string>,
+): boolean {
+  if (!meta) return false;
+  for (const [key, value] of Object.entries(filter)) {
+    if (meta[key] !== value) return false;
+  }
+  return true;
 }

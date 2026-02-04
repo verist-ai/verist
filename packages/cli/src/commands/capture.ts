@@ -17,6 +17,7 @@ import {
 import { loadConfig } from "../config.ts";
 import { EXIT_ERROR } from "../exitCodes.ts";
 import { formatSummary } from "../ui/index.ts";
+import { sample } from "../utils/sample.ts";
 
 interface CaptureOpts {
   step: string;
@@ -25,6 +26,9 @@ interface CaptureOpts {
   version?: string;
   label?: string;
   commands: boolean;
+  sample?: string;
+  seed?: string;
+  meta?: string[];
 }
 
 interface GlobalOpts {
@@ -61,7 +65,7 @@ export async function capture(
   const workflowVersion = opts.version ?? "0.0.0";
 
   // Glob input files (node:fs globSync works on Node 22+ and Bun)
-  const inputFiles = globSync(opts.input, { cwd })
+  let inputFiles = globSync(opts.input, { cwd })
     .map((f) => join(cwd, f))
     .sort();
 
@@ -70,6 +74,26 @@ export async function capture(
     process.exitCode = EXIT_ERROR;
     return;
   }
+
+  // Apply sampling after glob
+  if (opts.sample) {
+    const count = parseInt(opts.sample, 10);
+    if (isNaN(count) || count <= 0) {
+      console.error(`Invalid --sample value: ${opts.sample}`);
+      process.exitCode = EXIT_ERROR;
+      return;
+    }
+    const seed = opts.seed ? parseInt(opts.seed, 10) : 0;
+    if (opts.seed && isNaN(seed)) {
+      console.error(`Invalid --seed value: ${opts.seed}`);
+      process.exitCode = EXIT_ERROR;
+      return;
+    }
+    inputFiles = sample(inputFiles, count, seed);
+  }
+
+  // Parse --meta key=value pairs
+  const meta = parseMeta(opts.meta);
 
   const dir = baselineDir(cwd, workflowId, workflowVersion, step.name);
 
@@ -126,6 +150,7 @@ export async function capture(
         inputPath: relativePath,
         label: opts.label,
         commandsCaptured: opts.commands,
+        ...(meta && { meta }),
       },
     };
 
@@ -138,7 +163,7 @@ export async function capture(
 
   if (!globalOpts.quiet) {
     console.log(
-      `\n${formatSummary({ total: inputFiles.length, passed: counts.captured, changed: 0, schemaViolations: 0, failed: counts.failed, commandsChanged: 0, uncomparable: 0 })}`,
+      `\n${formatSummary({ total: inputFiles.length, passed: counts.captured, changed: 0, schemaViolations: 0, failed: counts.failed, commandsChanged: 0, diffUnavailable: 0 })}`,
     );
   }
 
@@ -146,4 +171,21 @@ export async function capture(
   if (counts.failed > 0 && counts.captured === 0) {
     process.exitCode = EXIT_ERROR;
   }
+}
+
+/** Parse repeatable `--meta key=value` into a record. Returns undefined if empty. */
+function parseMeta(
+  raw: string[] | undefined,
+): Record<string, string> | undefined {
+  if (!raw || raw.length === 0) return undefined;
+  const result: Record<string, string> = {};
+  for (const entry of raw) {
+    const eq = entry.indexOf("=");
+    if (eq === -1) {
+      result[entry] = "";
+    } else {
+      result[entry.slice(0, eq)] = entry.slice(eq + 1);
+    }
+  }
+  return result;
 }

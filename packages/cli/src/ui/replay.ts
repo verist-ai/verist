@@ -113,6 +113,7 @@ export function formatReplaySummary(
   total: number,
   verified?: number,
   mismatches?: number,
+  skipped?: number,
 ): string {
   const parts: string[] = [`${total} baseline(s)`];
   if (verified !== undefined) {
@@ -120,6 +121,9 @@ export function formatReplaySummary(
   }
   if (mismatches !== undefined && mismatches > 0) {
     parts.push(`${mismatches} with hash mismatches`);
+  }
+  if (skipped !== undefined && skipped > 0) {
+    parts.push(`${skipped} skipped (no content)`);
   }
   return parts.join(", ");
 }

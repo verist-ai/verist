@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AuditEvent } from "@verist/core";
-import type { LLMProvider, LLMResponse } from "./types";
+import type { LLMResponse } from "./types";
 
 // Types
 export type {
@@ -18,6 +18,10 @@ export type {
 // OpenAI adapter
 export { createOpenAI } from "./openai";
 export type { OpenAIAdapterConfig, OpenAIClientLike } from "./openai";
+
+// Anthropic adapter
+export { createAnthropic } from "./anthropic";
+export type { AnthropicAdapterConfig, AnthropicClientLike } from "./anthropic";
 
 // Internal hash utility for testing/debugging. API may change.
 export { hashValue } from "./hash";
@@ -44,20 +48,4 @@ export function llmEvent(
     payload,
     llmTrace: response.trace,
   };
-}
-
-/**
- * Configuration for Anthropic provider.
- */
-export interface AnthropicConfig {
-  apiKey: string;
-  baseUrl?: string;
-}
-
-/**
- * Create an Anthropic provider adapter.
- * @placeholder Implementation pending
- */
-export function createAnthropic(_config: AnthropicConfig): LLMProvider {
-  throw new Error("@verist/llm: Anthropic adapter not yet implemented");
 }
