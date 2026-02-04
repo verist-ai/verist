@@ -1,5 +1,17 @@
 # @verist/llm
 
+## 0.0.11
+
+### Patch Changes
+
+- a07b649: Add `responseFormat` option to `LLMRequest` for requesting JSON output from providers
+- a07b649: Add `extract()` helper for structured LLM data extraction
+
+  Combines `complete()` → JSON.parse → schema.parse into a single call with `Result`-based error handling. Uses a generic `{ parse }` schema interface (works with Zod, ArkType, or custom validators). Strips ` ```json ``` ` fences automatically. Error codes distinguish `json_error` (non-JSON response) from `schema_error` (valid JSON, wrong shape) for retry policies.
+
+- Updated dependencies [a07b649]
+  - @verist/core@0.0.9
+
 ## 0.0.10
 
 ### Patch Changes

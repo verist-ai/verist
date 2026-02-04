@@ -1,5 +1,14 @@
 # @verist/storage-pg
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [a07b649]
+  - @verist/core@0.0.9
+  - @verist/replay@0.0.14
+  - @verist/storage@0.0.8
+
 ## 0.0.12
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@verist/artifacts",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Content-addressable artifact storage for workflow inputs, outputs, and LLM responses",
   "keywords": [
     "verist",
