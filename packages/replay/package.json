@@ -1,6 +1,6 @@
 {
   "name": "@verist/replay",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Replay and diff for AI decisions — artifact capture, exact replay, and recompute with diff",
   "keywords": [
     "verist",
