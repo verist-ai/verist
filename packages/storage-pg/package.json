@@ -1,6 +1,6 @@
 {
   "name": "@verist/storage-pg",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "PostgreSQL storage adapter for Verist workflows using Drizzle ORM",
   "keywords": [
     "verist",
