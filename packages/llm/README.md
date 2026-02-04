@@ -123,9 +123,33 @@ if (!result.ok) {
 }
 ```
 
+### `createAnthropic(config)`
+
+Create an Anthropic provider adapter.
+
+```ts
+import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@verist/llm";
+
+const llm = createAnthropic({
+  client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  includeRawIO: true, // Embed raw request/response in trace (default: true)
+});
+
+const result = await llm.complete({
+  model: "claude-sonnet-4-20250514",
+  messages: [
+    { role: "system", content: "You are a helpful assistant." },
+    { role: "user", content: "Summarize this document..." },
+  ],
+});
+```
+
+System messages are automatically extracted and passed as Anthropic's `system` parameter.
+
 ## Bring Your Own Client
 
-The adapter uses structural typing — no direct dependency on `openai`. You provide a configured client instance:
+The adapters use structural typing — no direct dependency on `openai` or `@anthropic-ai/sdk`. You provide a configured client instance:
 
 ```ts
 import OpenAI from "openai";

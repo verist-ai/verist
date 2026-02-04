@@ -74,7 +74,7 @@ export function formatSummary(counts: {
   schemaViolations: number;
   failed: number;
   commandsChanged: number;
-  uncomparable: number;
+  diffUnavailable: number;
 }): string {
   const parts: string[] = [];
   parts.push(`${counts.total} baseline(s)`);
@@ -84,8 +84,8 @@ export function formatSummary(counts: {
     parts.push(`${counts.schemaViolations} schema violations`);
   if (counts.commandsChanged > 0)
     parts.push(`${counts.commandsChanged} commands changed`);
-  if (counts.uncomparable > 0)
-    parts.push(`${counts.uncomparable} diff unavailable`);
+  if (counts.diffUnavailable > 0)
+    parts.push(`${counts.diffUnavailable} diff unavailable`);
   if (counts.failed > 0) parts.push(`${counts.failed} failed`);
   return parts.join(", ");
 }

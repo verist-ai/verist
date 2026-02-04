@@ -9,9 +9,12 @@ import { basename, resolve } from "node:path";
 import { baselineDir, listBaselines, readBaseline } from "../baseline/index.ts";
 import type { VeristConfig } from "../config.ts";
 import { loadConfig } from "../config.ts";
+import type { BaselineEntry } from "../ui/index.ts";
 import {
   formatBaselineResult,
   formatError,
+  formatJson,
+  formatMarkdown,
   formatSummary,
 } from "../ui/index.ts";
 
@@ -20,6 +23,8 @@ interface DiffOpts {
   baseline?: string;
   workflow?: string;
   version?: string;
+  format?: "text" | "json" | "markdown";
+  meta?: string[];
 }
 
 interface GlobalOpts {
@@ -39,11 +44,12 @@ export interface DiffCounts {
   /** Baselines with command diffs (orthogonal to status). */
   commandsChanged: number;
   /** Baselines where structural comparison was unavailable (hash-only or missing content). */
-  uncomparable: number;
+  diffUnavailable: number;
 }
 
 export interface DiffLoopResult {
   counts: DiffCounts;
+  baselines: BaselineEntry[];
   /** True if a fatal config/resolution error occurred. */
   fatalError: boolean;
 }
@@ -63,7 +69,7 @@ export async function runDiffLoop(
       "Cannot use --baseline with --step, --workflow, or --version. " +
         "Use --baseline for a specific path, or --step/--workflow/--version for auto-resolution.",
     );
-    return { counts: zeroCounts(), fatalError: true };
+    return { counts: zeroCounts(), baselines: [], fatalError: true };
   }
 
   let config: VeristConfig;
@@ -71,7 +77,7 @@ export async function runDiffLoop(
     config = await loadConfig(cwd);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
-    return { counts: zeroCounts(), fatalError: true };
+    return { counts: zeroCounts(), baselines: [], fatalError: true };
   }
 
   // Resolve step
@@ -79,7 +85,7 @@ export async function runDiffLoop(
     console.error(
       "Provide --step or --baseline to identify which baselines to recompute.",
     );
-    return { counts: zeroCounts(), fatalError: true };
+    return { counts: zeroCounts(), baselines: [], fatalError: true };
   }
 
   // Resolve baseline paths and step
@@ -91,7 +97,7 @@ export async function runDiffLoop(
     const absPath = resolve(cwd, opts.baseline);
     if (!existsSync(absPath)) {
       console.error(`Baseline path not found: ${opts.baseline}`);
-      return { counts: zeroCounts(), fatalError: true };
+      return { counts: zeroCounts(), baselines: [], fatalError: true };
     }
 
     if (statSync(absPath).isDirectory()) {
@@ -102,7 +108,7 @@ export async function runDiffLoop(
 
     if (baselinePaths.length === 0) {
       console.error(`No baseline files found in: ${opts.baseline}`);
-      return { counts: zeroCounts(), fatalError: true };
+      return { counts: zeroCounts(), baselines: [], fatalError: true };
     }
 
     // Infer step name from first baseline
@@ -111,7 +117,7 @@ export async function runDiffLoop(
       first = readBaseline(baselinePaths[0]!);
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
-      return { counts: zeroCounts(), fatalError: true };
+      return { counts: zeroCounts(), baselines: [], fatalError: true };
     }
     stepName = first.snapshot.stepName;
   } else {
@@ -122,7 +128,7 @@ export async function runDiffLoop(
       console.error(
         `Step "${stepName}" not found in config. Available: ${available || "(none)"}`,
       );
-      return { counts: zeroCounts(), fatalError: true };
+      return { counts: zeroCounts(), baselines: [], fatalError: true };
     }
 
     const workflowId = opts.workflow ?? config.steps[stepName]!.name;
@@ -133,13 +139,13 @@ export async function runDiffLoop(
       console.error(
         `No baselines found at ${dir}. Run \`verist capture\` first.`,
       );
-      return { counts: zeroCounts(), fatalError: true };
+      return { counts: zeroCounts(), baselines: [], fatalError: true };
     }
 
     baselinePaths = listBaselines(dir);
     if (baselinePaths.length === 0) {
       console.error(`No baseline files in ${dir}.`);
-      return { counts: zeroCounts(), fatalError: true };
+      return { counts: zeroCounts(), baselines: [], fatalError: true };
     }
   }
 
@@ -153,21 +159,45 @@ export async function runDiffLoop(
     console.error(
       `Step "${stepName}" not found in config. Available: ${available || "(none)"}.${hint}`,
     );
-    return { counts: zeroCounts(), fatalError: true };
+    return { counts: zeroCounts(), baselines: [], fatalError: true };
   }
 
   const contextFactory = createContextFactory(config.adapters);
-  const counts: DiffCounts = { ...zeroCounts(), total: baselinePaths.length };
+  const format = opts.format ?? "text";
+  const isText = format === "text";
+  const metaFilter = parseMetaFilter(opts.meta);
+
+  const counts: DiffCounts = zeroCounts();
+  const entries: BaselineEntry[] = [];
 
   for (const path of baselinePaths) {
     let envelope;
     try {
       envelope = readBaseline(path);
     } catch (error) {
-      console.error(error instanceof Error ? error.message : String(error));
+      // Corrupted baselines are always reported — they indicate infra problems
+      // regardless of metadata filtering.
+      counts.total++;
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(msg);
       counts.failed++;
+      entries.push({
+        filename: basename(path),
+        status: "failed",
+        comparable: false,
+        schemaViolations: [],
+        deltaDiff: null,
+        commandsDiff: null,
+        error: msg,
+      });
       continue;
     }
+
+    // Filter by metadata if --meta is specified
+    if (metaFilter && !matchesMeta(envelope.metadata.meta, metaFilter)) {
+      continue;
+    }
+    counts.total++;
     const filename = basename(path);
 
     const ctx = contextFactory({
@@ -184,11 +214,21 @@ export async function runDiffLoop(
     if (!result.ok) {
       console.error(formatError(result.error, globalOpts.debug));
       counts.failed++;
+      entries.push({
+        filename,
+        status: "failed",
+        comparable: false,
+        schemaViolations: [],
+        deltaDiff: null,
+        commandsDiff: null,
+        error: result.error.message,
+      });
       continue;
     }
 
     // Dominance semantics: each run counts in exactly one bucket
-    const { status, commandsDiff } = result.value;
+    const { status, commandsDiff, deltaDiff, schemaViolations, comparable } =
+      result.value;
     switch (status) {
       case "schema_violation":
         counts.schemaViolations++;
@@ -201,26 +241,50 @@ export async function runDiffLoop(
         break;
     }
 
-    // Track uncomparable baselines (hash-only or missing content)
-    if (!result.value.comparable) {
-      counts.uncomparable++;
+    // Track diffUnavailable baselines (hash-only or missing content)
+    if (!comparable) {
+      counts.diffUnavailable++;
     }
 
-    // Commands are orthogonal — tracked separately
-    if (commandsDiff && !commandsDiff.equal) {
+    // Commands are orthogonal — tracked separately.
+    // Skip command diffs when baseline was captured with --no-commands to avoid false positives.
+    const ignoreCommands = envelope.metadata.commandsCaptured === false;
+    if (commandsDiff && !commandsDiff.equal && !ignoreCommands) {
       counts.commandsChanged++;
     }
 
-    if (!globalOpts.quiet) {
+    entries.push({
+      filename,
+      status,
+      comparable,
+      schemaViolations,
+      deltaDiff: deltaDiff ?? null,
+      commandsDiff: ignoreCommands ? null : (commandsDiff ?? null),
+    });
+
+    if (isText && !globalOpts.quiet) {
       console.log(formatBaselineResult(filename, result.value));
     }
   }
 
-  if (!globalOpts.quiet) {
-    console.log(`\n${formatSummary(counts)}`);
+  if (counts.total === 0 && metaFilter) {
+    console.error("No baselines matched the --meta filter.");
+    return { counts: zeroCounts(), baselines: [], fatalError: true };
   }
 
-  return { counts, fatalError: false };
+  // Machine formats (json/markdown) always emit — they are structured output for CI piping.
+  // --quiet only suppresses human-readable text output.
+  if (isText) {
+    if (!globalOpts.quiet) {
+      console.log(`\n${formatSummary(counts)}`);
+    }
+  } else if (format === "json") {
+    console.log(formatJson(stepName, counts, entries));
+  } else {
+    console.log(formatMarkdown(stepName, counts, entries));
+  }
+
+  return { counts, baselines: entries, fatalError: false };
 }
 
 function zeroCounts(): DiffCounts {
@@ -231,6 +295,35 @@ function zeroCounts(): DiffCounts {
     schemaViolations: 0,
     failed: 0,
     commandsChanged: 0,
-    uncomparable: 0,
+    diffUnavailable: 0,
   };
+}
+
+/** Parse repeatable `--meta key=value` into a filter record. */
+function parseMetaFilter(
+  raw: string[] | undefined,
+): Record<string, string> | undefined {
+  if (!raw || raw.length === 0) return undefined;
+  const result: Record<string, string> = {};
+  for (const entry of raw) {
+    const eq = entry.indexOf("=");
+    if (eq === -1) {
+      result[entry] = "";
+    } else {
+      result[entry.slice(0, eq)] = entry.slice(eq + 1);
+    }
+  }
+  return result;
+}
+
+/** Check if baseline metadata matches all filter entries. */
+function matchesMeta(
+  meta: Record<string, string> | undefined,
+  filter: Record<string, string>,
+): boolean {
+  if (!meta) return false;
+  for (const [key, value] of Object.entries(filter)) {
+    if (meta[key] !== value) return false;
+  }
+  return true;
 }
