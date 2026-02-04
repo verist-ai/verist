@@ -1160,6 +1160,54 @@ describe("recompute validation", () => {
     }
   });
 
+  it("strictOutput catches missing top-level fields that partial allows", async () => {
+    const step = defineStep({
+      name: "strict-test",
+      input: z.object({ value: z.number() }),
+      delta: z.object({ a: z.string(), b: z.string() }),
+      run: async () => ({
+        // Returns only `a`, missing `b`
+        delta: { a: "x" } as unknown as { a: string; b: string },
+        events: [],
+      }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "strict-test",
+      input: { value: 1 },
+      artifacts: [],
+    });
+
+    const ctx = contextFactory({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    });
+
+    // Default (partial) — missing `b` is allowed
+    const lenient = await recompute(snapshot, step, ctx, { validate: true });
+    expect(lenient.ok).toBe(true);
+    if (lenient.ok) {
+      expect(lenient.value.status).toBe("clean");
+      expect(lenient.value.schemaViolations).toEqual([]);
+    }
+
+    // strictOutput — missing `b` is caught
+    const strict = await recompute(snapshot, step, ctx, {
+      validate: true,
+      strictOutput: true,
+    });
+    expect(strict.ok).toBe(true);
+    if (strict.ok) {
+      expect(strict.value.status).toBe("schema_violation");
+      expect(strict.value.schemaViolations).toHaveLength(1);
+      expect(strict.value.schemaViolations[0]!.kind).toBe("missing");
+      expect(strict.value.schemaViolations[0]!.path).toEqual(["b"]);
+    }
+  });
+
   it("skips validation when validate is false (default)", async () => {
     const step = defineStep({
       name: "lenient",

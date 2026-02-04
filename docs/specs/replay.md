@@ -147,14 +147,21 @@ Loading output requires a `step-output` artifact with content. Hash-only artifac
 ### Recompute
 
 ```typescript
-const { output, deltaDiff, commandsDiff } = await recompute(
-  snapshot,
-  step,
-  ctx,
-);
+const result = await recompute(snapshot, step, ctx, {
+  validate: true,
+  strictOutput: true,
+});
 ```
 
-Recompute verifies the input hash before execution. If it does not match, throw `RecomputeError` with code `INPUT_HASH_MISMATCH`.
+Options:
+
+| Option             | Default | Description                                                                        |
+| ------------------ | ------- | ---------------------------------------------------------------------------------- |
+| `validate`         | `false` | Enable schema validation (input: strict gate, output: observational)               |
+| `strictOutput`     | `false` | Validate output against full `deltaSchema` instead of partial. Requires `validate` |
+| `captureArtifacts` | `false` | Capture output artifact (`true` for full content, or `CaptureOptions`)             |
+
+Recompute verifies the input hash before execution. If it does not match, returns `err()` with code `INPUT_HASH_MISMATCH`.
 
 ### Comparing Snapshots
 

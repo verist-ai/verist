@@ -78,6 +78,19 @@ for (const pkg of buildOrder) {
     process.exit(1);
   }
 
+  // Inject shebang for CLI bin entries (Bun.build doesn't add them)
+  if (pkgJson.bin) {
+    for (const binPath of Object.values(pkgJson.bin) as string[]) {
+      const absPath = join(pkgDir, binPath);
+      if (existsSync(absPath)) {
+        const content = await Bun.file(absPath).text();
+        if (!content.startsWith("#!")) {
+          await Bun.write(absPath, `#!/usr/bin/env node\n${content}`);
+        }
+      }
+    }
+  }
+
   console.log(`✓ ${pkg}`);
 }
 

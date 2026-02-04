@@ -51,7 +51,10 @@ Later, recompute with a fresh execution and compare:
 ```typescript
 import { recompute, formatDiff } from "@verist/replay";
 
-const recomputed = await recompute(snapshot, step, ctx, { validate: true });
+const recomputed = await recompute(snapshot, step, ctx, {
+  validate: true,
+  strictOutput: true, // catch missing required fields that .partial() allows
+});
 
 if (recomputed.ok) {
   const { status, deltaDiff, commandsDiff, schemaViolations } =
@@ -112,7 +115,7 @@ if (output.ok) {
 ### Replay
 
 - `loadOutput(snapshot)` — Load stored output from snapshot (async)
-- `recompute(snapshot, step, ctx, options?)` — Fresh execution with diff (async)
+- `recompute(snapshot, step, ctx, options?)` — Fresh execution with diff (async). Options: `validate`, `strictOutput`, `captureArtifacts`
 - `compareSnapshots(original, updated)` — Compare two snapshots
 
 ## Design
