@@ -1,5 +1,11 @@
 # @verist/llm
 
+## 0.0.10
+
+### Patch Changes
+
+- 0acd4ff: Add `responseFormat` option to `LLMRequest` for requesting JSON output from providers
+
 ## 0.0.9
 
 ### Patch Changes
