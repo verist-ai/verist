@@ -1,5 +1,18 @@
 # @verist/storage
 
+## 0.0.5
+
+### Patch Changes
+
+- 3a00052: Add generic type parameter to `RunStore.load<T>()`
+
+  `load<T>()` now accepts a type parameter like `commit<T>()` and `setOverlay<T>()`, returning `StateSnapshot<T>` instead of `StateSnapshot<unknown>`. Eliminates manual casts at call sites.
+
+  ```ts
+  const snap = await store.load<MyState>(workflowId, runId);
+  snap.value!.computed.score; // typed
+  ```
+
 ## 0.0.4
 
 ### Patch Changes
