@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ZodError } from "zod";
-import type { OnArtifact } from "./artifact.ts";
+import type { Artifact, OnArtifact } from "./artifact.ts";
 import { createArtifact } from "./artifact.ts";
 import type { ContextFactory } from "./context.ts";
 import { createContextFactory } from "./context.ts";
 import type { Result } from "./result.ts";
 import { err, ok } from "./result.ts";
 import type { Step, StepOutput } from "./step.ts";
-import type { BaseAdapters, Delta } from "./types.ts";
+import type {
+  AdaptersOption,
+  BaseAdapters,
+  Delta,
+  OptionsArg,
+} from "./types.ts";
 
 /**
  * Step execution error types.
@@ -32,6 +37,12 @@ export interface StepResult<TInput, TDelta> {
   /** Validated input that was passed to the step. Treat as immutable. */
   input: TInput;
   output: StepOutput<TDelta>;
+  /**
+   * All artifacts emitted during execution (adapter + step-output).
+   * Always includes at least the step-output artifact.
+   * These are the runtime collection — not automatically persisted to snapshots.
+   */
+  artifacts: Artifact[];
   stepName: string;
   workflowId: string;
   workflowVersion: string;
@@ -106,12 +117,19 @@ export async function runStep<
     });
   }
 
+  // Collect all artifacts emitted during execution
+  const artifacts: Artifact[] = [];
+  const collectArtifact: OnArtifact = (artifact) => {
+    artifacts.push(artifact);
+    onArtifact?.(artifact);
+  };
+
   // Create context with version for audit correlation
   const ctx = contextFactory({
     workflowId,
     workflowVersion,
     runId,
-    onArtifact,
+    onArtifact: collectArtifact,
   });
 
   // Execute step
@@ -142,19 +160,13 @@ export async function runStep<
     commands: output.commands,
   };
 
-  // Emit step-output artifact if callback is provided
-  if (onArtifact) {
-    onArtifact(
-      await createArtifact("step-output", {
-        delta: validatedOutput.delta,
-        events: validatedOutput.events,
-      }),
-    );
-  }
+  // Always emit step-output artifact (full StepOutput including commands)
+  collectArtifact(await createArtifact("step-output", validatedOutput));
 
   return ok({
     input: inputResult.data,
     output: validatedOutput,
+    artifacts,
     stepName: step.name,
     workflowId,
     workflowVersion,
@@ -170,9 +182,12 @@ function formatZodError(error: ZodError): string {
 
 /**
  * Options for the simplified run() function.
+ * `adapters` is required when the step declares adapters, optional otherwise.
  */
-export interface RunOptions<TAdapters extends BaseAdapters = BaseAdapters> {
-  adapters: TAdapters;
+export type RunOptions<TAdapters extends BaseAdapters = BaseAdapters> =
+  RunOptionsBase & AdaptersOption<TAdapters>;
+
+interface RunOptionsBase {
   /** Override generated runId. Defaults to random UUID. */
   runId?: string;
   /** Override workflowId. Defaults to step name. */
@@ -180,9 +195,8 @@ export interface RunOptions<TAdapters extends BaseAdapters = BaseAdapters> {
   /** Override workflowVersion. Defaults to "0.0.0". */
   workflowVersion?: string;
   /**
-   * Callback for capturing artifacts during execution.
-   * When provided, core emits step-output artifact with { delta, events }.
-   * Adapters can emit their own artifacts (llm-input, llm-output, etc.) via context.
+   * Callback notified for each artifact emitted during execution.
+   * Artifacts are always collected in result.artifacts regardless of this callback.
    */
   onArtifact?: OnArtifact;
 }
@@ -206,15 +220,14 @@ export interface RunOptions<TAdapters extends BaseAdapters = BaseAdapters> {
  *   name: "summarize",
  *   input: z.object({ text: z.string() }),
  *   delta: z.object({ summary: z.string() }),
- *   run: async (input, ctx) => ({
- *     delta: { summary: await ctx.adapters.llm.summarize(input.text) },
+ *   run: async (input) => ({
+ *     delta: { summary: `Summary of: ${input.text}` },
  *     events: [{ type: "summary_created" }],
  *   }),
  * });
  *
- * const result = await run(summarize, { text: "Hello" }, {
- *   adapters: { llm: myLlmClient },
- * });
+ * // No adapters needed — options object is optional
+ * const result = await run(summarize, { text: "Hello" });
  *
  * if (result.ok) {
  *   console.log(result.value.output.delta);
@@ -227,12 +240,14 @@ export async function run<
 >(
   step: Step<TInput, TDelta, TAdapters>,
   input: NoInfer<TInput>,
-  options: RunOptions<TAdapters>,
+  ...args: OptionsArg<TAdapters, RunOptions<TAdapters>>
 ): Promise<Result<StepResult<TInput, TDelta>, StepError>> {
-  const workflowId = options.workflowId ?? step.name;
-  const workflowVersion = options.workflowVersion ?? "0.0.0";
+  const opts = (args[0] ?? {}) as RunOptions<TAdapters>;
+  const workflowId = opts.workflowId ?? step.name;
+  const workflowVersion = opts.workflowVersion ?? "0.0.0";
+  const adapters = opts.adapters ?? ({} as TAdapters);
 
-  let runId = options.runId;
+  let runId = opts.runId;
   if (!runId) {
     if (typeof crypto?.randomUUID !== "function") {
       throw new Error(
@@ -246,10 +261,10 @@ export async function run<
   return runStep({
     step,
     input,
-    contextFactory: createContextFactory(options.adapters),
+    contextFactory: createContextFactory(adapters),
     workflowId,
     workflowVersion,
     runId,
-    onArtifact: options.onArtifact,
+    onArtifact: opts.onArtifact,
   });
 }

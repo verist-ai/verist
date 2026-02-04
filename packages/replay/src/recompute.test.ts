@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  createContextFactory,
-  defineStep,
-  emit,
-  invoke,
-  suspend,
-} from "@verist/core";
+import { defineStep, emit, invoke, suspend } from "@verist/core";
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import {
@@ -28,8 +22,6 @@ describe("recompute", () => {
     }),
   });
 
-  const contextFactory = createContextFactory({});
-
   it("executes step and returns diff on success", async () => {
     const originalOutput = {
       delta: { result: 42 },
@@ -43,12 +35,7 @@ describe("recompute", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx);
+    const result = await recompute(snapshot, doubleStep);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -73,12 +60,7 @@ describe("recompute", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx);
+    const result = await recompute(snapshot, doubleStep);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -103,12 +85,7 @@ describe("recompute", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx);
+    const result = await recompute(snapshot, doubleStep);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -129,12 +106,7 @@ describe("recompute", () => {
       capturedAt: Date.now(),
     };
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx);
+    const result = await recompute(snapshot, doubleStep);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -151,12 +123,7 @@ describe("recompute", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx);
+    const result = await recompute(snapshot, doubleStep);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -182,12 +149,7 @@ describe("recompute", () => {
       ],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx);
+    const result = await recompute(snapshot, doubleStep);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -216,12 +178,7 @@ describe("recompute", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, failingStep, ctx);
+    const result = await recompute(snapshot, failingStep);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -239,12 +196,7 @@ describe("recompute", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx, {
+    const result = await recompute(snapshot, doubleStep, {
       captureArtifacts: { hashOnly: true },
     });
 
@@ -265,12 +217,7 @@ describe("recompute", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, doubleStep, ctx, {
+    const result = await recompute(snapshot, doubleStep, {
       captureArtifacts: true,
     });
 
@@ -597,8 +544,6 @@ describe("compareSnapshots", () => {
 });
 
 describe("recompute command diffing", () => {
-  const contextFactory = createContextFactory({});
-
   it("detects command change (invoke to suspend)", async () => {
     const step = defineStep({
       name: "decide",
@@ -634,12 +579,7 @@ describe("recompute command diffing", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx);
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -677,12 +617,7 @@ describe("recompute command diffing", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx);
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -717,12 +652,7 @@ describe("recompute command diffing", () => {
       ],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx);
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -736,8 +666,6 @@ describe("recompute command diffing", () => {
 });
 
 describe("recompute validation", () => {
-  const contextFactory = createContextFactory({});
-
   it("validates input schema when validate is true", async () => {
     const step = defineStep({
       name: "typed",
@@ -758,12 +686,7 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -797,12 +720,7 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     // Validation is observation, not gate — always returns ok()
     expect(result.ok).toBe(true);
@@ -845,12 +763,7 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -900,12 +813,7 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -947,12 +855,7 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -982,12 +885,7 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -1027,12 +925,7 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -1066,12 +959,7 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -1103,12 +991,7 @@ describe("recompute validation", () => {
       ],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx);
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -1143,12 +1026,7 @@ describe("recompute validation", () => {
       ],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-    const result = await recompute(snapshot, step, ctx, { validate: true });
+    const result = await recompute(snapshot, step, { validate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -1180,14 +1058,8 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
-
     // Default (partial) — missing `b` is allowed
-    const lenient = await recompute(snapshot, step, ctx, { validate: true });
+    const lenient = await recompute(snapshot, step, { validate: true });
     expect(lenient.ok).toBe(true);
     if (lenient.ok) {
       expect(lenient.value.status).toBe("clean");
@@ -1195,7 +1067,7 @@ describe("recompute validation", () => {
     }
 
     // strictOutput — missing `b` is caught
-    const strict = await recompute(snapshot, step, ctx, {
+    const strict = await recompute(snapshot, step, {
       validate: true,
       strictOutput: true,
     });
@@ -1228,13 +1100,8 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const ctx = contextFactory({
-      workflowId: "wf",
-      workflowVersion: "1.0.0",
-      runId: "run-1",
-    });
     // Default: no validation — schemaViolations should be empty
-    const result = await recompute(snapshot, step, ctx);
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {

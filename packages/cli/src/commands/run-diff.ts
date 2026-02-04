@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Result } from "@verist/core";
-import { createContextFactory } from "@verist/core";
 import type { RecomputeError, RecomputeResult } from "@verist/replay";
 import { recompute } from "@verist/replay";
 import { existsSync, statSync } from "node:fs";
@@ -163,7 +162,7 @@ export async function runDiffLoop(
     return { counts: zeroCounts(), baselines: [], fatalError: true };
   }
 
-  const contextFactory = createContextFactory(config.adapters);
+  const adapters = config.adapters;
   const format = opts.format ?? "text";
   const isText = format === "text";
   const metaFilter = parseMetaFilter(opts.meta);
@@ -204,16 +203,14 @@ export async function runDiffLoop(
     counts.total++;
     const filename = basename(path);
 
-    const ctx = contextFactory({
-      workflowId: envelope.snapshot.workflowId,
-      workflowVersion: envelope.snapshot.workflowVersion,
-      runId: `recompute:${filename}`,
-    });
-
     const result: Result<
       RecomputeResult<unknown>,
       RecomputeError
-    > = await recompute(envelope.snapshot, step, ctx, { validate: true });
+    > = await recompute(envelope.snapshot, step, {
+      adapters,
+      runId: `recompute:${filename}`,
+      validate: true,
+    });
 
     if (!result.ok) {
       console.error(formatError(result.error, globalOpts.debug));

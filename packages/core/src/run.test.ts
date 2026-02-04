@@ -3,6 +3,7 @@
 import { describe, expect, expectTypeOf, it } from "bun:test";
 import { z } from "zod";
 import type { Artifact } from "./artifact.ts";
+import type { StepContext } from "./context.ts";
 import { createContextFactory } from "./context.ts";
 import { run, runStep } from "./run.ts";
 import { defineStep } from "./step.ts";
@@ -20,8 +21,7 @@ describe("runStep", () => {
     name: "test",
     input: z.object({ input: z.number() }),
     delta: z.object({ output: z.number() }),
-    adapters: {} as TestAdapters,
-    run: async (input, ctx) => ({
+    run: async (input, ctx: StepContext<TestAdapters>) => ({
       delta: { output: input.input + ctx.adapters.db.getValue() },
       events: [{ type: "computed", payload: { input: input.input } }],
     }),
@@ -119,13 +119,12 @@ describe("runStep", () => {
     }
   });
 
-  it("infers adapter types from adapters field", () => {
+  it("infers adapter types from ctx annotation", () => {
     defineStep({
       name: "typed-adapters",
       input: z.object({ x: z.number() }),
       delta: z.object({ y: z.number() }),
-      adapters: {} as TestAdapters,
-      run: async (_input, ctx) => {
+      run: async (_input, ctx: StepContext<TestAdapters>) => {
         // Compile-time proof: ctx.adapters is inferred as TestAdapters
         expectTypeOf(ctx.adapters).toEqualTypeOf<TestAdapters>();
         expectTypeOf(ctx.adapters.db.getValue).toEqualTypeOf<() => number>();
@@ -173,7 +172,7 @@ describe("run", () => {
   });
 
   it("executes step with minimal config", async () => {
-    const result = await run(simpleStep, { name: "World" }, { adapters: {} });
+    const result = await run(simpleStep, { name: "World" });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -194,7 +193,6 @@ describe("run", () => {
       simpleStep,
       { name: "Test" },
       {
-        adapters: {},
         workflowId: "custom-workflow",
         workflowVersion: "2.0.0",
         runId: "custom-run-id",
@@ -218,8 +216,7 @@ describe("run", () => {
       name: "prefixed",
       input: z.object({ text: z.string() }),
       delta: z.object({ result: z.string() }),
-      adapters: {} as MyAdapters,
-      run: async (input, ctx) => ({
+      run: async (input, ctx: StepContext<MyAdapters>) => ({
         delta: { result: `${ctx.adapters.prefix}${input.text}` },
         events: [],
       }),
@@ -238,7 +235,7 @@ describe("run", () => {
   });
 
   it("includes validated input in result", async () => {
-    const result = await run(simpleStep, { name: "Test" }, { adapters: {} });
+    const result = await run(simpleStep, { name: "Test" });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -261,7 +258,7 @@ describe("run", () => {
       }),
     });
 
-    const result = await run(stepWithCommands, { id: "123" }, { adapters: {} });
+    const result = await run(stepWithCommands, { id: "123" });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -284,77 +281,88 @@ describe("run", () => {
     });
 
     it("emits step-output artifact when callback is provided", async () => {
-      const artifacts: Artifact[] = [];
+      const callbackArtifacts: Artifact[] = [];
 
       const result = await run(
         artifactStep,
         { value: 5 },
         {
-          adapters: {},
-          onArtifact: (artifact) => artifacts.push(artifact),
+          onArtifact: (artifact) => callbackArtifacts.push(artifact),
         },
       );
 
       expect(result.ok).toBe(true);
-      expect(artifacts).toHaveLength(1);
-      expect(artifacts[0]!.kind).toBe("step-output");
+      // Callback receives the same artifacts
+      expect(callbackArtifacts).toHaveLength(1);
+      expect(callbackArtifacts[0]!.kind).toBe("step-output");
 
-      const expectedContent = {
-        delta: { doubled: 10 },
-        events: [{ type: "doubled", payload: { original: 5 } }],
-      };
-      expect(artifacts[0]!.content).toEqual(expectedContent);
+      // Result also contains artifacts
+      if (result.ok) {
+        expect(result.value.artifacts).toHaveLength(1);
+        expect(result.value.artifacts[0]!.kind).toBe("step-output");
 
-      // Hash must match the validated output (not raw/pre-validation)
-      const { hashValue } = await import("./artifact.ts");
-      expect(artifacts[0]!.hash).toBe(await hashValue(expectedContent));
+        const expectedContent = {
+          delta: { doubled: 10 },
+          events: [{ type: "doubled", payload: { original: 5 } }],
+        };
+        expect(result.value.artifacts[0]!.content).toEqual(expectedContent);
+
+        // Hash must match the validated output (not raw/pre-validation)
+        const { hashValue } = await import("./artifact.ts");
+        expect(result.value.artifacts[0]!.hash).toBe(
+          await hashValue(expectedContent),
+        );
+      }
     });
 
-    it("does not emit artifact when callback is not provided", async () => {
-      const result = await run(artifactStep, { value: 5 }, { adapters: {} });
+    it("collects artifacts even without callback", async () => {
+      const result = await run(artifactStep, { value: 5 });
 
       expect(result.ok).toBe(true);
-      // No way to verify no artifact was emitted, but test shouldn't throw
+      if (result.ok) {
+        expect(result.value.artifacts).toHaveLength(1);
+        expect(result.value.artifacts[0]!.kind).toBe("step-output");
+      }
     });
 
     it("passes onArtifact to context for adapters", async () => {
-      const artifacts: Artifact[] = [];
-      let contextOnArtifact: ((artifact: Artifact) => void) | undefined;
+      const callbackArtifacts: Artifact[] = [];
 
       const adapterStep = defineStep({
         name: "adapter-test",
         input: z.object({ x: z.number() }),
         delta: z.object({ y: z.number() }),
         run: async (input, ctx) => {
-          contextOnArtifact = ctx.onArtifact;
           // Simulate adapter emitting an artifact
-          if (ctx.onArtifact) {
-            ctx.onArtifact({
-              hash: "sha256:mock",
-              kind: "llm-output",
-              content: { response: "mocked" },
-            });
-          }
+          ctx.onArtifact?.({
+            hash: "sha256:mock",
+            kind: "llm-output",
+            content: { response: "mocked" },
+          });
           return { delta: { y: input.x }, events: [] };
         },
       });
 
-      await run(
+      const result = await run(
         adapterStep,
         { x: 1 },
         {
-          adapters: {},
-          onArtifact: (artifact) => artifacts.push(artifact),
+          onArtifact: (artifact) => callbackArtifacts.push(artifact),
         },
       );
 
-      expect(contextOnArtifact).toBeDefined();
-      // Adapter artifact + step-output = 2 artifacts
-      expect(artifacts).toHaveLength(2);
-      // Adapter artifacts emitted during execution come first,
-      // step-output emitted after step completes
-      expect(artifacts[0]!.kind).toBe("llm-output");
-      expect(artifacts[1]!.kind).toBe("step-output");
+      // Callback receives both adapter + step-output artifacts
+      expect(callbackArtifacts).toHaveLength(2);
+      expect(callbackArtifacts[0]!.kind).toBe("llm-output");
+      expect(callbackArtifacts[1]!.kind).toBe("step-output");
+
+      // Result also contains both artifacts
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.artifacts).toHaveLength(2);
+        expect(result.value.artifacts[0]!.kind).toBe("llm-output");
+        expect(result.value.artifacts[1]!.kind).toBe("step-output");
+      }
     });
   });
 });

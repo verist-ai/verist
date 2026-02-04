@@ -23,6 +23,10 @@ export type { OpenAIAdapterConfig, OpenAIClientLike } from "./openai";
 export { createAnthropic } from "./anthropic";
 export type { AnthropicAdapterConfig, AnthropicClientLike } from "./anthropic";
 
+// Extract structured data from LLM responses
+export { extract } from "./extract";
+export type { ExtractError, ExtractErrorCode, ExtractResult } from "./extract";
+
 // Internal hash utility for testing/debugging. API may change.
 export { hashValue } from "./hash";
 
