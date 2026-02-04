@@ -131,14 +131,23 @@ verist test --step extract-claims
 
 The `--seed` option ensures deterministic selection across runs. Omit `--seed` for a default seed of 0.
 
-## Metadata filtering
+## Filtering baselines
 
-Tag baselines during capture and filter during test:
+### By label
+
+Tag baselines with `--label` during capture and filter in test or diff:
 
 ```bash
-# Capture with metadata
-verist capture --step extract-claims --input "inputs/*.json" --meta model=gpt-4o
+verist capture --step extract-claims --input "inputs/*.json" --label "v2-prompt"
+verist test --step extract-claims --label "v2-prompt"
+verist diff --step extract-claims --label "v2-prompt"
+```
 
-# Test only specific metadata
+### By metadata
+
+Tag baselines with `--meta` during capture and filter during test:
+
+```bash
+verist capture --step extract-claims --input "inputs/*.json" --meta model=gpt-4o
 verist test --step extract-claims --meta model=gpt-4o --format json
 ```

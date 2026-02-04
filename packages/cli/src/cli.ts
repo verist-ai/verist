@@ -60,6 +60,7 @@ program
   .option("--baseline <path>", "path to specific baseline file or directory")
   .option("--workflow <id>", "workflow identifier for auto-resolution")
   .option("--version <ver>", "workflow version for auto-resolution")
+  .option("--label <name>", "filter by metadata label")
   .addOption(formatOption())
   .option(
     "--meta <key=value>",
@@ -99,6 +100,7 @@ program
   .option("--baseline <path>", "path to specific baseline file or directory")
   .option("--workflow <id>", "workflow identifier for auto-resolution")
   .option("--version <ver>", "workflow version for auto-resolution")
+  .option("--label <name>", "filter by metadata label")
   .addOption(formatOption())
   .option(
     "--meta <key=value>",

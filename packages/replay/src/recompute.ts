@@ -90,6 +90,12 @@ export interface RecomputeOptions {
    *   as `parsedDelta` (reflecting defaults, coercions, transforms).
    */
   validate?: boolean;
+  /**
+   * Validate output against the full delta schema instead of the partial
+   * schema. Catches missing required fields that `.partial()` would allow.
+   * Only effective when `validate` is also true.
+   */
+  strictOutput?: boolean;
 }
 
 /**
@@ -169,7 +175,10 @@ export async function recompute<TInput, TState>(
   let schemaViolations: SchemaViolation[] = [];
 
   if (options?.validate) {
-    const outputResult = step.outputDeltaSchema.safeParse(newOutput.delta);
+    const outputSchema = options.strictOutput
+      ? step.deltaSchema
+      : step.outputDeltaSchema;
+    const outputResult = outputSchema.safeParse(newOutput.delta);
     if (outputResult.success) {
       parsedDelta = outputResult.data as Delta<TState>;
       deltaForDiff = parsedDelta;

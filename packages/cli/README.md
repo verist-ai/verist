@@ -63,6 +63,7 @@ verist diff --step extract --format json
 | `--baseline <path>` | Path to specific baseline file or directory  |
 | `--workflow <id>`   | Workflow identifier for auto-resolution      |
 | `--version <ver>`   | Workflow version for auto-resolution         |
+| `--label <name>`    | Filter by metadata label                     |
 | `--format <mode>`   | Output format: `text`, `json`, or `markdown` |
 | `--meta <key=val>`  | Filter baselines by metadata (repeatable)    |
 
@@ -108,6 +109,7 @@ verist test --step extract --format json
 | `--baseline <path>`          | Path to specific baseline file or directory  |
 | `--workflow <id>`            | Workflow identifier for auto-resolution      |
 | `--version <ver>`            | Workflow version for auto-resolution         |
+| `--label <name>`             | Filter by metadata label                     |
 | `--format <mode>`            | Output format: `text`, `json`, or `markdown` |
 | `--meta <key=val>`           | Filter baselines by metadata (repeatable)    |
 | `--no-fail-on-diff`          | Exit `0` even when value diffs are detected  |

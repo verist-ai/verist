@@ -23,6 +23,7 @@ interface DiffOpts {
   baseline?: string;
   workflow?: string;
   version?: string;
+  label?: string;
   format?: "text" | "json" | "markdown";
   meta?: string[];
 }
@@ -193,7 +194,10 @@ export async function runDiffLoop(
       continue;
     }
 
-    // Filter by metadata if --meta is specified
+    // Filter by label and metadata
+    if (opts.label && envelope.metadata.label !== opts.label) {
+      continue;
+    }
     if (metaFilter && !matchesMeta(envelope.metadata.meta, metaFilter)) {
       continue;
     }
@@ -267,8 +271,12 @@ export async function runDiffLoop(
     }
   }
 
-  if (counts.total === 0 && metaFilter) {
-    console.error("No baselines matched the --meta filter.");
+  if (counts.total === 0 && (metaFilter || opts.label)) {
+    const filters = [
+      opts.label ? `--label "${opts.label}"` : null,
+      metaFilter ? "--meta" : null,
+    ].filter(Boolean);
+    console.error(`No baselines matched the ${filters.join(" and ")} filter.`);
     return { counts: zeroCounts(), baselines: [], fatalError: true };
   }
 

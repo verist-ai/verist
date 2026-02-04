@@ -286,3 +286,88 @@ describe("--meta", () => {
     expect(parsed.counts.total).toBe(1);
   });
 });
+
+describe("--label", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    writeConfig(tmpDir);
+    writeFileSync(join(tmpDir, "input-a.json"), '{ "value": 10 }');
+    writeFileSync(join(tmpDir, "input-b.json"), '{ "value": 20 }');
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("--label filters baselines in test command", async () => {
+    await runCli(
+      [
+        "capture",
+        "--step",
+        "double",
+        "--input",
+        "input-a.json",
+        "--label",
+        "v1",
+      ],
+      tmpDir,
+    );
+    await runCli(
+      [
+        "capture",
+        "--step",
+        "double",
+        "--input",
+        "input-b.json",
+        "--label",
+        "v2",
+      ],
+      tmpDir,
+    );
+
+    const { stdout, exitCode } = await runCli(
+      ["test", "--step", "double", "--label", "v1", "--format", "json"],
+      tmpDir,
+    );
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.counts.total).toBe(1);
+  });
+
+  it("--label filters baselines in diff command", async () => {
+    await runCli(
+      [
+        "capture",
+        "--step",
+        "double",
+        "--input",
+        "input-a.json",
+        "--label",
+        "v1",
+      ],
+      tmpDir,
+    );
+    await runCli(
+      [
+        "capture",
+        "--step",
+        "double",
+        "--input",
+        "input-b.json",
+        "--label",
+        "v2",
+      ],
+      tmpDir,
+    );
+
+    const { stdout, exitCode } = await runCli(
+      ["diff", "--step", "double", "--label", "v1", "--format", "json"],
+      tmpDir,
+    );
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.counts.total).toBe(1);
+  });
+});
