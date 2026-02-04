@@ -128,7 +128,7 @@ export type RecomputeStatus = "clean" | "value_changed" | "schema_violation";
  * Result of recomputation including diffs from original.
  */
 export interface RecomputeResult<TDelta> {
-  /** Raw recomputed output (always present, typed as `unknown` — use `parsedDelta` for typed access) */
+  /** Raw recomputed output, typed as `unknown` because recompute is observational and output may not conform to current schemas. Use `parsedDelta` for typed access. */
   output: StepOutput<unknown>;
   /**
    * Zod-parsed delta, only present when output validation succeeds.

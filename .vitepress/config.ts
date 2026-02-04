@@ -11,6 +11,7 @@ export default defineConfig({
   },
 
   title: "Verist",
+  appearance: "force-dark",
   description:
     "Replay + diff for AI decisions. Deterministic, audit-first workflow kernel for production AI systems.",
 

@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import type { z } from "zod";
-import type { AuditEvent } from "./event.ts";
 import type { Command } from "./command.ts";
 import type { StepContext } from "./context.ts";
+import type { AuditEvent } from "./event.ts";
 import type { BaseAdapters, Delta } from "./types.ts";
 
 /** Schema with optional partial() method (ZodObject has this) */
@@ -21,15 +23,15 @@ export interface StepOutput<TDelta> {
    * Partial state update. Only include fields that changed.
    *
    * Note: TypeScript widens ternary results (e.g. `x ? "a" : "b"` becomes
-   * `string`). For literal union deltas, use `as const` or an explicit
-   * type annotation to preserve narrowing:
+   * `string`). For literal union deltas, extract to a typed variable:
    *
    * ```ts
    * // ❌ widens to string
    * delta: { status: cond ? "ok" : "error" }
    *
    * // ✅ preserves literal union
-   * delta: { status: cond ? "ok" : "error" } as const
+   * const status: "ok" | "error" = cond ? "ok" : "error";
+   * return { delta: { status }, ... };
    * ```
    */
   delta: Delta<TDelta>;

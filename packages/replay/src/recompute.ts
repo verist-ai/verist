@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
+  BaseAdapters,
   Command,
   Delta,
   Result,
@@ -122,12 +123,16 @@ export interface RecomputeOptions {
  * }
  * ```
  */
-export async function recompute<TInput, TState>(
+export async function recompute<
+  TInput,
+  TDelta,
+  TAdapters extends BaseAdapters = BaseAdapters,
+>(
   snapshot: Snapshot,
-  step: Step<TInput, TState>,
-  ctx: StepContext,
+  step: Step<TInput, TDelta, TAdapters>,
+  ctx: StepContext<TAdapters>,
   options?: RecomputeOptions,
-): Promise<Result<RecomputeResult<TState>, RecomputeError>> {
+): Promise<Result<RecomputeResult<TDelta>, RecomputeError>> {
   // Verify input hash matches
   const currentInputHash = await hashValue(snapshot.input);
   if (currentInputHash !== snapshot.inputHash) {
@@ -140,7 +145,7 @@ export async function recompute<TInput, TState>(
   // Validate input against step schema if requested.
   // When validating, use the parsed result (respects Zod transforms/defaults)
   // to match runStep semantics.
-  let stepInput: TInput = snapshot.input as TInput;
+  let stepInput = snapshot.input as TInput;
   if (options?.validate) {
     const inputResult = step.inputSchema.safeParse(snapshot.input);
     if (!inputResult.success) {
@@ -156,7 +161,7 @@ export async function recompute<TInput, TState>(
   }
 
   // Execute the step with fresh adapters
-  let newOutput: StepOutput<TState>;
+  let newOutput: StepOutput<TDelta>;
   try {
     newOutput = await step.run(stepInput, ctx);
   } catch (cause) {
@@ -171,7 +176,7 @@ export async function recompute<TInput, TState>(
   // use the parsed delta for diffing to match runStep semantics (reflects
   // Zod defaults, coercions, transforms). When it fails, diff raw delta.
   let deltaForDiff: unknown = newOutput.delta;
-  let parsedDelta: Delta<TState> | undefined;
+  let parsedDelta: Delta<TDelta> | undefined;
   let schemaViolations: SchemaViolation[] = [];
 
   if (options?.validate) {
@@ -180,7 +185,7 @@ export async function recompute<TInput, TState>(
       : step.outputDeltaSchema;
     const outputResult = outputSchema.safeParse(newOutput.delta);
     if (outputResult.success) {
-      parsedDelta = outputResult.data as Delta<TState>;
+      parsedDelta = outputResult.data as Delta<TDelta>;
       deltaForDiff = parsedDelta;
     } else {
       schemaViolations = (
@@ -194,7 +199,7 @@ export async function recompute<TInput, TState>(
     (a) => a.kind === "step-output",
   );
   const originalOutput = isStepOutputShape(originalOutputArtifact?.content)
-    ? (originalOutputArtifact.content as StepOutput<TState>)
+    ? (originalOutputArtifact.content as StepOutput<TDelta>)
     : undefined;
 
   const comparable = originalOutput !== undefined;
