@@ -1,5 +1,15 @@
 # @verist/llm
 
+## 0.0.7
+
+### Patch Changes
+
+- 1ce7f88: Add Anthropic provider adapter with cross-provider hash equivalence
+  - `createAnthropic()` replaces placeholder stub with full implementation
+  - System messages extracted into Anthropic's `system` parameter
+  - Error mapping (429 → rate_limit, 401 → invalid_request, 5xx → provider_error)
+  - Output hash normalized to same shape as OpenAI adapter for cross-provider comparison
+
 ## 0.0.6
 
 ### Patch Changes
