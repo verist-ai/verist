@@ -23,11 +23,11 @@ export function createMemoryStore(): RunStore {
   }
 
   return {
-    async load(workflowId, runId) {
+    async load<T = unknown>(workflowId: string, runId: string) {
       const snapshot = store.get(key(workflowId, runId));
       if (!snapshot) return ok(null);
       // Return a clone to prevent external mutation
-      return ok(structuredClone(snapshot));
+      return ok(structuredClone(snapshot) as StateSnapshot<T>);
     },
 
     async commit<T>(params: CommitParams<T>) {

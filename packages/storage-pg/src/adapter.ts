@@ -266,10 +266,10 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
   const { db } = config;
 
   return {
-    async load(
+    async load<T = unknown>(
       workflowId: string,
       runId: string,
-    ): Promise<Result<StateSnapshot | null, StorageError>> {
+    ): Promise<Result<StateSnapshot<T> | null, StorageError>> {
       try {
         const rows = await db
           .select()
@@ -291,8 +291,8 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
           workflowId: row.workflowId,
           runId: row.runId,
           version: row.version,
-          computed: row.computed as Record<string, unknown>,
-          overlay: row.overlay as Partial<Record<string, unknown>>,
+          computed: row.computed as T,
+          overlay: row.overlay as Partial<T>,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
         });

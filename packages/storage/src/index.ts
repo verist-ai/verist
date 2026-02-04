@@ -129,11 +129,12 @@ export interface RunStore {
   /**
    * Load current state snapshot for a workflow run.
    * Returns null if run doesn't exist.
+   * `T` is a type hint only; adapters do not validate persisted data.
    */
-  load(
+  load<T = unknown>(
     workflowId: string,
     runId: string,
-  ): Promise<Result<StateSnapshot | null, StorageError>>;
+  ): Promise<Result<StateSnapshot<T> | null, StorageError>>;
 
   /**
    * Commit state delta + events atomically.
