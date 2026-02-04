@@ -1,4 +1,5 @@
 import { defineConfig } from "vitepress";
+import llmstxt from "vitepress-plugin-llms";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -8,6 +9,10 @@ export default defineConfig({
 
   sitemap: {
     hostname: "https://verist.dev",
+    transformItems: (items) => {
+      items.push({ url: "llms.txt" }, { url: "llms-full.txt" });
+      return items;
+    },
   },
 
   title: "Verist",
@@ -37,6 +42,24 @@ export default defineConfig({
       },
     ],
     ["meta", { property: "og:type", content: "website" }],
+    [
+      "link",
+      {
+        rel: "alternate",
+        type: "text/plain",
+        href: "/llms.txt",
+        title: "LLM context",
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "alternate",
+        type: "text/plain",
+        href: "/llms-full.txt",
+        title: "LLM context (full)",
+      },
+    ],
     ["meta", { name: "twitter:card", content: "summary" }],
     [
       "meta",
@@ -151,6 +174,12 @@ export default defineConfig({
       pattern: "https://github.com/verist-ai/verist/edit/main/docs/:path",
     },
 
+    footer: {
+      message:
+        'LLM context: <a href="/llms.txt">llms.txt</a> · <a href="/llms-full.txt">llms-full.txt</a><br>Released under the Apache 2.0 License.',
+      copyright: "Copyright © 2025 Verist Authors",
+    },
+
     search: {
       provider: "local",
     },
@@ -158,5 +187,6 @@ export default defineConfig({
 
   vite: {
     publicDir: "../.vitepress/public",
+    plugins: [llmstxt()],
   },
 });
