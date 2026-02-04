@@ -43,14 +43,16 @@ const effective = effectiveState(state);
 
 ```ts
 interface RunStore {
-  load(
-    workflowId: string,
-    runId: string,
-  ): Promise<Result<StateSnapshot | null, StorageError>>;
-  commit(params: CommitParams): Promise<Result<StateSnapshot, StorageError>>;
-  setOverlay(
-    workflowId: string,
-    runId: string,
+  load<T = unknown>(
+    workflowId,
+    runId,
+  ): Promise<Result<StateSnapshot<T> | null, StorageError>>;
+  commit<T>(
+    params: CommitParams<T>,
+  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  setOverlay<T>(
+    workflowId,
+    runId,
     overlay: Partial<T>,
   ): Promise<Result<StateSnapshot<T>, StorageError>>;
 }
