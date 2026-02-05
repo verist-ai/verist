@@ -23,7 +23,7 @@ Accepted
 ```typescript
 interface PipelineStageConfig {
   step: Step<any, any, any>;
-  wire?: (prevDelta: unknown, pipelineInput: unknown) => unknown;
+  wire?: (prevOutput: unknown, pipelineInput: unknown) => unknown;
   onError?: "fail" | "continue"; // renamed from "skip"
 }
 ```

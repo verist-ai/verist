@@ -74,7 +74,7 @@ interface ResumePayload {
 const verifyClaim = defineStep({
   name: "verifyClaim",
   input: VerifyClaimInput,
-  output: VerifyClaimDelta,
+  output: VerifyClaimOutput,
 
   async run({ input, adapters }) {
     const claim = await adapters.db.getClaim(input.claimId);
@@ -198,7 +198,7 @@ Use a separate step for resume handling. This keeps each step focused and avoids
 const verifyClaim = defineStep({
   name: "verifyClaim",
   input: VerifyClaimInput,
-  output: VerifyClaimDelta,
+  output: VerifyClaimOutput,
 
   async run({ input, adapters }) {
     const claim = await adapters.db.getClaim(input.claimId);
@@ -227,7 +227,7 @@ const handleDocumentation = defineStep({
     checkpoint: z.object({ claimId: z.string() }),
     resumeData: z.object({ documentIds: z.array(z.string()) }),
   }),
-  output: VerifyClaimDelta,
+  output: VerifyClaimOutput,
 
   async run({ input, adapters }) {
     const { checkpoint, resumeData } = input;

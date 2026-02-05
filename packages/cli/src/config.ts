@@ -75,5 +75,16 @@ export async function loadConfig(cwd?: string): Promise<VeristConfig> {
     );
   }
 
+  // Ensure config keys match step.name — the CLI uses keys for lookup,
+  // but snapshots/baselines store step.name as the canonical identity.
+  for (const [key, step] of Object.entries(config.steps)) {
+    if ((step as { name?: string }).name !== key) {
+      throw new Error(
+        `Step key "${key}" must match step.name "${(step as { name?: string }).name}". ` +
+          `Rename the key to "${(step as { name?: string }).name}" or change the step name.`,
+      );
+    }
+  }
+
   return config as VeristConfig;
 }

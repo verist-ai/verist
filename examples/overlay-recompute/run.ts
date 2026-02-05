@@ -20,13 +20,13 @@ const RiskInput = z.object({
   content: z.string(),
 });
 
-const RiskDelta = z.object({
+const RiskOutput = z.object({
   riskLevel: z.enum(["low", "medium", "high"]),
   riskScore: z.number().min(0).max(1),
   reasoning: z.string(),
 });
 
-type RiskState = z.infer<typeof RiskDelta>;
+type RiskState = z.infer<typeof RiskOutput>;
 
 // --- Mock LLM (intentionally non-deterministic to simulate model drift) ---
 
@@ -48,7 +48,7 @@ function mockAssessRisk(content: string) {
 const assessRisk = defineStep({
   name: "assess-risk",
   input: RiskInput,
-  output: RiskDelta,
+  output: RiskOutput,
   run: async (input) => {
     const result = mockAssessRisk(input.content);
     return {
