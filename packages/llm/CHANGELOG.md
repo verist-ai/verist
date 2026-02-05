@@ -1,5 +1,23 @@
 # @verist/llm
 
+## 0.0.12
+
+### Patch Changes
+
+- 81cdfe6: Add `responseFormat` option to `LLMRequest` for requesting JSON output from providers
+- 81cdfe6: Add `extract()` helper for structured LLM data extraction
+
+  Combines `complete()` → JSON.parse → schema.parse into a single call with `Result`-based error handling. Uses a generic `{ parse }` schema interface (works with Zod, ArkType, or custom validators). Strips ` ```json ``` ` fences automatically. Error codes distinguish `json_error` (non-JSON response) from `schema_error` (valid JSON, wrong shape) for retry policies.
+
+- 31c3c00: Consolidate `@verist/core` + `@verist/replay` into single `verist` package
+  - Merge core (step/workflow/run) and replay (snapshot/diff/recompute) into `verist` with curated root exports and `verist/internals` subpath for sibling packages
+  - `@verist/cli`: `verist` is now a regular dependency (not peer) so `npm i -g @verist/cli` works standalone
+  - All packages: import paths updated from `@verist/core` / `@verist/replay` to `verist`
+  - Delete unused packages: `@verist/batch`, `@verist/pipeline`, `@verist/queue`, `@verist/otel`, `@verist/artifacts`
+
+- Updated dependencies [31c3c00]
+  - verist@0.0.2
+
 ## 0.0.11
 
 ### Patch Changes

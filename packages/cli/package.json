@@ -1,6 +1,6 @@
 {
   "name": "@verist/cli",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "CLI for Verist workflows — replay, diff, and inspect AI decisions",
   "keywords": [
     "verist",
