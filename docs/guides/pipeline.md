@@ -18,7 +18,7 @@ Use it when you want composition without building a full orchestrator.
 
 ## Mental model
 
-A pipeline is a list of stages. Each stage takes the current state and produces a delta. The runner applies each delta and moves on.
+A pipeline is a list of stages. Each stage takes the current state and produces an output. The runner applies each output and moves on.
 
 ## When to use what
 

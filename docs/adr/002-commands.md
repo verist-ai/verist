@@ -6,13 +6,13 @@ Accepted
 
 ## Context
 
-- **Problem**: Steps can express state changes (`delta`) and audit records (`events`), but have no way to express "what should happen next"
+- **Problem**: Steps can express state changes (`output`) and audit records (`events`), but have no way to express "what should happen next"
 - **Why now**: Users need branching, fan-out, and human-in-the-loop patterns without Verist becoming an orchestrator
 - **Constraints**: Must stay declarative; execution remains external per ADR-001
 
 ## Decision
 
-- **Chosen option**: Add optional `commands: Command[]` to `StepOutput`
+- **Chosen option**: Add optional `commands: Command[]` to `StepReturn`
 - **Rationale**:
   - Commands are declarative data, not executed by core
   - Enables control flow while keeping orchestration external

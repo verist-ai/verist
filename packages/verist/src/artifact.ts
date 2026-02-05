@@ -4,7 +4,7 @@
  * Classification of what an artifact represents.
  *
  * **Reserved by kernel:**
- * - `"step-output"` — step's delta + events, used by replay/recompute
+ * - `"step-output"` — step's output + events (+ commands), used by replay/recompute
  * - `"step-commands"` — step's commands, used by recompute command diffing
  *
  * **User-defined:** Any other value (e.g., `"llm-input"`, `"llm-output"`) is

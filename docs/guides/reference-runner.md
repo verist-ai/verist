@@ -10,7 +10,7 @@ This is **not** production-grade. It is a reference for wiring.
 
 1. Load state
 2. Run a step
-3. Commit delta + events
+3. Commit output + events
 4. Enqueue commands
 5. Capture artifacts
 
@@ -51,11 +51,11 @@ for (;;) {
     runId: result.value.runId,
     stepId: result.value.stepName,
     expectedVersion: await store.currentVersion(result.value.runId),
-    delta: result.value.output.delta,
-    events: result.value.output.events,
+    output: result.value.output,
+    events: result.value.events,
   });
 
-  for (const cmd of result.value.output.commands ?? []) {
+  for (const cmd of result.value.commands ?? []) {
     await queue.enqueue(cmd);
   }
 

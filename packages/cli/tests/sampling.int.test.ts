@@ -50,9 +50,9 @@ import { z } from "zod";
 const doubleStep = defineStep({
   name: "double",
   input: z.object({ value: z.number() }),
-  delta: z.object({ result: z.number() }),
+  output: z.object({ result: z.number() }),
   run: async (input) => ({
-    delta: { result: input.value * 2 },
+    output: { result: input.value * 2 },
     events: [{ type: "computed" }],
   }),
 });

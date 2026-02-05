@@ -54,7 +54,7 @@ await store.commit({
   runId: "run-123",
   stepId: "extract",
   expectedVersion: 0, // Must be 0 for new runs
-  delta: { claims: extractedClaims },
+  output: { claims: extractedClaims },
   events: [
     {
       type: "extraction_completed",
@@ -96,7 +96,7 @@ For advanced Postgres setups, use this as a starting point and customize.
 
 ### Atomic Commits
 
-`commit()` writes state delta and events in a single transaction:
+`commit()` writes step output and events in a single transaction:
 
 - Either both succeed or both fail
 - Events are always attributed to the `stepId`

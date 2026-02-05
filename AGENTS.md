@@ -35,7 +35,7 @@ Verist is a deterministic workflow kernel for AI systems — replay + diff for A
 ## API Design
 
 - Minimal surface: `defineWorkflow`, `defineStep`, `runStep`
-- Steps receive state, return state delta + audit events
+- Steps receive input, return output + audit events
 - No magic — explicit wiring over convention
 
 ## Testing

@@ -22,7 +22,7 @@ interface Artifact {
 }
 
 // Reserved kinds (kernel-defined)
-// - "step-output": step's delta + events, used by replay/recompute
+// - "step-output": step's output + events, used by replay/recompute
 // - "step-commands": step's commands, used by recompute command diffing
 // User-defined kinds (e.g., "llm-input", "llm-output") are opaque metadata
 type ArtifactKind = "step-output" | "step-commands" | (string & {});
@@ -66,7 +66,7 @@ const result = await run(step, input, {
 // artifacts now contains step-output and any adapter-emitted artifacts
 ```
 
-When `onArtifact` is provided, core automatically emits a `step-output` artifact containing `{ delta, events }`.
+When `onArtifact` is provided, core automatically emits a `step-output` artifact containing `{ output, events }`.
 
 ### Adapter Integration
 
@@ -153,18 +153,18 @@ const result = await recompute(snapshot, step, ctx, {
 
 Options:
 
-| Option             | Default | Description                                                                        |
-| ------------------ | ------- | ---------------------------------------------------------------------------------- |
-| `validate`         | `false` | Enable schema validation (input: strict gate, output: observational)               |
-| `strictOutput`     | `false` | Validate output against full `deltaSchema` instead of partial. Requires `validate` |
-| `captureArtifacts` | `false` | Capture output artifact (`true` for full content, or `CaptureOptions`)             |
+| Option             | Default | Description                                                                         |
+| ------------------ | ------- | ----------------------------------------------------------------------------------- |
+| `validate`         | `true`  | Enable schema validation (input: strict gate, output: observational)                |
+| `strictOutput`     | `false` | Validate output against full `outputSchema` instead of partial. Requires `validate` |
+| `captureArtifacts` | `false` | Capture output artifact (`true` for full content, or `CaptureOptions`)              |
 
-Recompute verifies the input hash before execution. If it does not match, returns `err()` with code `INPUT_HASH_MISMATCH`.
+Recompute verifies the input hash before execution. If it does not match, returns `err()` with code `input_hash_mismatch`.
 
 ### Comparing Snapshots
 
 ```typescript
-const { inputDiff, deltaDiff, commandsDiff } = compareSnapshots(a, b);
+const { inputDiff, outputDiff, commandsDiff } = compareSnapshots(a, b);
 ```
 
 ## Semantics

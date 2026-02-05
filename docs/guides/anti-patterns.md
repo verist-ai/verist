@@ -14,7 +14,7 @@ const step = defineStep({
     if (cache[input.id]) return cache[input.id]; // [!code error]
     const result = await ctx.adapters.llm.run(input);
     cache[input.id] = result;
-    return { delta: result, events: [] };
+    return { output: result };
   },
 });
 ```
@@ -35,7 +35,7 @@ Pass all required data through input or adapters. State lives in the database, n
 const step = defineStep({
   run: async (input, ctx) => {
     await db.insert({ id: input.id, status: "processed" }); // [!code error]
-    return { delta: { processed: true }, events: [] };
+    return { output: { processed: true } };
   },
 });
 ```
@@ -43,7 +43,7 @@ const step = defineStep({
 :::
 
 ::: tip Do
-Return a delta. Let your runner commit it atomically after the step completes.
+Return an output. Let your runner commit it atomically after the step completes.
 :::
 
 **Why it breaks:** If the step fails after the write, you have partial state. Replay becomes impossible.
@@ -84,7 +84,7 @@ Let the runner handle retries. Steps should fail fast and return errors as value
 const step = defineStep({
   run: async (input, ctx) => {
     await sendEmail(input.userId, "Your request was processed"); // [!code error]
-    return { delta: { notified: true }, events: [] };
+    return { output: { notified: true } };
   },
 });
 ```
@@ -104,7 +104,7 @@ Return an `emit` command. Let your runner send the email after the step commits.
 ```ts
 const result = await run(step, input, ctx);
 if (result.ok) {
-  await store.commit(result.value.output.delta);
+  await store.commit(result.value.output);
   // commands silently dropped // [!code error]
 }
 ```
@@ -125,7 +125,7 @@ Interpret every command. Use your queue for `invoke`, your review system for `re
 const step = defineStep({
   run: async (input, ctx) => {
     await store.writeOverlay({ score: 0.95 }); // [!code error]
-    return { delta: { score: 0.85 }, events: [] };
+    return { output: { score: 0.85 } };
   },
 });
 ```
@@ -133,7 +133,7 @@ const step = defineStep({
 :::
 
 ::: tip Do
-Steps write to computed (via delta). Only your review UI writes to overlay.
+Steps write to computed (via output). Only your review UI writes to overlay.
 :::
 
 **Why it breaks:** The overlay is for human overrides. If steps write to it, human decisions can be silently overwritten.
@@ -145,7 +145,7 @@ Steps write to computed (via delta). Only your review UI writes to overlay.
 ```ts
 const result = await recompute(snapshot, step, newCtx);
 if (result.ok) {
-  await store.commit(result.value.output.delta); // [!code error]
+  await store.commit(result.value.output); // [!code error]
 }
 ```
 

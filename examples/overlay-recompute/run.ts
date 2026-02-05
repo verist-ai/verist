@@ -48,11 +48,11 @@ function mockAssessRisk(content: string) {
 const assessRisk = defineStep({
   name: "assess-risk",
   input: RiskInput,
-  delta: RiskDelta,
+  output: RiskDelta,
   run: async (input) => {
     const result = mockAssessRisk(input.content);
     return {
-      delta: result,
+      output: result,
       events: [{ type: "risk_assessed", payload: { score: result.riskScore } }],
     };
   },
@@ -85,8 +85,8 @@ async function main() {
       runId,
       stepId: "assess-risk",
       expectedVersion: 0,
-      delta: result.output.delta,
-      events: result.output.events ?? [],
+      output: result.output,
+      events: result.events,
     }),
   );
 
@@ -123,8 +123,8 @@ async function main() {
       runId,
       stepId: "assess-risk",
       expectedVersion: 1,
-      delta: result2.output.delta,
-      events: result2.output.events ?? [],
+      output: result2.output,
+      events: result2.events,
     }),
   );
 
@@ -157,8 +157,8 @@ async function main() {
       runId,
       stepId: "assess-risk",
       expectedVersion: 2,
-      delta: result3.output.delta,
-      events: result3.output.events ?? [],
+      output: result3.output,
+      events: result3.events,
     }),
   );
 

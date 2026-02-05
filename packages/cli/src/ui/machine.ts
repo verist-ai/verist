@@ -12,7 +12,7 @@ export interface BaselineEntry {
   status: RecomputeStatus | "failed";
   comparable: boolean;
   schemaViolations: SchemaViolation[];
-  deltaDiff: DiffResult | null;
+  outputDiff: DiffResult | null;
   commandsDiff: DiffResult | null;
   /** Error message when status is "failed". */
   error?: string;
@@ -23,7 +23,7 @@ export interface BaselineEntry {
  *
  * Status semantics:
  * - `"pass"` — all baselines clean, no regressions
- * - `"fail"` — regressions detected (value changes, schema violations)
+ * - `"fail"` — regressions detected (value changes, schema violations, command changes)
  * - `"error"` — infrastructure failure (corrupted baselines, execution crashes)
  */
 export interface MachineOutput {
@@ -83,14 +83,27 @@ export function formatMarkdown(
     lines.push(`| Diff unavailable | ${counts.diffUnavailable} |`);
   if (counts.failed > 0) lines.push(`| Failed | ${counts.failed} |`);
 
-  // List changed baselines
-  const changed = baselines.filter((b) => b.status !== "clean");
-  if (changed.length > 0) {
+  // Regressions: value changes, schema violations
+  const regressions = baselines.filter(
+    (b) => b.status === "value_changed" || b.status === "schema_violation",
+  );
+  if (regressions.length > 0) {
     lines.push("");
-    lines.push("#### Changed baselines");
+    lines.push("#### Regressions");
     lines.push("");
-    for (const b of changed) {
+    for (const b of regressions) {
       lines.push(`- \`${b.filename}\` — ${b.status}`);
+    }
+  }
+
+  // Infrastructure errors
+  const errors = baselines.filter((b) => b.status === "failed");
+  if (errors.length > 0) {
+    lines.push("");
+    lines.push("#### Errors");
+    lines.push("");
+    for (const b of errors) {
+      lines.push(`- \`${b.filename}\` — ${b.error ?? b.status}`);
     }
   }
 
@@ -101,6 +114,11 @@ function deriveStatus(counts: DiffCounts): "pass" | "fail" | "error" {
   // Infrastructure failures take precedence
   if (counts.failed > 0) return "error";
   // Regressions detected
-  if (counts.changed > 0 || counts.schemaViolations > 0) return "fail";
+  if (
+    counts.changed > 0 ||
+    counts.schemaViolations > 0 ||
+    counts.commandsChanged > 0
+  )
+    return "fail";
   return "pass";
 }

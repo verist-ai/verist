@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { OnArtifact, Result } from "verist";
+import type { AuditEvent, OnArtifact, Result } from "verist";
 import { err, ok } from "verist";
 import type {
   LLMCompleteOpts,
@@ -51,6 +51,7 @@ function stripJsonFences(text: string): string {
 interface ExtractContext {
   adapters: { llm: LLMProvider };
   onArtifact?: OnArtifact;
+  emitEvent: (event: AuditEvent) => void;
 }
 
 /**
@@ -60,12 +61,15 @@ interface ExtractContext {
  * The schema uses a generic `{ parse }` interface, so any validator works
  * (Zod, ArkType, custom) without coupling to a specific library.
  *
- * Accepts either a step context (reads `ctx.adapters.llm` and `ctx.onArtifact`
- * automatically) or an explicit `LLMProvider`.
+ * Accepts either a step context (reads `ctx.adapters.llm`, `ctx.onArtifact`,
+ * and `ctx.emitEvent` automatically) or an explicit `LLMProvider`.
+ *
+ * When using the context overload, an "extracted" audit event is auto-emitted
+ * via `ctx.emitEvent` on success (with the LLM trace attached).
  *
  * @example
  * ```typescript
- * // Context-aware: reads llm adapter and onArtifact from ctx
+ * // Context-aware: reads llm adapter, onArtifact, and emitEvent from ctx
  * const result = await extract(ctx, request, schema);
  *
  * // Explicit provider
@@ -92,13 +96,14 @@ export async function extract<T>(
 ): Promise<Result<ExtractResult<T>, ExtractError>> {
   let llm: LLMProvider;
   let resolvedOpts: LLMCompleteOpts | undefined;
+  let ctx: ExtractContext | undefined;
 
   // Discriminate: LLMProvider has complete(), context has adapters
   if (typeof (ctxOrLlm as LLMProvider).complete === "function") {
     llm = ctxOrLlm as LLMProvider;
     resolvedOpts = opts;
   } else {
-    const ctx = ctxOrLlm as ExtractContext;
+    ctx = ctxOrLlm as ExtractContext;
     llm = ctx.adapters.llm;
     // ctx.onArtifact provides default; explicit opts override
     resolvedOpts = ctx.onArtifact
@@ -134,6 +139,11 @@ export async function extract<T>(
       message: `Schema validation failed: ${cause instanceof Error ? cause.message : String(cause)}`,
       retryable: true,
     });
+  }
+
+  // Auto-emit audit event when using context overload
+  if (ctx) {
+    ctx.emitEvent({ type: "extracted", llmTrace: response.trace });
   }
 
   return ok({ data, response });

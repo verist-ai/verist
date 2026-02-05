@@ -2,8 +2,8 @@
 
 import type {
   CommitParams,
+  RunState,
   RunStore,
-  StateSnapshot,
   StorageError,
 } from "@verist/storage";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -260,10 +260,10 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
   const { db } = config;
 
   return {
-    async load<T = unknown>(
+    async load<T extends object = Record<string, unknown>>(
       workflowId: string,
       runId: string,
-    ): Promise<Result<StateSnapshot<T>, StorageError>> {
+    ): Promise<Result<RunState<T>, StorageError>> {
       try {
         const rows = await db
           .select()
@@ -301,16 +301,16 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
       }
     },
 
-    async commit<T>(
+    async commit<T extends object>(
       params: CommitParams<T>,
-    ): Promise<Result<StateSnapshot<T>, StorageError>> {
+    ): Promise<Result<RunState<T>, StorageError>> {
       const {
         workflowId,
         runId,
         stepId,
         expectedVersion,
-        delta,
-        events,
+        output,
+        events = [],
         commands,
       } = params;
 
@@ -351,7 +351,7 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                   workflowId,
                   runId,
                   version: 1,
-                  computed: delta as Record<string, unknown>,
+                  computed: output as Record<string, unknown>,
                   overlay: {},
                   createdAt: now,
                   updatedAt: now,
@@ -372,7 +372,7 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                 .update(veristState)
                 .set({
                   version: sql`${veristState.version} + 1`,
-                  computed: sql`${veristState.computed} || ${JSON.stringify(delta)}::jsonb`,
+                  computed: sql`${veristState.computed} || ${JSON.stringify(output)}::jsonb`,
                   updatedAt: now,
                 })
                 .where(
@@ -505,11 +505,11 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
       }
     },
 
-    async setOverlay<T>(
+    async setOverlay<T extends object>(
       workflowId: string,
       runId: string,
       overlay: Partial<T>,
-    ): Promise<Result<StateSnapshot<T>, StorageError>> {
+    ): Promise<Result<RunState<T>, StorageError>> {
       try {
         const result = await db
           .update(veristState)
@@ -637,6 +637,8 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
               });
             }
 
+            let stored: ReviewResolution | SuspendResolution;
+
             if (blockType === "review") {
               const reviewRes = resolution as ReviewResolution;
               if (typeof reviewRes.approved !== "boolean") {
@@ -645,6 +647,7 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                   message: "Review resolution requires 'approved: boolean'",
                 });
               }
+              stored = { approved: reviewRes.approved };
               // Transition deferred commands based on approval.
               // Scoped to the block's stepId to avoid affecting commands from other steps.
               // Clear lease fields to ensure clean state (defensive against dirty data).
@@ -663,14 +666,6 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                     eq(veristOutbox.status, "deferred"),
                   ),
                 );
-              // Mark block as resolved after side effects succeed
-              await tx
-                .update(veristBlocks)
-                .set({
-                  resolution: resolution as unknown as Record<string, unknown>,
-                  resolvedAt: now,
-                })
-                .where(eq(veristBlocks.id, blockId));
             } else if (blockType === "suspend") {
               if (!("resumeData" in resolution)) {
                 return err({
@@ -680,16 +675,15 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
               }
               const suspendRes = resolution as SuspendResolution;
               // Normalize undefined to null for JSONB storage consistency
-              if (suspendRes.resumeData === undefined) {
-                (suspendRes as { resumeData: unknown }).resumeData = null;
-              }
+              const resumeData = suspendRes.resumeData ?? null;
+              stored = { resumeData };
               // Create invoke command for resume step.
               // Uses synthetic stepId `resume:<blockId>` to distinguish from
               // regular step invocations — tooling should tolerate unknown stepIds.
               const resumeStep = blockResumeStep ?? blockStepId;
               const resumeInput = {
                 checkpoint: blockPayload,
-                resumeData: suspendRes.resumeData,
+                resumeData,
               };
               const resumeCommand: Command = {
                 type: "invoke",
@@ -716,14 +710,6 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                 )
                 ON CONFLICT (dedupe_key) DO NOTHING
               `);
-              // Mark block as resolved after side effects succeed
-              await tx
-                .update(veristBlocks)
-                .set({
-                  resolution: resolution as unknown as Record<string, unknown>,
-                  resolvedAt: now,
-                })
-                .where(eq(veristBlocks.id, blockId));
             } else {
               return err({
                 code: "serialization_error",
@@ -731,10 +717,19 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
               });
             }
 
+            // Mark block as resolved after side effects succeed
+            await tx
+              .update(veristBlocks)
+              .set({
+                resolution: stored as unknown as Record<string, unknown>,
+                resolvedAt: now,
+              })
+              .where(eq(veristBlocks.id, blockId));
+
             return ok({
               id: blockId.toString(),
               type: blockType as BlockType,
-              resolution,
+              resolution: stored,
             });
           },
         );

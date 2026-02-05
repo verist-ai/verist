@@ -13,7 +13,7 @@ This page shows how Verist fits into a production system. Use it to understand t
 │  └─────────┘     │                                        │    │
 │       ▲          │  1. Load state from DB                 │    │
 │       │          │  2. Call run(step, input, ctx)         │    │
-│       │          │  3. Commit delta + events              │    │
+│       │          │  3. Commit output + events             │    │
 │       │          │  4. Enqueue commands                   │    │
 │       │          │  5. Capture artifacts → snapshot       │    │
 │       │          └────────────────────────────────────────┘    │
@@ -24,7 +24,7 @@ This page shows how Verist fits into a production system. Use it to understand t
 │       │          │                                        │    │
 │       │          │  computed   overlay   events           │    │
 │       │          │  ────────   ───────   ──────           │    │
-│       │          │  Step deltas Human    Audit trail      │    │
+│       │          │  Step output Human    Audit trail      │    │
 │       │          │             overrides                  │    │
 │       │          │                                        │    │
 │       │          │  effective = { ...computed, ...overlay }    │
@@ -69,10 +69,10 @@ Runner loads state from DB
 run(step, input, ctx)
        │
        ▼
-Step returns { delta, events, commands }
+Step returns { output, events, commands }
        │
        ▼
-Runner commits delta + events to DB
+Runner commits output + events to DB
        │
        ▼
 Runner enqueues commands
@@ -93,7 +93,7 @@ recompute(snapshot, step, { adapters, validate: true })
 Compare original vs new output
        │
        ▼
-Return { status, deltaDiff, commandsDiff, schemaViolations }
+Return { status, outputDiff, commandsDiff, schemaViolations }
        │
        ▼
 Review UI shows diff

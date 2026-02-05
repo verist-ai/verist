@@ -74,7 +74,7 @@ interface ResumePayload {
 const verifyClaim = defineStep({
   name: "verifyClaim",
   input: VerifyClaimInput,
-  delta: VerifyClaimDelta,
+  output: VerifyClaimDelta,
 
   async run({ input, adapters }) {
     const claim = await adapters.db.getClaim(input.claimId);
@@ -83,7 +83,7 @@ const verifyClaim = defineStep({
     if (method === "documentation_required") {
       // Cannot proceed without founder input
       return {
-        delta: { status: "awaiting_input" },
+        output: { status: "awaiting_input" },
         events: [
           { type: "verification_suspended", payload: { claimId: claim.id } },
         ],
@@ -132,7 +132,7 @@ async function handleStepResult(result: StepResult, tx: Transaction) {
   const suspendCmd = commands.find((c) => c.type === "suspend");
 
   if (suspendCmd) {
-    // Atomic: delta + events + suspension record + run status
+    // Atomic: output + events + suspension record + run status
     await tx.runs.update(result.runId, { status: "suspended" });
     await tx.suspensions.insert({
       id: generateId(),
@@ -198,14 +198,14 @@ Use a separate step for resume handling. This keeps each step focused and avoids
 const verifyClaim = defineStep({
   name: "verifyClaim",
   input: VerifyClaimInput,
-  delta: VerifyClaimDelta,
+  output: VerifyClaimDelta,
 
   async run({ input, adapters }) {
     const claim = await adapters.db.getClaim(input.claimId);
 
     if (needsDocumentation(claim)) {
       return {
-        delta: { status: "awaiting_input" },
+        output: { status: "awaiting_input" },
         events: [],
         commands: [
           suspend({
@@ -227,7 +227,7 @@ const handleDocumentation = defineStep({
     checkpoint: z.object({ claimId: z.string() }),
     resumeData: z.object({ documentIds: z.array(z.string()) }),
   }),
-  delta: VerifyClaimDelta,
+  output: VerifyClaimDelta,
 
   async run({ input, adapters }) {
     const { checkpoint, resumeData } = input;
@@ -245,11 +245,11 @@ This pattern keeps step inputs simple and explicit.
 
 When handling a `suspend` command, runners MUST persist the following atomically (single transaction):
 
-- Step's delta and events
+- Step's output and events
 - Suspension record
 - Run status update to `suspended`
 
-This follows the general command contract (SPEC-commands): commands are persisted atomically with delta+events. Partial persistence leads to "state committed but no suspension record" or vice versa.
+This follows the general command contract (SPEC-commands): commands are persisted atomically with output+events. Partial persistence leads to "state committed but no suspension record" or vice versa.
 
 ### 2. At Most One Blocking Command
 
@@ -326,7 +326,7 @@ commands: [
 run: async (input, ctx) => {
   while (true) {
     const doc = await ctx.adapters.db.getDocument(input.docId);
-    if (doc) return { delta: { doc }, events: [] };
+    if (doc) return { output: { doc }, events: [] };
     await sleep(1000); // Blocks worker
   }
 };
@@ -336,7 +336,7 @@ run: async (input, ctx) => {
   const doc = await ctx.adapters.db.getDocument(input.docId);
   if (!doc) {
     return {
-      delta: {},
+      output: {},
       events: [],
       commands: [
         suspend({
@@ -347,7 +347,7 @@ run: async (input, ctx) => {
       ],
     };
   }
-  return { delta: { doc }, events: [] };
+  return { output: { doc }, events: [] };
 };
 ```
 

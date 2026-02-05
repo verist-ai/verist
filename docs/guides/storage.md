@@ -17,7 +17,7 @@ Every successful step should result in three writes:
 
 | Write        | Purpose                    |
 | ------------ | -------------------------- |
-| **Delta**    | Computed state update      |
+| **Output**   | Computed state update      |
 | **Events**   | Audit log                  |
 | **Commands** | For your runner to execute |
 
@@ -55,11 +55,11 @@ if (result.ok) {
     runId: result.value.runId,
     stepId: result.value.stepName,
     expectedVersion: currentVersion,
-    delta: result.value.output.delta,
-    events: result.value.output.events,
+    output: result.value.output,
+    events: result.value.events,
   });
 
-  for (const cmd of result.value.output.commands ?? []) {
+  for (const cmd of result.value.commands ?? []) {
     await queue.enqueue(cmd);
   }
 }
@@ -71,7 +71,7 @@ See [Reference Runner](./reference-runner) for a full loop with artifact capture
 
 Steps are idempotent by design, so retries are safe.
 
-Use optimistic locking (version column or compare-and-swap) to prevent two workers from committing different deltas for the same run.
+Use optimistic locking (version column or compare-and-swap) to prevent two workers from committing different outputs for the same run.
 
 ## Anti-patterns
 

@@ -19,7 +19,6 @@ export type { Result } from "./result.ts";
 export type {
   AdaptersOption,
   BaseAdapters,
-  Delta,
   Infer,
   OptionsArg,
 } from "./types.ts";
@@ -59,9 +58,9 @@ export { defineStep } from "./step.ts";
 export type {
   Step,
   StepConfig,
-  StepDelta,
   StepInput,
   StepOutput,
+  StepReturn,
 } from "./step.ts";
 
 // ── Workflow ───────────────────────────────────────────────────────────────

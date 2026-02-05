@@ -21,10 +21,10 @@ export function formatError(error: RecomputeError, debug?: boolean): string {
  */
 export function formatBaselineResult(
   filename: string,
-  result: RecomputeResult<unknown>,
+  result: RecomputeResult<Record<string, unknown>>,
 ): string {
   const lines: string[] = [];
-  const { status, deltaDiff, commandsDiff, schemaViolations } = result;
+  const { status, outputDiff, commandsDiff, schemaViolations } = result;
 
   const statusLabel = !result.comparable
     ? `${status} (diff unavailable)`
@@ -39,12 +39,12 @@ export function formatBaselineResult(
     }
   }
 
-  if (deltaDiff && !deltaDiff.equal) {
+  if (outputDiff && !outputDiff.equal) {
     lines.push("");
     lines.push("  value changes:");
     // Indent each line of the formatted diff
     lines.push(
-      formatDiff(deltaDiff)
+      formatDiff(outputDiff)
         .split("\n")
         .map((line) => `    ${line}`)
         .join("\n"),

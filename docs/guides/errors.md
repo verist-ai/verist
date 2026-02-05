@@ -4,11 +4,11 @@ Verist treats errors as values. A step returns `Result<T, StepError>` and **neve
 
 ## Error types
 
-| Code                | Cause                       |
-| ------------------- | --------------------------- |
-| `INPUT_VALIDATION`  | Input does not match schema |
-| `EXECUTION`         | Adapter or step logic threw |
-| `OUTPUT_VALIDATION` | Delta does not match schema |
+| Code                | Cause                        |
+| ------------------- | ---------------------------- |
+| `input_validation`  | Input does not match schema  |
+| `execution_failed`  | Adapter or step logic threw  |
+| `output_validation` | Output does not match schema |
 
 All three return a `Result` with a `StepError` value.
 
@@ -19,11 +19,11 @@ const result = await run(step, input, ctx);
 
 if (!result.ok) {
   switch (result.error.code) {
-    case "INPUT_VALIDATION":
-    case "OUTPUT_VALIDATION":
+    case "input_validation":
+    case "output_validation":
       // bug in caller or step; fix and retry safely
       break;
-    case "EXECUTION":
+    case "execution_failed":
       // external dependency or transient failure
       break;
   }
@@ -56,7 +56,7 @@ Recompute can surface errors that never happened in the original run:
 Treat error diffs as high-priority regressions in review.
 
 ::: info
-Output validation in `recompute()` is **observational** – it populates `schemaViolations` instead of returning an error. This lets you see schema issues alongside value diffs rather than short-circuiting. Input validation remains strict (`err(INPUT_VALIDATION)`).
+Output validation in `recompute()` is **observational** – it populates `schemaViolations` instead of returning an error. This lets you see schema issues alongside value diffs rather than short-circuiting. Input validation remains strict (`err(input_validation)`).
 :::
 
 ## Audit

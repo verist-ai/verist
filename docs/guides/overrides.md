@@ -55,7 +55,7 @@ Overrides are an external concern. Your UI or review tool writes them to the ove
 
 Typical flow:
 
-1. Run a step and store the computed delta
+1. Run a step and store the computed output
 2. Show the diff to a reviewer
 3. If they override, write to overlay
 

@@ -8,7 +8,7 @@ import type { Snapshot } from "./types.ts";
 /**
  * Error codes for loadOutput.
  */
-export type LoadOutputErrorCode = "MISSING_OUTPUT" | "OUTPUT_CORRUPTED";
+export type LoadOutputErrorCode = "missing_output" | "output_corrupted";
 
 /**
  * Error from loadOutput.
@@ -45,14 +45,14 @@ export async function loadOutput<T>(
 
   if (!outputArtifact) {
     return err({
-      code: "MISSING_OUTPUT",
+      code: "missing_output",
       message: `No step-output artifact in snapshot for step "${snapshot.stepName}"`,
     });
   }
 
   if (outputArtifact.content === undefined) {
     return err({
-      code: "MISSING_OUTPUT",
+      code: "missing_output",
       message: `Step output content not available (hash-only capture) for step "${snapshot.stepName}"`,
     });
   }
@@ -63,14 +63,14 @@ export async function loadOutput<T>(
     actualHash = await hashValue(outputArtifact.content);
   } catch {
     return err({
-      code: "OUTPUT_CORRUPTED",
+      code: "output_corrupted",
       message: `Cannot verify output integrity for step "${snapshot.stepName}": content is not serializable`,
     });
   }
 
   if (actualHash !== outputArtifact.hash) {
     return err({
-      code: "OUTPUT_CORRUPTED",
+      code: "output_corrupted",
       message: `Output hash mismatch for step "${snapshot.stepName}": expected ${outputArtifact.hash}, got ${actualHash}`,
     });
   }

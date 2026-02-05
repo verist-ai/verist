@@ -5,7 +5,7 @@
 ### Patch Changes
 
 - a7cd6f1: Improve DX ergonomics across packages
-  - `StepOutput.events` is now optional (defaults to `[]`)
+  - `StepReturn.events` is now optional (defaults to `[]`)
   - `createSnapshotFromResult` auto-captures commands when present (opt out with `captureCommands: false`)
   - `extract()` accepts step context — reads `ctx.adapters.llm` and `ctx.onArtifact` automatically
   - Export `LLMContext` type alias for `StepContext<{ llm: LLMProvider }>`

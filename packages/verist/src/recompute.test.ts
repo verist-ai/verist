@@ -17,16 +17,16 @@ describe("recompute", () => {
   const doubleStep = defineStep({
     name: "double",
     input: z.object({ value: z.number() }),
-    delta: z.object({ result: z.number() }),
+    output: z.object({ result: z.number() }),
     run: async (input) => ({
-      delta: { result: input.value * 2 },
+      output: { result: input.value * 2 },
       events: [{ type: "doubled" }],
     }),
   });
 
   it("executes step and returns diff on success", async () => {
     const originalOutput = {
-      delta: { result: 42 },
+      output: { result: 42 },
       events: [{ type: "doubled" }],
     };
     const snapshot = await createSnapshot({
@@ -41,17 +41,17 @@ describe("recompute", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.delta).toEqual({ result: 42 });
+      expect(result.value.rawOutput).toEqual({ result: 42 });
       expect(result.value.comparable).toBe(true);
-      expect(result.value.deltaDiff).toBeDefined();
-      expect(result.value.deltaDiff!.equal).toBe(true);
+      expect(result.value.outputDiff).toBeDefined();
+      expect(result.value.outputDiff!.equal).toBe(true);
     }
   });
 
-  it("detects delta differences (ignores events)", async () => {
-    // Different delta, same events structure
+  it("detects output differences (ignores events)", async () => {
+    // Different output, same events structure
     const originalOutput = {
-      delta: { result: 100 },
+      output: { result: 100 },
       events: [{ type: "doubled" }],
     };
     const snapshot = await createSnapshot({
@@ -66,19 +66,19 @@ describe("recompute", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.delta).toEqual({ result: 42 });
-      expect(result.value.deltaDiff).toBeDefined();
-      expect(result.value.deltaDiff!.equal).toBe(false);
-      // Diff should show delta.result changed from 100 to 42
-      expect(result.value.deltaDiff!.entries).toEqual([
+      expect(result.value.rawOutput).toEqual({ result: 42 });
+      expect(result.value.outputDiff).toBeDefined();
+      expect(result.value.outputDiff!.equal).toBe(false);
+      // Diff should show result changed from 100 to 42
+      expect(result.value.outputDiff!.entries).toEqual([
         { path: ["result"], before: 100, after: 42 },
       ]);
     }
   });
 
   it("reports equal when only events differ", async () => {
-    // Same delta, different events — should be equal (events are not diffed)
-    const originalOutput = { delta: { result: 42 }, events: [] };
+    // Same output, different events — should be equal (events are not diffed)
+    const originalOutput = { output: { result: 42 }, events: [] };
     const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -91,9 +91,9 @@ describe("recompute", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      // Delta is the same, so diff should be equal even though events differ
-      expect(result.value.deltaDiff).toBeDefined();
-      expect(result.value.deltaDiff!.equal).toBe(true);
+      // Output is the same, so diff should be equal even though events differ
+      expect(result.value.outputDiff).toBeDefined();
+      expect(result.value.outputDiff!.equal).toBe(true);
     }
   });
 
@@ -112,7 +112,7 @@ describe("recompute", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("INPUT_HASH_MISMATCH");
+      expect(result.error.code).toBe("input_hash_mismatch");
     }
   });
 
@@ -129,10 +129,10 @@ describe("recompute", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.delta).toEqual({ result: 42 });
+      expect(result.value.rawOutput).toEqual({ result: 42 });
       // No original to compare → not comparable
       expect(result.value.comparable).toBe(false);
-      expect(result.value.deltaDiff).toBeUndefined();
+      expect(result.value.outputDiff).toBeUndefined();
     }
   });
 
@@ -145,7 +145,7 @@ describe("recompute", () => {
       artifacts: [
         await captureArtifact(
           "step-output",
-          { delta: { result: 100 }, events: [] },
+          { output: { result: 100 }, events: [] },
           { hashOnly: true },
         ),
       ],
@@ -155,10 +155,11 @@ describe("recompute", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.delta).toEqual({ result: 42 });
-      // Hash-only → can't compare
+      expect(result.value.rawOutput).toEqual({ result: 42 });
+      // Hash-only → can't compare, but valid output → clean
       expect(result.value.comparable).toBe(false);
-      expect(result.value.deltaDiff).toBeUndefined();
+      expect(result.value.outputDiff).toBeUndefined();
+      expect(result.value.status).toBe("clean");
     }
   });
 
@@ -166,7 +167,7 @@ describe("recompute", () => {
     const failingStep = defineStep({
       name: "failing",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async () => {
         throw new Error("Step execution failed");
       },
@@ -184,7 +185,7 @@ describe("recompute", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("EXECUTION_FAILED");
+      expect(result.error.code).toBe("execution_failed");
       expect(result.error.message).toBe("Step execution failed");
     }
   });
@@ -233,7 +234,7 @@ describe("recompute", () => {
 
 describe("compareSnapshots", () => {
   it("detects identical snapshots", async () => {
-    const output = { delta: { x: 1 }, events: [] };
+    const output = { output: { x: 1 }, events: [] };
     const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -249,13 +250,13 @@ describe("compareSnapshots", () => {
       artifacts: [await captureArtifact("step-output", output)],
     });
 
-    const { inputDiff, deltaDiff } = compareSnapshots(snapshot1, snapshot2);
+    const { inputDiff, outputDiff } = compareSnapshots(snapshot1, snapshot2);
     expect(inputDiff.equal).toBe(true);
-    expect(deltaDiff?.equal).toBe(true);
+    expect(outputDiff?.equal).toBe(true);
   });
 
   it("detects input differences", async () => {
-    const output = { delta: { x: 1 }, events: [] };
+    const output = { output: { x: 1 }, events: [] };
     const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -271,19 +272,19 @@ describe("compareSnapshots", () => {
       artifacts: [await captureArtifact("step-output", output)],
     });
 
-    const { inputDiff, deltaDiff } = compareSnapshots(snapshot1, snapshot2);
+    const { inputDiff, outputDiff } = compareSnapshots(snapshot1, snapshot2);
     expect(inputDiff.equal).toBe(false);
-    expect(deltaDiff?.equal).toBe(true);
+    expect(outputDiff?.equal).toBe(true);
   });
 
-  it("detects delta differences (ignores events)", async () => {
+  it("detects output differences (ignores events)", async () => {
     const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 1 }, events: [] }),
       ],
     });
     const snapshot2 = await createSnapshot({
@@ -293,16 +294,16 @@ describe("compareSnapshots", () => {
       input: { a: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { x: 2 },
+          output: { x: 2 },
           events: [{ type: "new" }],
         }),
       ],
     });
 
-    const { inputDiff, deltaDiff } = compareSnapshots(snapshot1, snapshot2);
+    const { inputDiff, outputDiff } = compareSnapshots(snapshot1, snapshot2);
     expect(inputDiff.equal).toBe(true);
-    expect(deltaDiff?.equal).toBe(false);
-    expect(deltaDiff?.entries).toEqual([{ path: ["x"], before: 1, after: 2 }]);
+    expect(outputDiff?.equal).toBe(false);
+    expect(outputDiff?.entries).toEqual([{ path: ["x"], before: 1, after: 2 }]);
   });
 
   it("reports equal when only events differ", async () => {
@@ -312,7 +313,7 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 1 }, events: [] }),
       ],
     });
     const snapshot2 = await createSnapshot({
@@ -322,17 +323,17 @@ describe("compareSnapshots", () => {
       input: { a: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { x: 1 },
+          output: { x: 1 },
           events: [{ type: "added" }],
         }),
       ],
     });
 
-    const { deltaDiff } = compareSnapshots(snapshot1, snapshot2);
-    expect(deltaDiff?.equal).toBe(true);
+    const { outputDiff } = compareSnapshots(snapshot1, snapshot2);
+    expect(outputDiff?.equal).toBe(true);
   });
 
-  it("returns undefined deltaDiff for hash-only snapshots", async () => {
+  it("returns undefined outputDiff for hash-only snapshots", async () => {
     const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -341,7 +342,7 @@ describe("compareSnapshots", () => {
       artifacts: [
         await captureArtifact(
           "step-output",
-          { delta: { x: 1 }, events: [] },
+          { output: { x: 1 }, events: [] },
           { hashOnly: true },
         ),
       ],
@@ -352,14 +353,14 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 2 }, events: [] }),
       ],
     });
 
-    const { inputDiff, deltaDiff } = compareSnapshots(snapshot1, snapshot2);
+    const { inputDiff, outputDiff } = compareSnapshots(snapshot1, snapshot2);
     expect(inputDiff.equal).toBe(true);
-    // Can't compare deltas when one is hash-only
-    expect(deltaDiff).toBeUndefined();
+    // Can't compare outputs when one is hash-only
+    expect(outputDiff).toBeUndefined();
   });
 
   it("uses first step-output when multiple exist", async () => {
@@ -369,8 +370,11 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
-        await captureArtifact("step-output", { delta: { x: 999 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", {
+          output: { x: 999 },
+          events: [],
+        }),
       ],
     });
     const snapshot2 = await createSnapshot({
@@ -379,23 +383,23 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 2 }, events: [] }),
       ],
     });
 
-    const { deltaDiff } = compareSnapshots(snapshot1, snapshot2);
+    const { outputDiff } = compareSnapshots(snapshot1, snapshot2);
     // First artifact wins: compares x:1 vs x:2, ignores x:999
-    expect(deltaDiff?.entries).toEqual([{ path: ["x"], before: 1, after: 2 }]);
+    expect(outputDiff?.entries).toEqual([{ path: ["x"], before: 1, after: 2 }]);
   });
 
-  it("returns undefined deltaDiff for malformed step-output (missing delta key)", async () => {
+  it("returns undefined outputDiff for malformed step-output (missing output key)", async () => {
     const snapshot1 = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        // Malformed: no delta key (e.g., corrupted or migrated data)
+        // Malformed: no output key (e.g., corrupted data)
         { kind: "step-output", hash: "sha256:abc", content: { result: 42 } },
       ],
     });
@@ -405,13 +409,13 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 2 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 2 }, events: [] }),
       ],
     });
 
-    const { deltaDiff } = compareSnapshots(snapshot1, snapshot2);
+    const { outputDiff } = compareSnapshots(snapshot1, snapshot2);
     // Malformed content treated as "no content" — can't compare
-    expect(deltaDiff).toBeUndefined();
+    expect(outputDiff).toBeUndefined();
   });
 
   it("detects command differences (invoke to suspend)", async () => {
@@ -422,7 +426,7 @@ describe("compareSnapshots", () => {
       input: { a: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { x: 1 },
+          output: { x: 1 },
           events: [],
           commands: [invoke("verify", { id: 1 })],
         }),
@@ -435,7 +439,7 @@ describe("compareSnapshots", () => {
       input: { a: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { x: 1 },
+          output: { x: 1 },
           events: [],
           commands: [
             suspend({ reason: "awaiting_docs", checkpoint: { id: 1 } }),
@@ -444,8 +448,8 @@ describe("compareSnapshots", () => {
       ],
     });
 
-    const { deltaDiff, commandsDiff } = compareSnapshots(snapshot1, snapshot2);
-    expect(deltaDiff?.equal).toBe(true);
+    const { outputDiff, commandsDiff } = compareSnapshots(snapshot1, snapshot2);
+    expect(outputDiff?.equal).toBe(true);
     expect(commandsDiff?.equal).toBe(false);
     // Command type changed from invoke to suspend
     expect(commandsDiff?.entries.some((e) => e.path.includes("type"))).toBe(
@@ -462,7 +466,7 @@ describe("compareSnapshots", () => {
       input: { a: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { x: 1 },
+          output: { x: 1 },
           events: [],
           commands,
         }),
@@ -475,7 +479,7 @@ describe("compareSnapshots", () => {
       input: { a: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { x: 1 },
+          output: { x: 1 },
           events: [],
           commands: [invoke("verify", { id: 1 })],
         }),
@@ -493,7 +497,7 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 1 }, events: [] }),
         await captureArtifact("step-commands", [invoke("verify", { id: 1 })]),
       ],
     });
@@ -503,7 +507,7 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 1 }, events: [] }),
         await captureArtifact("step-commands", [invoke("verify", { id: 2 })]),
       ],
     });
@@ -522,7 +526,7 @@ describe("compareSnapshots", () => {
       stepName: "step",
       input: { a: 1 },
       artifacts: [
-        await captureArtifact("step-output", { delta: { x: 1 }, events: [] }),
+        await captureArtifact("step-output", { output: { x: 1 }, events: [] }),
       ],
     });
     const snapshot2 = await createSnapshot({
@@ -532,7 +536,7 @@ describe("compareSnapshots", () => {
       input: { a: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { x: 1 },
+          output: { x: 1 },
           events: [],
           commands: [invoke("verify", {})],
         }),
@@ -550,17 +554,17 @@ describe("recompute command diffing", () => {
     const step = defineStep({
       name: "decide",
       input: z.object({ ready: z.boolean() }),
-      delta: z.object({ status: z.string() }),
+      output: z.object({ status: z.string() }),
       run: async (input) => {
         if (input.ready) {
           return {
-            delta: { status: "proceeding" },
+            output: { status: "proceeding" },
             events: [],
             commands: [invoke("next", {})],
           };
         }
         return {
-          delta: { status: "waiting" },
+          output: { status: "waiting" },
           events: [],
           commands: [suspend({ reason: "awaiting_input", checkpoint: {} })],
         };
@@ -569,7 +573,7 @@ describe("recompute command diffing", () => {
 
     // Original ran with ready=false, now run with ready=true
     const originalOutput = {
-      delta: { status: "waiting" },
+      output: { status: "waiting" },
       events: [],
       commands: [suspend({ reason: "awaiting_input", checkpoint: {} })],
     };
@@ -585,7 +589,7 @@ describe("recompute command diffing", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.deltaDiff?.equal).toBe(false);
+      expect(result.value.outputDiff?.equal).toBe(false);
       expect(result.value.commandsDiff?.equal).toBe(false);
       // Commands changed from suspend to invoke
       expect(
@@ -598,16 +602,16 @@ describe("recompute command diffing", () => {
     const step = defineStep({
       name: "stable",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async (input) => ({
-        delta: { result: input.value * 2 },
+        output: { result: input.value * 2 },
         events: [],
         commands: [invoke("next", { value: input.value })],
       }),
     });
 
     const originalOutput = {
-      delta: { result: 42 },
+      output: { result: 42 },
       events: [],
       commands: [invoke("next", { value: 21 })],
     };
@@ -623,7 +627,7 @@ describe("recompute command diffing", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.deltaDiff?.equal).toBe(true);
+      expect(result.value.outputDiff?.equal).toBe(true);
       expect(result.value.commandsDiff?.equal).toBe(true);
     }
   });
@@ -632,9 +636,9 @@ describe("recompute command diffing", () => {
     const step = defineStep({
       name: "decide",
       input: z.object({ id: z.number() }),
-      delta: z.object({ status: z.string() }),
+      output: z.object({ status: z.string() }),
       run: async () => ({
-        delta: { status: "done" },
+        output: { status: "done" },
         events: [],
         commands: [invoke("next", { id: 2 })],
       }),
@@ -647,7 +651,7 @@ describe("recompute command diffing", () => {
       input: { id: 1 },
       artifacts: [
         await captureArtifact("step-output", {
-          delta: { status: "done" },
+          output: { status: "done" },
           events: [],
         }),
         await captureArtifact("step-commands", [invoke("next", { id: 1 })]),
@@ -667,14 +671,56 @@ describe("recompute command diffing", () => {
   });
 });
 
+describe("recompute ctx.emitEvent", () => {
+  it("captures events emitted via ctx.emitEvent in artifact", async () => {
+    const step = defineStep({
+      name: "emit-test",
+      input: z.object({ value: z.number() }),
+      output: z.object({ result: z.number() }),
+      run: async (input, ctx) => {
+        // Simulate adapter auto-emit (e.g., extract() auto-emit)
+        ctx.emitEvent({ type: "llm.extracted", payload: { model: "gpt-4" } });
+        return {
+          output: { result: input.value * 2 },
+          events: [{ type: "step.done" }],
+        };
+      },
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "emit-test",
+      input: { value: 21 },
+      artifacts: [],
+    });
+
+    const result = await recompute(snapshot, step, {
+      captureArtifacts: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const content = result.value.outputArtifact?.content as {
+        events: unknown[];
+      };
+      // Both ctx.emitEvent events and step-returned events are captured
+      expect(content.events).toEqual([
+        { type: "llm.extracted", payload: { model: "gpt-4" } },
+        { type: "step.done" },
+      ]);
+    }
+  });
+});
+
 describe("recompute validation", () => {
-  it("validates input schema when validate is true", async () => {
+  it("validates input schema by default", async () => {
     const step = defineStep({
       name: "typed",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async (input) => ({
-        delta: { result: input.value * 2 },
+        output: { result: input.value * 2 },
         events: [],
       }),
     });
@@ -688,30 +734,30 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("INPUT_VALIDATION");
+      expect(result.error.code).toBe("input_validation");
       expect(result.error.message).toContain("Input validation failed");
       expect(result.error.message).toContain("`verist capture`");
     }
   });
 
-  it("reports schema violations as observations when validate is true", async () => {
+  it("reports schema violations as observations", async () => {
     const step = defineStep({
       name: "bad-output",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
-      // Returns wrong type for delta
+      output: z.object({ result: z.number() }),
+      // Returns wrong type for output
       run: async () => ({
-        delta: { result: "not-a-number" as unknown as number },
+        output: { result: "not-a-number" as unknown as number },
         events: [],
       }),
     });
 
     const originalOutput = {
-      delta: { result: 42 },
+      output: { result: 42 },
       events: [],
     };
     const snapshot = await createSnapshot({
@@ -722,7 +768,7 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     // Validation is observation, not gate — always returns ok()
     expect(result.ok).toBe(true);
@@ -732,23 +778,23 @@ describe("recompute validation", () => {
       expect(result.value.schemaViolations[0]!.kind).toBe("type");
       expect(result.value.schemaViolations[0]!.path).toEqual(["result"]);
       // Diff is still computed despite schema violation
-      expect(result.value.deltaDiff).toBeDefined();
-      expect(result.value.deltaDiff!.equal).toBe(false);
+      expect(result.value.outputDiff).toBeDefined();
+      expect(result.value.outputDiff!.equal).toBe(false);
     }
   });
 
   it("reports missing nested fields as schema violations with kind 'missing'", async () => {
-    // Top-level fields are partial (outputDeltaSchema), but nested required fields
+    // Top-level fields are partial (partialOutputSchema), but nested required fields
     // within present structures must still validate — this is the core wedge scenario.
     const step = defineStep({
       name: "missing-nested",
       input: z.object({ value: z.number() }),
-      delta: z.object({
+      output: z.object({
         items: z.array(z.object({ name: z.string(), score: z.number() })),
       }),
       // Returns item missing required 'score' field
       run: async () => ({
-        delta: {
+        output: {
           items: [
             { name: "test" } as unknown as { name: string; score: number },
           ],
@@ -765,7 +811,7 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -785,11 +831,11 @@ describe("recompute validation", () => {
     const step = defineStep({
       name: "mixed",
       input: z.object({ value: z.number() }),
-      delta: z.object({
+      output: z.object({
         claims: z.array(z.object({ text: z.string(), amount: z.number() })),
       }),
       run: async () => ({
-        delta: {
+        output: {
           claims: [
             { text: "Acme had strong revenue" } as unknown as {
               text: string;
@@ -802,7 +848,7 @@ describe("recompute validation", () => {
     });
 
     const originalOutput = {
-      delta: {
+      output: {
         claims: [{ text: "Acme reported $4.2M", amount: 4200000 }],
       },
       events: [],
@@ -815,7 +861,7 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -829,10 +875,10 @@ describe("recompute validation", () => {
         ),
       ).toBe(true);
       // Value change: text changed
-      expect(result.value.deltaDiff).toBeDefined();
-      expect(result.value.deltaDiff!.equal).toBe(false);
+      expect(result.value.outputDiff).toBeDefined();
+      expect(result.value.outputDiff!.equal).toBe(false);
       expect(
-        result.value.deltaDiff!.entries.some((e) => e.path.includes("text")),
+        result.value.outputDiff!.entries.some((e) => e.path.includes("text")),
       ).toBe(true);
     }
   });
@@ -841,14 +887,14 @@ describe("recompute validation", () => {
     const step = defineStep({
       name: "clean",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async (input) => ({
-        delta: { result: input.value * 2 },
+        output: { result: input.value * 2 },
         events: [],
       }),
     });
 
-    const originalOutput = { delta: { result: 42 }, events: [] };
+    const originalOutput = { output: { result: 42 }, events: [] };
     const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -857,13 +903,13 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.status).toBe("clean");
       expect(result.value.schemaViolations).toEqual([]);
-      expect(result.value.deltaDiff!.equal).toBe(true);
+      expect(result.value.outputDiff!.equal).toBe(true);
     }
   });
 
@@ -871,14 +917,14 @@ describe("recompute validation", () => {
     const step = defineStep({
       name: "changed",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async (input) => ({
-        delta: { result: input.value * 2 },
+        output: { result: input.value * 2 },
         events: [],
       }),
     });
 
-    const originalOutput = { delta: { result: 100 }, events: [] };
+    const originalOutput = { output: { result: 100 }, events: [] };
     const snapshot = await createSnapshot({
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -887,36 +933,39 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.status).toBe("value_changed");
       expect(result.value.schemaViolations).toEqual([]);
-      expect(result.value.deltaDiff!.equal).toBe(false);
+      expect(result.value.outputDiff!.equal).toBe(false);
     }
   });
 
-  it("uses parsed delta for diff (Zod defaults don't cause false diff)", async () => {
+  it("uses parsed output for diff (Zod defaults don't cause false diff)", async () => {
     // When validation succeeds, recompute uses the Zod-parsed value for diffing.
     // This prevents false diffs from defaults/coercions — matching runStep semantics.
     const step = defineStep({
       name: "with-defaults",
       input: z.object({ value: z.number() }),
-      delta: z.object({
+      output: z.object({
         result: z.number(),
         label: z.string().default("untitled"),
       }),
       run: async (input) => ({
         // Step returns without label — Zod default fills it in
-        delta: { result: input.value * 2 } as { result: number; label: string },
+        output: { result: input.value * 2 } as {
+          result: number;
+          label: string;
+        },
         events: [],
       }),
     });
 
     // Baseline was captured with the Zod-parsed output (label filled by default)
     const originalOutput = {
-      delta: { result: 42, label: "untitled" },
+      output: { result: 42, label: "untitled" },
       events: [],
     };
     const snapshot = await createSnapshot({
@@ -927,28 +976,28 @@ describe("recompute validation", () => {
       artifacts: [await captureArtifact("step-output", originalOutput)],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      // parsedDelta has the default applied
-      expect(result.value.parsedDelta).toEqual({
+      // parsedOutput has the default applied
+      expect(result.value.parsedOutput).toEqual({
         result: 42,
         label: "untitled",
       });
-      // Diff compares parsed delta vs baseline — no false diff
+      // Diff compares parsed output vs baseline — no false diff
       expect(result.value.status).toBe("clean");
-      expect(result.value.deltaDiff!.equal).toBe(true);
+      expect(result.value.outputDiff!.equal).toBe(true);
     }
   });
 
-  it("returns parsedDelta only when output validation succeeds", async () => {
+  it("returns parsedOutput only when output validation succeeds", async () => {
     const step = defineStep({
       name: "typed",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async () => ({
-        delta: { result: "not-a-number" as unknown as number },
+        output: { result: "not-a-number" as unknown as number },
         events: [],
       }),
     });
@@ -961,23 +1010,23 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      // Schema failed — parsedDelta is absent
-      expect(result.value.parsedDelta).toBeUndefined();
+      // Schema failed — parsedOutput is absent
+      expect(result.value.parsedOutput).toBeUndefined();
       expect(result.value.schemaViolations.length).toBeGreaterThan(0);
     }
   });
 
-  it("malformed step-output (missing delta key) is not comparable", async () => {
+  it("malformed step-output (missing output key) is not comparable", async () => {
     const step = defineStep({
       name: "typed",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async (input) => ({
-        delta: { result: input.value * 2 },
+        output: { result: input.value * 2 },
         events: [],
       }),
     });
@@ -988,7 +1037,7 @@ describe("recompute validation", () => {
       stepName: "typed",
       input: { value: 21 },
       artifacts: [
-        // Malformed: no delta key (e.g., corrupted or migrated data)
+        // Malformed: no output key (e.g., corrupted data)
         { kind: "step-output", hash: "sha256:abc", content: { result: 42 } },
       ],
     });
@@ -998,7 +1047,7 @@ describe("recompute validation", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.comparable).toBe(false);
-      expect(result.value.deltaDiff).toBeUndefined();
+      expect(result.value.outputDiff).toBeUndefined();
       expect(result.value.status).toBe("clean");
     }
   });
@@ -1007,9 +1056,9 @@ describe("recompute validation", () => {
     const step = defineStep({
       name: "typed",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
+      output: z.object({ result: z.number() }),
       run: async () => ({
-        delta: { result: "not-a-number" as unknown as number },
+        output: { result: "not-a-number" as unknown as number },
         events: [],
       }),
     });
@@ -1022,19 +1071,19 @@ describe("recompute validation", () => {
       artifacts: [
         await captureArtifact(
           "step-output",
-          { delta: { result: 42 }, events: [] },
+          { output: { result: 42 }, events: [] },
           { hashOnly: true },
         ),
       ],
     });
 
-    const result = await recompute(snapshot, step, { validate: true });
+    const result = await recompute(snapshot, step);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       // Not comparable (hash-only) but schema violations still detected
       expect(result.value.comparable).toBe(false);
-      expect(result.value.deltaDiff).toBeUndefined();
+      expect(result.value.outputDiff).toBeUndefined();
       expect(result.value.status).toBe("schema_violation");
       expect(result.value.schemaViolations.length).toBeGreaterThan(0);
     }
@@ -1044,10 +1093,10 @@ describe("recompute validation", () => {
     const step = defineStep({
       name: "strict-test",
       input: z.object({ value: z.number() }),
-      delta: z.object({ a: z.string(), b: z.string() }),
+      output: z.object({ a: z.string(), b: z.string() }),
       run: async () => ({
         // Returns only `a`, missing `b`
-        delta: { a: "x" } as unknown as { a: string; b: string },
+        output: { a: "x" } as unknown as { a: string; b: string },
         events: [],
       }),
     });
@@ -1061,7 +1110,7 @@ describe("recompute validation", () => {
     });
 
     // Default (partial) — missing `b` is allowed
-    const lenient = await recompute(snapshot, step, { validate: true });
+    const lenient = await recompute(snapshot, step);
     expect(lenient.ok).toBe(true);
     if (lenient.ok) {
       expect(lenient.value.status).toBe("clean");
@@ -1070,7 +1119,6 @@ describe("recompute validation", () => {
 
     // strictOutput — missing `b` is caught
     const strict = await recompute(snapshot, step, {
-      validate: true,
       strictOutput: true,
     });
     expect(strict.ok).toBe(true);
@@ -1082,14 +1130,14 @@ describe("recompute validation", () => {
     }
   });
 
-  it("skips validation when validate is false (default)", async () => {
+  it("skips validation when validate is false", async () => {
     const step = defineStep({
       name: "lenient",
       input: z.object({ value: z.number() }),
-      delta: z.object({ result: z.number() }),
-      // Works despite bad input because validation is off
+      output: z.object({ result: z.number() }),
+      // Works despite bad input because validation is explicitly off
       run: async () => ({
-        delta: { result: 42 },
+        output: { result: 42 },
         events: [],
       }),
     });
@@ -1102,8 +1150,8 @@ describe("recompute validation", () => {
       artifacts: [],
     });
 
-    // Default: no validation — schemaViolations should be empty
-    const result = await recompute(snapshot, step);
+    // Explicit opt-out: no validation — schemaViolations should be empty
+    const result = await recompute(snapshot, step, { validate: false });
 
     expect(result.ok).toBe(true);
     if (result.ok) {

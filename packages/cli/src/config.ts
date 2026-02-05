@@ -2,13 +2,13 @@
 
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { BaseAdapters, Step } from "verist";
+import type { AnyStep, BaseAdapters } from "verist";
 
 /**
  * CLI configuration loaded from `verist.config.ts` or `verist.config.mjs`.
  */
 export interface VeristConfig {
-  steps: Record<string, Step<unknown, unknown>>;
+  steps: Record<string, AnyStep>;
   adapters: BaseAdapters;
 }
 

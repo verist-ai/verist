@@ -1,27 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ZodError } from "zod";
-import type { Artifact, OnArtifact } from "./artifact.ts";
-import { createArtifact } from "./artifact.ts";
+import type { OnArtifact } from "./artifact.ts";
+import type { Command } from "./command.ts";
 import type { ContextFactory } from "./context.ts";
 import { createContextFactory } from "./context.ts";
+import type { AuditEvent } from "./event.ts";
 import type { Result } from "./result.ts";
 import { err, ok } from "./result.ts";
-import type { Step, StepOutput } from "./step.ts";
-import type {
-  AdaptersOption,
-  BaseAdapters,
-  Delta,
-  OptionsArg,
-} from "./types.ts";
+import type { Step, StepReturn } from "./step.ts";
+import type { AdaptersOption, BaseAdapters, OptionsArg } from "./types.ts";
 
 /**
  * Step execution error types.
  */
 export type StepErrorCode =
-  | "INPUT_VALIDATION"
-  | "OUTPUT_VALIDATION"
-  | "EXECUTION";
+  | "input_validation"
+  | "output_validation"
+  | "execution_failed";
 
 export interface StepError {
   code: StepErrorCode;
@@ -31,18 +27,17 @@ export interface StepError {
 
 /**
  * Result of a successful step execution.
- * Includes validated input for replay and version for audit correlation.
+ * Output is flattened: `output`, `events`, and `commands` are top-level fields.
  */
-export interface StepResult<TInput, TDelta> {
+export interface StepResult<TInput, TOutput extends object> {
   /** Validated input that was passed to the step. Treat as immutable. */
   input: TInput;
-  output: StepOutput<TDelta>;
-  /**
-   * All artifacts emitted during execution (adapter + step-output).
-   * Always includes at least the step-output artifact.
-   * These are the runtime collection — not automatically persisted to snapshots.
-   */
-  artifacts: Artifact[];
+  /** Partial state update (validated). */
+  output: Partial<TOutput>;
+  /** Audit events emitted during execution. */
+  events: AuditEvent[];
+  /** Commands expressing "what should happen next". */
+  commands?: Command[];
   stepName: string;
   workflowId: string;
   workflowVersion: string;
@@ -54,10 +49,10 @@ export interface StepResult<TInput, TDelta> {
  */
 export interface RunStepInput<
   TInput,
-  TDelta,
+  TOutput extends object,
   TAdapters extends BaseAdapters = BaseAdapters,
 > {
-  step: Step<TInput, TDelta, TAdapters>;
+  step: Step<TInput, TOutput, TAdapters>;
   input: TInput;
   contextFactory: ContextFactory<TAdapters>;
   workflowId: string;
@@ -73,7 +68,7 @@ export interface RunStepInput<
  * 1. Validates input against step's input schema
  * 2. Creates context via factory
  * 3. Executes step's run function
- * 4. Validates output delta against step's delta schema
+ * 4. Validates output against step's partial output schema
  * 5. Returns Result with StepResult or StepError
  *
  * @example
@@ -87,16 +82,16 @@ export interface RunStepInput<
  * });
  *
  * if (result.ok) {
- *   console.log(result.value.output.delta);
+ *   console.log(result.value.output);
  * }
  */
 export async function runStep<
   TInput,
-  TDelta,
+  TOutput extends object,
   TAdapters extends BaseAdapters = BaseAdapters,
 >(
-  params: RunStepInput<TInput, TDelta, TAdapters>,
-): Promise<Result<StepResult<TInput, TDelta>, StepError>> {
+  params: RunStepInput<TInput, TOutput, TAdapters>,
+): Promise<Result<StepResult<TInput, TOutput>, StepError>> {
   const {
     step,
     input,
@@ -111,63 +106,54 @@ export async function runStep<
   const inputResult = step.inputSchema.safeParse(input);
   if (!inputResult.success) {
     return err({
-      code: "INPUT_VALIDATION",
+      code: "input_validation",
       message: formatZodError(inputResult.error),
       cause: inputResult.error,
     });
   }
 
-  // Collect all artifacts emitted during execution
-  const artifacts: Artifact[] = [];
-  const collectArtifact: OnArtifact = (artifact) => {
-    artifacts.push(artifact);
-    onArtifact?.(artifact);
-  };
+  // Collect events emitted via ctx.emitEvent()
+  const contextEvents: AuditEvent[] = [];
 
   // Create context with version for audit correlation
   const ctx = contextFactory({
     workflowId,
     workflowVersion,
     runId,
-    onArtifact: collectArtifact,
+    onArtifact,
+    emitEvent: (event) => contextEvents.push(event),
   });
 
   // Execute step
-  let output: StepOutput<TDelta>;
+  let stepReturn: StepReturn<TOutput>;
   try {
-    output = await step.run(inputResult.data, ctx);
+    stepReturn = await step.run(inputResult.data, ctx);
   } catch (cause) {
     return err({
-      code: "EXECUTION",
+      code: "execution_failed",
       message: cause instanceof Error ? cause.message : String(cause),
       cause,
     });
   }
 
-  // Validate output delta
-  const outputResult = step.outputDeltaSchema.safeParse(output.delta);
+  // Validate output
+  const outputResult = step.partialOutputSchema.safeParse(stepReturn.output);
   if (!outputResult.success) {
     return err({
-      code: "OUTPUT_VALIDATION",
+      code: "output_validation",
       message: formatZodError(outputResult.error),
       cause: outputResult.error,
     });
   }
 
-  // Normalize events: default to [] when omitted by step author
-  const validatedOutput = {
-    delta: outputResult.data as Delta<TDelta>,
-    events: output.events ?? [],
-    commands: output.commands,
-  };
-
-  // Always emit step-output artifact (full StepOutput including commands)
-  collectArtifact(await createArtifact("step-output", validatedOutput));
+  // Merge context events with step-returned events
+  const events = [...contextEvents, ...(stepReturn.events ?? [])];
 
   return ok({
     input: inputResult.data,
-    output: validatedOutput,
-    artifacts,
+    output: outputResult.data as Partial<TOutput>,
+    events,
+    commands: stepReturn.commands,
     stepName: step.name,
     workflowId,
     workflowVersion,
@@ -195,10 +181,7 @@ interface RunOptionsBase {
   workflowId?: string;
   /** Override workflowVersion. Defaults to "0.0.0". */
   workflowVersion?: string;
-  /**
-   * Callback notified for each artifact emitted during execution.
-   * Artifacts are always collected in result.artifacts regardless of this callback.
-   */
+  /** Callback notified for each artifact emitted during execution (by adapters via ctx.onArtifact). */
   onArtifact?: OnArtifact;
 }
 
@@ -220,9 +203,9 @@ interface RunOptionsBase {
  * const summarize = defineStep({
  *   name: "summarize",
  *   input: z.object({ text: z.string() }),
- *   delta: z.object({ summary: z.string() }),
+ *   output: z.object({ summary: z.string() }),
  *   run: async (input) => ({
- *     delta: { summary: `Summary of: ${input.text}` },
+ *     output: { summary: `Summary of: ${input.text}` },
  *   }),
  * });
  *
@@ -230,18 +213,18 @@ interface RunOptionsBase {
  * const result = await run(summarize, { text: "Hello" });
  *
  * if (result.ok) {
- *   console.log(result.value.output.delta);
+ *   console.log(result.value.output);
  * }
  */
 export async function run<
   TInput,
-  TDelta,
+  TOutput extends object,
   TAdapters extends BaseAdapters = BaseAdapters,
 >(
-  step: Step<TInput, TDelta, TAdapters>,
+  step: Step<TInput, TOutput, TAdapters>,
   input: NoInfer<TInput>,
   ...args: OptionsArg<TAdapters, RunOptions<TAdapters>>
-): Promise<Result<StepResult<TInput, TDelta>, StepError>> {
+): Promise<Result<StepResult<TInput, TOutput>, StepError>> {
   const opts = (args[0] ?? {}) as RunOptions<TAdapters>;
   const workflowId = opts.workflowId ?? step.name;
   const workflowVersion = opts.workflowVersion ?? "0.0.0";

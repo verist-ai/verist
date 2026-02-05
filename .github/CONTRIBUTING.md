@@ -40,6 +40,36 @@ Tests use Bun's built-in test runner.
 
 Unit tests live next to their source files. Integration tests that span modules go in `tests/`.
 
+## Developer Certificate of Origin (DCO)
+
+This project uses the Developer Certificate of Origin (DCO) version 1.1.
+
+By contributing, you certify that:
+
+- You wrote the contribution yourself, or
+- You have the right to submit it under the Apache License, Version 2.0, and
+- You agree to license it under the Apache License, Version 2.0.
+
+The full text of the DCO is available at: https://developercertificate.org/
+
+All commits must be signed off to indicate acceptance of the DCO:
+
+```bash
+git commit -s -m "your message"
+```
+
+If you are contributing on behalf of an employer, you confirm that you are authorized to submit this work under the above terms.
+
+**Note:** Contributions that are not signed off may be rejected by automated checks.
+
+## AI-Assisted Contributions
+
+AI-assisted development tools may be used to help produce contributions.
+
+By submitting a contribution, you certify that you have reviewed and understand the code and that, to the best of your knowledge, it does not include material you do not have the right to submit under the Apache License, Version 2.0.
+
+The use of AI tools does not change the requirements of the DCO. The contributor remains the author of record and responsible for the contribution.
+
 ## Pull Requests
 
 1. Fork and create a feature branch

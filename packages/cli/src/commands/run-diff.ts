@@ -185,11 +185,24 @@ export async function runDiffLoop(
         status: "failed",
         comparable: false,
         schemaViolations: [],
-        deltaDiff: null,
+        outputDiff: null,
         commandsDiff: null,
         error: msg,
       });
       continue;
+    }
+
+    const filename = basename(path);
+
+    // When --baseline is a directory, all baselines must belong to the same step.
+    // Mixed steps would silently recompute with the wrong step definition.
+    if (opts.baseline && envelope.snapshot.stepName !== stepName) {
+      console.error(
+        `Baseline "${filename}" belongs to step "${envelope.snapshot.stepName}", ` +
+          `but expected "${stepName}". ` +
+          `Directory contains mixed steps — point to a step-specific folder or use --step.`,
+      );
+      return { counts: zeroCounts(), baselines: [], fatalError: true };
     }
 
     // Filter by label and metadata
@@ -200,15 +213,13 @@ export async function runDiffLoop(
       continue;
     }
     counts.total++;
-    const filename = basename(path);
 
     const result: Result<
-      RecomputeResult<unknown>,
+      RecomputeResult<Record<string, unknown>>,
       RecomputeError
     > = await recompute(envelope.snapshot, step, {
       adapters,
       runId: `recompute:${filename}`,
-      validate: true,
     });
 
     if (!result.ok) {
@@ -219,7 +230,7 @@ export async function runDiffLoop(
         status: "failed",
         comparable: false,
         schemaViolations: [],
-        deltaDiff: null,
+        outputDiff: null,
         commandsDiff: null,
         error: result.error.message,
       });
@@ -227,7 +238,7 @@ export async function runDiffLoop(
     }
 
     // Dominance semantics: each run counts in exactly one bucket
-    const { status, commandsDiff, deltaDiff, schemaViolations, comparable } =
+    const { status, commandsDiff, outputDiff, schemaViolations, comparable } =
       result.value;
     switch (status) {
       case "schema_violation":
@@ -258,7 +269,7 @@ export async function runDiffLoop(
       status,
       comparable,
       schemaViolations,
-      deltaDiff: deltaDiff ?? null,
+      outputDiff: outputDiff ?? null,
       commandsDiff: ignoreCommands ? null : (commandsDiff ?? null),
     });
 

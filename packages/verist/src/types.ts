@@ -2,15 +2,8 @@
 
 import type { z } from "zod";
 import type { Artifact } from "./artifact.ts";
-import type { StepOutput } from "./step.ts";
 
 // ── Utility types ──────────────────────────────────────────────────────────
-
-/**
- * Partial state update. Use for step output deltas.
- * Allows returning only changed fields.
- */
-export type Delta<T> = Partial<T>;
 
 /**
  * Infer TypeScript type from Zod schema.
@@ -114,7 +107,7 @@ export interface CreateSnapshotParams {
  * Layered state structure for diff operations.
  * Compatible with @verist/storage LayeredState without coupling.
  */
-export interface LayeredStateInput<T> {
+export interface LayeredStateInput<T extends object> {
   computed: T;
   overlay: Partial<T>;
 }
@@ -148,27 +141,27 @@ export type RecomputeStatus = "clean" | "value_changed" | "schema_violation";
 /**
  * Result of recomputation including diffs from original.
  */
-export interface RecomputeResult<TDelta> {
-  /** Raw recomputed output, typed as `unknown` because recompute is observational and output may not conform to current schemas. Use `parsedDelta` for typed access. */
-  output: StepOutput<unknown>;
+export interface RecomputeResult<TOutput extends object> {
+  /** Raw recomputed output before schema validation. Typed as `unknown` because output may not conform to current schemas. Use `parsedOutput` for typed access. */
+  rawOutput: unknown;
   /**
-   * Zod-parsed delta, only present when output validation succeeds.
+   * Zod-parsed output, only present when output validation succeeds.
    * Reflects transforms, defaults, and coercions applied by the schema.
    */
-  parsedDelta?: Delta<TDelta>;
+  parsedOutput?: Partial<TOutput>;
   /** Highest-severity classification of the result */
   status: RecomputeStatus;
   /**
    * Whether the baseline had content available for structural comparison.
-   * `false` when baseline is hash-only, missing, or malformed (no `delta` key).
+   * `false` when baseline is hash-only, missing, or malformed (no `output` key).
    * Schema violations can exist with `comparable: true`.
    */
   comparable: boolean;
   /**
-   * Diff between original and recomputed delta (state changes).
+   * Diff between original and recomputed output (state changes).
    * `undefined` when `comparable` is `false`.
    */
-  deltaDiff: DiffResult | undefined;
+  outputDiff: DiffResult | undefined;
   /**
    * Diff between original and recomputed commands (control-flow decisions).
    * `undefined` if original commands are unavailable for comparison.

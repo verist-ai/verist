@@ -33,7 +33,7 @@ verist test --step extract-claims --format text       # human-readable (default)
       "status": "value_changed",
       "comparable": true,
       "schemaViolations": [],
-      "deltaDiff": { "equal": false, "entries": [...] },
+      "outputDiff": { "equal": false, "entries": [...] },
       "commandsDiff": null
     }
   ]

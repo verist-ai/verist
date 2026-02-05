@@ -2,7 +2,7 @@
 
 ## Is Verist a framework or a library?
 
-A library. It doesn't run your system. It gives you strict primitives (steps, deltas, artifacts, replay) that you wire into your own runner.
+A library. It doesn't run your system. It gives you strict primitives (steps, artifacts, replay) that you wire into your own runner.
 
 ## Can I use Verist with an agent framework?
 

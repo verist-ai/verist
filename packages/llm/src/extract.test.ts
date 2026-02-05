@@ -157,7 +157,7 @@ describe("extract", () => {
     };
 
     const onArtifact = () => {};
-    const ctx = { adapters: { llm }, onArtifact };
+    const ctx = { adapters: { llm }, onArtifact, emitEvent: () => {} };
     const result = await extract(
       ctx,
       { model: "test", messages: [{ role: "user", content: "extract" }] },
@@ -192,7 +192,11 @@ describe("extract", () => {
 
     const ctxArtifact = () => {};
     const explicitArtifact = () => {};
-    const ctx = { adapters: { llm }, onArtifact: ctxArtifact };
+    const ctx = {
+      adapters: { llm },
+      onArtifact: ctxArtifact,
+      emitEvent: () => {},
+    };
     await extract(
       ctx,
       { model: "test", messages: [{ role: "user", content: "extract" }] },
@@ -224,7 +228,7 @@ describe("extract", () => {
     };
 
     const explicitArtifact = () => {};
-    const ctx = { adapters: { llm } };
+    const ctx = { adapters: { llm }, emitEvent: () => {} };
     await extract(
       ctx,
       { model: "test", messages: [{ role: "user", content: "extract" }] },
@@ -254,7 +258,7 @@ describe("extract", () => {
       },
     };
 
-    const ctx = { adapters: { llm } };
+    const ctx = { adapters: { llm }, emitEvent: () => {} };
     await extract(
       ctx,
       { model: "test", messages: [{ role: "user", content: "extract" }] },
@@ -262,6 +266,58 @@ describe("extract", () => {
     );
 
     expect(receivedOpts).toBeUndefined();
+  });
+
+  it("auto-emits audit event via ctx.emitEvent on success", async () => {
+    const llm = mockProvider('{"name": "Acme", "score": 42}');
+    const emittedEvents: { type: string; llmTrace?: unknown }[] = [];
+    const ctx = {
+      adapters: { llm },
+      emitEvent: (event: { type: string; llmTrace?: unknown }) =>
+        emittedEvents.push(event),
+    };
+
+    const result = await extract(
+      ctx,
+      { model: "test", messages: [{ role: "user", content: "extract" }] },
+      schema,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(emittedEvents).toHaveLength(1);
+    expect(emittedEvents[0]!.type).toBe("extracted");
+    expect(emittedEvents[0]!.llmTrace).toBeDefined();
+  });
+
+  it("does not auto-emit when using explicit LLMProvider", async () => {
+    const llm = mockProvider('{"name": "Acme", "score": 42}');
+
+    const result = await extract(
+      llm,
+      { model: "test", messages: [{ role: "user", content: "extract" }] },
+      schema,
+    );
+
+    // No emitEvent available — should not throw
+    expect(result.ok).toBe(true);
+  });
+
+  it("does not auto-emit on extraction failure", async () => {
+    const llm = mockProvider("not json");
+    const emittedEvents: unknown[] = [];
+    const ctx = {
+      adapters: { llm },
+      emitEvent: (event: unknown) => emittedEvents.push(event),
+    };
+
+    const result = await extract(
+      ctx,
+      { model: "test", messages: [{ role: "user", content: "extract" }] },
+      schema,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(emittedEvents).toHaveLength(0);
   });
 
   it("passes opts through to complete()", async () => {

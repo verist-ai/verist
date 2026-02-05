@@ -147,7 +147,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { score: 0.8 },
+        output: { score: 0.8 },
         events: [],
       });
 
@@ -168,7 +168,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { score: 0.8, status: "pending" },
+        output: { score: 0.8, status: "pending" },
         events: [{ type: "step_started", payload: { stepId: "step-1" } }],
       });
 
@@ -202,7 +202,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { score: 0.8 },
+        output: { score: 0.8 },
         events: [],
       });
 
@@ -212,7 +212,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-2",
         expectedVersion: 0,
-        delta: { score: 0.9 },
+        output: { score: 0.9 },
         events: [],
       });
 
@@ -229,7 +229,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 1, // Wrong: should be 0 for new run
-        delta: { score: 0.8 },
+        output: { score: 0.8 },
         events: [],
       });
 
@@ -239,24 +239,24 @@ describe("createPgRunStore", () => {
       }
     });
 
-    test("merges delta into existing computed state", async () => {
+    test("merges output into existing computed state", async () => {
       // Create initial state
       await store.commit({
         workflowId: "wf-1",
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { score: 0.8, status: "pending" },
+        output: { score: 0.8, status: "pending" },
         events: [],
       });
 
-      // Commit second delta
+      // Commit second output
       const result = await store.commit({
         workflowId: "wf-1",
         runId: "run-1",
         stepId: "step-2",
         expectedVersion: 1,
-        delta: { status: "complete", verified: true },
+        output: { status: "complete", verified: true },
         events: [],
       });
 
@@ -277,7 +277,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { score: 0.8 },
+        output: { score: 0.8 },
         events: [],
       });
 
@@ -287,7 +287,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-2",
         expectedVersion: 5, // Wrong: should be 1
-        delta: { score: 0.9 },
+        output: { score: 0.9 },
         events: [],
       });
 
@@ -305,7 +305,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "pending" },
+        output: { status: "pending" },
         events: [],
         commands: [{ type: "review", reason: "first review" }],
       });
@@ -316,7 +316,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-2",
         expectedVersion: 1,
-        delta: { status: "blocked" },
+        output: { status: "blocked" },
         events: [],
         commands: [
           { type: "suspend", reason: "wait for callback", checkpoint: {} },
@@ -336,7 +336,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "suspended" },
+        output: { status: "suspended" },
         events: [],
         commands: [
           { type: "suspend", reason: "waiting for callback", checkpoint: {} },
@@ -368,7 +368,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "extract",
         expectedVersion: 0,
-        delta: { claims: ["a", "b"] },
+        output: { claims: ["a", "b"] },
         events: [
           { type: "extraction_started" },
           {
@@ -407,7 +407,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { config: { a: 1, b: 2 } },
+        output: { config: { a: 1, b: 2 } },
         events: [],
       });
 
@@ -416,7 +416,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-2",
         expectedVersion: 1,
-        delta: { config: { c: 3 } }, // Replaces entire config object
+        output: { config: { c: 3 } }, // Replaces entire config object
         events: [],
       });
 
@@ -434,7 +434,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { tags: ["a", "b"] },
+        output: { tags: ["a", "b"] },
         events: [],
       });
 
@@ -443,7 +443,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-2",
         expectedVersion: 1,
-        delta: { tags: ["c"] }, // Replaces entire array
+        output: { tags: ["c"] }, // Replaces entire array
         events: [],
       });
 
@@ -463,7 +463,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { score: 0.6 },
+        output: { score: 0.6 },
         events: [],
       });
 
@@ -494,7 +494,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { score: 0.6, status: "pending" },
+        output: { score: 0.6, status: "pending" },
         events: [],
       });
 
@@ -521,7 +521,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "pending" },
+        output: { status: "pending" },
         events: [],
         commands: [
           { type: "review", reason: "needs approval" },
@@ -559,7 +559,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "active" },
+        output: { status: "active" },
         events: [],
         commands: [{ type: "invoke", step: "next", input: {} }],
       });
@@ -597,7 +597,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "active" },
+        output: { status: "active" },
         events: [],
         commands: [{ type: "invoke", step: "next", input: {} }],
       });
@@ -633,7 +633,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "active" },
+        output: { status: "active" },
         events: [],
         commands: [{ type: "invoke", step: "next", input: {} }],
       });
@@ -675,7 +675,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "pending" },
+        output: { status: "pending" },
         events: [],
         commands: [
           { type: "review", reason: "review gate" },
@@ -739,7 +739,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "pending" },
+        output: { status: "pending" },
         events: [],
         commands: [{ type: "review", reason: "review gate" }],
       });
@@ -767,7 +767,7 @@ describe("createPgRunStore", () => {
         runId: "run-1",
         stepId: "step-1",
         expectedVersion: 0,
-        delta: { status: "suspended" },
+        output: { status: "suspended" },
         events: [],
         commands: [
           {

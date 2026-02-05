@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-- **Problem**: The kernel defines step execution semantics but provides no reference implementation for the execution loop (queue -> run -> persist -> enqueue next). SPEC-commands requires atomic persistence of commands with delta+events, but this isn't implemented.
+- **Problem**: The kernel defines step execution semantics but provides no reference implementation for the execution loop (queue -> run -> persist -> enqueue next). SPEC-commands requires atomic persistence of commands with output+events, but this isn't implemented.
 - **Why now**: Adoption stalls without a runnable end-to-end example. Users cannot validate the kernel works in production-like conditions.
 - **Constraints**: Must work with at-least-once delivery queues. Must handle "commit succeeded but enqueue failed" and vice versa.
 
@@ -119,5 +119,5 @@ Dispatcher uses `SELECT ... FOR UPDATE SKIP LOCKED` with lease fields to prevent
 
 ## References
 
-- SPEC-commands: Commands SHOULD be persisted atomically with delta + events
+- SPEC-commands: Commands SHOULD be persisted atomically with output + events
 - SPEC-suspend: Runner contract for blocking commands

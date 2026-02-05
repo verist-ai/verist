@@ -10,15 +10,15 @@ describe("defineWorkflow", () => {
     const step1 = defineStep({
       name: "step1",
       input: z.object({ a: z.string() }),
-      delta: z.object({ b: z.string() }),
-      run: async (input) => ({ delta: { b: input.a }, events: [] }),
+      output: z.object({ b: z.string() }),
+      run: async (input) => ({ output: { b: input.a } }),
     });
 
     const step2 = defineStep({
       name: "step2",
       input: z.object({ b: z.string() }),
-      delta: z.object({ c: z.string() }),
-      run: async (input) => ({ delta: { c: input.b }, events: [] }),
+      output: z.object({ c: z.string() }),
+      run: async (input) => ({ output: { c: input.b } }),
     });
 
     const workflow = defineWorkflow({
@@ -91,15 +91,15 @@ describe("defineWorkflow", () => {
       const extract = defineStep({
         name: "extract",
         input: z.object({ documentId: z.string() }),
-        delta: z.object({ claims: z.array(z.string()) }),
-        run: async () => ({ delta: { claims: [] }, events: [] }),
+        output: z.object({ claims: z.array(z.string()) }),
+        run: async () => ({ output: { claims: [] } }),
       });
 
       const verify = defineStep({
         name: "verify",
         input: z.object({ claims: z.array(z.string()) }),
-        delta: z.object({ verified: z.boolean() }),
-        run: async () => ({ delta: { verified: true }, events: [] }),
+        output: z.object({ verified: z.boolean() }),
+        run: async () => ({ output: { verified: true } }),
       });
 
       const workflow = defineWorkflow({
@@ -121,8 +121,8 @@ describe("defineWorkflow", () => {
       const processItem = defineStep({
         name: "processItem",
         input: z.object({ itemId: z.string() }),
-        delta: z.object({ processed: z.boolean() }),
-        run: async () => ({ delta: { processed: true }, events: [] }),
+        output: z.object({ processed: z.boolean() }),
+        run: async () => ({ output: { processed: true } }),
       });
 
       const workflow = defineWorkflow({
@@ -207,8 +207,8 @@ describe("defineWorkflow", () => {
       const handleDoc = defineStep({
         name: "handleDoc",
         input: z.object({ docId: z.string() }),
-        delta: z.object({ processed: z.boolean() }),
-        run: async () => ({ delta: { processed: true }, events: [] }),
+        output: z.object({ processed: z.boolean() }),
+        run: async () => ({ output: { processed: true } }),
       });
 
       const workflow = defineWorkflow({
@@ -254,8 +254,8 @@ describe("defineWorkflow", () => {
       const step1 = defineStep({
         name: "step1",
         input: z.object({}),
-        delta: z.object({}),
-        run: async () => ({ delta: {}, events: [] }),
+        output: z.object({}),
+        run: async () => ({ output: {} }),
       });
 
       const workflow = defineWorkflow({

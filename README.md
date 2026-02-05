@@ -82,10 +82,10 @@ import { defineStep, run, unwrap, recompute, formatDiff } from "verist";
 const extractClaims = defineStep({
   name: "extract-claims",
   input: z.object({ text: z.string() }),
-  delta: z.object({ claims: z.array(z.string()) }),
+  output: z.object({ claims: z.array(z.string()) }),
   run: async (input, ctx) => {
     const claims = await ctx.adapters.llm.extract(input.text);
-    return { delta: { claims }, events: [] };
+    return { output: { claims } };
   },
 });
 
@@ -98,7 +98,7 @@ const result = unwrap(
 const recomputeResult = unwrap(
   await recompute(snapshot, extractClaims, { adapters: { llm: newLlm } }),
 );
-console.log(formatDiff(recomputeResult.deltaDiff));
+console.log(formatDiff(recomputeResult.outputDiff));
 ```
 
 ## CI Integration

@@ -31,14 +31,14 @@ import { defineStep, run } from "verist";
 const verifyDocument = defineStep({
   name: "verify-document",
   input: z.object({ docId: z.string(), text: z.string() }),
-  delta: z.object({
+  output: z.object({
     verdict: z.enum(["accept", "reject"]),
     confidence: z.number(),
   }),
   run: async (input, ctx) => {
     const verdict = await ctx.adapters.llm.verify(input.text);
     return {
-      delta: { verdict, confidence: 0.84 },
+      output: { verdict, confidence: 0.84 },
       events: [{ type: "document_verified", payload: { docId: input.docId } }],
     };
   },
@@ -61,7 +61,7 @@ const result = await run(
 );
 
 if (result.ok) {
-  console.log(result.value.output.delta);
+  console.log(result.value.output);
   // { verdict: "accept", confidence: 0.84 }
 }
 ```
@@ -83,10 +83,10 @@ const recomputeResult = await recompute(snapshot, verifyDocument, {
 });
 
 if (recomputeResult.ok) {
-  const { status, deltaDiff } = recomputeResult.value;
+  const { status, outputDiff } = recomputeResult.value;
   console.log("Status:", status); // "clean" | "value_changed" | "schema_violation"
-  if (deltaDiff && !deltaDiff.equal) {
-    console.log(formatDiff(deltaDiff));
+  if (outputDiff && !outputDiff.equal) {
+    console.log(formatDiff(outputDiff));
     // Shows exactly which fields changed
   }
 }
