@@ -9,8 +9,8 @@
  * Run: bun examples/overlay-recompute/run.ts
  */
 
-import { defineStep, run, unwrap } from "@verist/core";
 import { createMemoryStore, effectiveState } from "@verist/storage";
+import { defineStep, run, unwrap } from "verist";
 import { z } from "zod";
 
 // --- Schema ---

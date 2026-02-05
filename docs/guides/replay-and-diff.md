@@ -17,7 +17,7 @@ run step → capture artifacts → store snapshot → later: recompute and diff
 ## 1. Run a step
 
 ```ts
-import { defineStep, run } from "@verist/core";
+import { defineStep, run } from "verist";
 import { z } from "zod";
 
 const verifyDocument = defineStep({
@@ -51,7 +51,7 @@ const result = await run(
 ## 2. Capture artifacts and store snapshot
 
 ```ts
-import { createSnapshotFromResult } from "@verist/replay";
+import { createSnapshotFromResult } from "verist";
 
 if (!result.ok) throw new Error(result.error.message);
 
@@ -67,7 +67,7 @@ await db.snapshots.insert(snapshot);
 Artifacts are emitted via `onArtifact` during execution. Store them, then attach to the snapshot:
 
 ```ts
-import type { Artifact } from "@verist/core";
+import type { Artifact } from "verist";
 
 const extraArtifacts: Artifact[] = [];
 
@@ -100,7 +100,7 @@ if (result.ok) {
 ## 3. Recompute and diff later
 
 ```ts
-import { recompute, formatDiff } from "@verist/replay";
+import { recompute, formatDiff } from "verist";
 
 const recomputeResult = await recompute(snapshot, verifyDocument, {
   adapters: { llm: newModelAdapter }, // [!code highlight]

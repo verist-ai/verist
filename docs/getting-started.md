@@ -11,11 +11,11 @@ This guide covers both CLI and programmatic usage. For how the pieces fit togeth
 ::: code-group
 
 ```bash [bun]
-bun add @verist/core @verist/replay @verist/cli zod
+bun add verist @verist/cli zod
 ```
 
 ```bash [npm]
-npm install @verist/core @verist/replay @verist/cli zod
+npm install verist @verist/cli zod
 ```
 
 :::
@@ -50,7 +50,7 @@ Each step returns:
 
 ```ts
 import { z } from "zod";
-import { defineStep, run } from "@verist/core";
+import { defineStep, run } from "verist";
 
 const verifyDocument = defineStep({
   name: "verify-document",
@@ -91,7 +91,7 @@ if (result.ok) {
 For stable IDs and version tracking, pass explicit identity to `run()`:
 
 ```ts
-import { defineWorkflow, run } from "@verist/core";
+import { defineWorkflow, run } from "verist";
 
 const workflow = defineWorkflow({
   name: "verify-document",
@@ -166,7 +166,7 @@ Verist guarantees:
 Commands are plain objects. Use helpers for common patterns:
 
 ```ts
-import { invoke, fanout, review, emit } from "@verist/core";
+import { invoke, fanout, review, emit } from "verist";
 
 return {
   delta,

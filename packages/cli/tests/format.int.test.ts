@@ -38,7 +38,7 @@ async function runCli(
 function writeConfig(dir: string, runFn: string = "input.value * 2"): void {
   writeFileSync(
     join(dir, "verist.config.ts"),
-    `import { defineStep } from "@verist/core";
+    `import { defineStep } from "verist";
 import { z } from "zod";
 
 const doubleStep = defineStep({

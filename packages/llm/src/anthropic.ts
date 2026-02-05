@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Artifact } from "@verist/core";
-import { err, ok } from "@verist/core";
+import type { Artifact } from "verist";
+import { err, ok } from "verist";
 import { hashValue } from "./hash";
 import type {
   LLMCompleteOpts,

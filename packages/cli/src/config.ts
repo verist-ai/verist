@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BaseAdapters, Step } from "@verist/core";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { BaseAdapters, Step } from "verist";
 
 /**
  * CLI configuration loaded from `verist.config.ts` or `verist.config.mjs`.

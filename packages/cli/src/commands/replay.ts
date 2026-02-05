@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { hashValue } from "@verist/replay";
 import { existsSync, statSync } from "node:fs";
 import { basename, resolve } from "node:path";
+import { hashValue } from "verist/internals";
 import type { BaselineEnvelope } from "../baseline/index.ts";
 import { baselineDir, listBaselines, readBaseline } from "../baseline/index.ts";
 import { EXIT_ERROR } from "../exitCodes.ts";

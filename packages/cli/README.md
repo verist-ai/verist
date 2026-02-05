@@ -120,11 +120,6 @@ verist test --step extract --format json
 - `--debug` — show full error details
 - `--quiet` — suppress non-essential output
 
-## Peer Dependencies
-
-- `@verist/core`
-- `@verist/replay`
-
 ## License
 
 [Apache-2.0](../../LICENSE)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Artifact } from "@verist/core";
 import { describe, expect, it, mock } from "bun:test";
+import type { Artifact } from "verist";
 import { createAnthropic, type AnthropicClientLike } from "./anthropic";
 import { createOpenAI, type OpenAIClientLike } from "./openai";
 

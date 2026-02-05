@@ -211,4 +211,4 @@ The Trust Kit is a planned Tier 2 capability package (`@verist/trust`) that will
 - Computed/overlay helpers with conflict surfacing
 - Immutable snapshot builders
 
-The kernel (`@verist/core`) remains universal; Trust Kit adds domain-specific trust primitives.
+The kernel (`verist`) remains universal; Trust Kit adds domain-specific trust primitives.

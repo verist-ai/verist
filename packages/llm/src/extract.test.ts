@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Result } from "@verist/core";
-import { err, ok } from "@verist/core";
 import { describe, expect, it } from "bun:test";
+import type { Result } from "verist";
+import { err, ok } from "verist";
 import { z } from "zod";
 import { extract } from "./extract";
 import type { LLMError, LLMProvider, LLMResponse } from "./types";

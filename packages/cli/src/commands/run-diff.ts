@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Result } from "@verist/core";
-import type { RecomputeError, RecomputeResult } from "@verist/replay";
-import { recompute } from "@verist/replay";
 import { existsSync, statSync } from "node:fs";
 import { basename, resolve } from "node:path";
+import type { RecomputeError, RecomputeResult, Result } from "verist";
+import { recompute } from "verist";
 import { baselineDir, listBaselines, readBaseline } from "../baseline/index.ts";
 import type { VeristConfig } from "../config.ts";
 import { loadConfig } from "../config.ts";

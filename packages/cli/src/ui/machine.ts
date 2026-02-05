@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type {
-  DiffResult,
-  RecomputeStatus,
-  SchemaViolation,
-} from "@verist/replay";
+import type { DiffResult, RecomputeStatus, SchemaViolation } from "verist";
 import type { DiffCounts } from "../commands/run-diff.ts";
 import { formatSummary } from "./format.ts";
 

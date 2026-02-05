@@ -17,8 +17,7 @@ This is **not** production-grade. It is a reference for wiring.
 ## Minimal loop
 
 ```ts
-import { run } from "@verist/core";
-import { createSnapshotFromResult } from "@verist/replay";
+import { run, createSnapshotFromResult } from "verist";
 
 for (;;) {
   const job = await queue.take();

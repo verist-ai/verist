@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { isErr, isOk } from "@verist/core";
 import {
   afterAll,
   beforeAll,
@@ -12,6 +11,7 @@ import {
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { isErr, isOk } from "verist";
 import { createPgRunStore, type PgRunStore } from "./adapter.ts";
 import {
   veristBlocks,

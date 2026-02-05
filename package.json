@@ -1,5 +1,5 @@
 {
-  "name": "verist",
+  "name": "verist-monorepo",
   "type": "module",
   "license": "Apache-2.0",
   "private": true,
@@ -10,10 +10,8 @@
     "@changesets/cli": "^2.29.8",
     "@types/bun": "^1.3.8",
     "@types/pg": "^8.15.0",
-    "@verist/core": "workspace:*",
+    "verist": "workspace:*",
     "@verist/llm": "workspace:*",
-    "@verist/queue": "workspace:*",
-    "@verist/replay": "workspace:*",
     "@verist/storage": "workspace:*",
     "@verist/storage-pg": "workspace:*",
     "drizzle-orm": "^0.45.1",

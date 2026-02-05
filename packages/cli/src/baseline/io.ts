@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Snapshot } from "@verist/replay";
 import {
   existsSync,
   mkdirSync,
@@ -9,6 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import type { Snapshot } from "verist";
 
 const FORMAT_VERSION = "verist-baseline@1";
 

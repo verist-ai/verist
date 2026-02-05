@@ -87,7 +87,7 @@ Runner captures snapshot (if needed)
 Load snapshot from store
        │
        ▼
-recompute(snapshot, step, newCtx, { validate: true })
+recompute(snapshot, step, { adapters, validate: true })
        │
        ▼
 Compare original vs new output
@@ -129,10 +129,10 @@ Human decisions survive recomputation. The overlay is never overwritten by steps
 
 | Component         | Package                                  | Your responsibility                 |
 | ----------------- | ---------------------------------------- | ----------------------------------- |
-| Step definition   | `@verist/core`                           | Define step logic                   |
-| Run execution     | `@verist/core`                           | Call `run()` in your runner         |
-| Snapshot creation | `@verist/replay`                         | Persist snapshots                   |
-| Replay/recompute  | `@verist/replay`                         | Load snapshots, run `recompute()`   |
+| Step definition   | `verist`                                 | Define step logic                   |
+| Run execution     | `verist`                                 | Call `run()` in your runner         |
+| Snapshot creation | `verist`                                 | Persist snapshots                   |
+| Replay/recompute  | `verist`                                 | Load snapshots, run `recompute()`   |
 | State storage     | `@verist/storage` + `@verist/storage-pg` | Storage contract + Postgres adapter |
 | Queue             | Your choice                              | Job dispatch and retry              |
 | Review UI         | Your choice                              | Display diffs, collect overrides    |

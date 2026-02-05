@@ -45,7 +45,7 @@ for (const input of inputs) {
 }
 ```
 
-Replace the loop with `@verist/batch` for built-in concurrency and reporting.
+For built-in concurrency and reporting, wrap this in a helper that manages parallelism and per-item accounting.
 
 ## Design tips
 

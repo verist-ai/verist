@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuditEvent, Command, Delta, Result } from "@verist/core";
+import type { AuditEvent, Command, Delta, Result } from "verist";
 
 /**
  * Three-layer state model (ADR-003).

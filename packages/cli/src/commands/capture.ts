@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { run } from "@verist/core";
-import type { Artifact } from "@verist/replay";
-import {
-  createSnapshotFromResult,
-  RESERVED_ARTIFACT_KINDS,
-} from "@verist/replay";
 import { globSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import type { Artifact } from "verist";
+import { createSnapshotFromResult, run } from "verist";
+import { RESERVED_ARTIFACT_KINDS } from "verist/internals";
 import type { BaselineEnvelope } from "../baseline/index.ts";
 import {
   baselineDir,

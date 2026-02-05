@@ -11,11 +11,17 @@
  *   OPENAI_API_KEY=sk-... bun examples/prompt-diff/quickstart.ts
  */
 
-import { createContextFactory, defineStep, run, unwrap } from "@verist/core";
 import type { LLMProvider } from "@verist/llm";
 import { createOpenAI, llmEvent } from "@verist/llm";
-import { capture, diff, recompute } from "@verist/replay/quickstart";
 import OpenAI from "openai";
+import {
+  createSnapshotFromResult,
+  defineStep,
+  formatDiff,
+  recompute,
+  run,
+  unwrap,
+} from "verist";
 import { z } from "zod";
 
 type Adapters = { llm: LLMProvider };
@@ -56,19 +62,14 @@ async function main() {
 
   // 2. Capture snapshot
   print("Capturing snapshot...");
-  const snapshot = await capture(baselineResult);
+  const snapshot = await createSnapshotFromResult(baselineResult);
   print("Snapshot captured", "done");
 
   // 3. Recompute with regression prompt
   print("Recomputing with new prompt...");
   const regressionStep = extractStep(REGRESSION_PROMPT);
-  const ctx = createContextFactory(adapters)({
-    workflowId: snapshot.workflowId,
-    workflowVersion: snapshot.workflowVersion,
-    runId: "recompute-1",
-  });
   const recomputeResult = unwrap(
-    await recompute(snapshot, regressionStep, ctx),
+    await recompute(snapshot, regressionStep, { adapters }),
   );
   const newClaims = (recomputeResult.output.delta as Record<string, unknown>)
     .claims as string[];
@@ -77,7 +78,10 @@ async function main() {
 
   // 4. Show diff
   console.log("\n--- Diff ---");
-  console.log(diff(recomputeResult.deltaDiff));
+  const diffResult = recomputeResult.deltaDiff;
+  console.log(
+    !diffResult || diffResult.equal ? "No changes." : formatDiff(diffResult),
+  );
 }
 
 main().catch((err) => {
