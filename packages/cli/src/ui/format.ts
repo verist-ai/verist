@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { RecomputeError, RecomputeResult } from "@verist/replay";
-import { formatDiff, formatPath } from "@verist/replay";
+import type { RecomputeError, RecomputeResult } from "verist";
+import { formatDiff } from "verist";
+import { formatPath } from "verist/internals";
 
 /**
  * Format an error for CLI output.

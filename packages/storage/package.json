@@ -42,10 +42,10 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "workspace:^"
+    "verist": "workspace:^"
   },
   "devDependencies": {
-    "@verist/core": "workspace:*"
+    "verist": "workspace:*"
   },
   "publishConfig": {
     "access": "public"

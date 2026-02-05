@@ -24,7 +24,7 @@ If you only have one step, skip this. The moment you compose steps, it's worth i
 ## Define a workflow
 
 ```ts
-import { defineWorkflow } from "@verist/core";
+import { defineWorkflow } from "verist";
 
 const workflow = defineWorkflow({
   name: "verify-document",

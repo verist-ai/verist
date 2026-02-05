@@ -1,16 +1,19 @@
 {
-  "name": "@verist/llm",
-  "version": "0.0.11",
-  "description": "LLM provider adapters with built-in tracing for audit events",
+  "name": "verist",
+  "version": "0.0.1",
+  "description": "Deterministic workflow kernel for AI systems — replay + diff for AI decisions",
   "keywords": [
     "verist",
     "ai",
     "llm",
+    "agent",
     "workflow",
-    "openai",
-    "anthropic",
-    "tracing",
-    "audit"
+    "deterministic",
+    "state-machine",
+    "replay",
+    "diff",
+    "audit",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Verist <hello@verist.dev> (https://verist.dev/)",
@@ -18,7 +21,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/verist-ai/verist.git",
-    "directory": "packages/llm"
+    "directory": "packages/verist"
   },
   "bugs": {
     "url": "https://github.com/verist-ai/verist/issues"
@@ -34,6 +37,11 @@
       "types": "./src/index.ts",
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./internals": {
+      "types": "./src/internals.ts",
+      "bun": "./src/internals.ts",
+      "default": "./dist/internals.js"
     }
   },
   "types": "./dist/index.d.ts",
@@ -42,10 +50,10 @@
     "src"
   ],
   "peerDependencies": {
-    "verist": "workspace:^"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "verist": "workspace:*"
+    "zod": "^4.3.6"
   },
   "publishConfig": {
     "access": "public"

@@ -11,11 +11,11 @@ Wrap one function, get replay and diff. No workflows, no queues, no complexity.
 ::: code-group
 
 ```bash [bun]
-bun add @verist/core @verist/replay zod
+bun add verist zod
 ```
 
 ```bash [npm]
-npm install @verist/core @verist/replay zod
+npm install verist zod
 ```
 
 :::
@@ -26,7 +26,7 @@ A step is a function with typed input/output and audit events.
 
 ```ts
 import { z } from "zod";
-import { defineStep, run } from "@verist/core";
+import { defineStep, run } from "verist";
 
 const verifyDocument = defineStep({
   name: "verify-document",
@@ -71,11 +71,7 @@ if (result.ok) {
 Capture the output as a snapshot, then recompute with a new model to see what changed:
 
 ```ts
-import {
-  createSnapshotFromResult,
-  recompute,
-  formatDiff,
-} from "@verist/replay";
+import { createSnapshotFromResult, recompute, formatDiff } from "verist";
 
 if (!result.ok) throw new Error(result.error.message);
 

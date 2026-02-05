@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuditEvent } from "@verist/core";
+import type { AuditEvent } from "verist";
 import type { LLMResponse } from "./types";
 
 // Types

@@ -53,7 +53,7 @@ interface DiffEntry {
 
 ### Core Integration
 
-The `run()` function in `@verist/core` accepts an optional `onArtifact` callback for artifact capture:
+The `run()` function accepts an optional `onArtifact` callback for artifact capture:
 
 ```typescript
 const artifacts: Artifact[] = [];
@@ -73,7 +73,7 @@ When `onArtifact` is provided, core automatically emits a `step-output` artifact
 Adapters emit their own artifacts via the callback passed through context:
 
 ```typescript
-// In @verist/llm adapter
+// In LLM adapter
 if (ctx.onArtifact) {
   ctx.onArtifact(captureArtifact("llm-input", request));
   // ... execute LLM call ...
@@ -83,11 +83,9 @@ if (ctx.onArtifact) {
 
 ### withReplay Helper
 
-`@verist/replay` provides a convenience wrapper:
+A convenience wrapper captures artifacts and creates a snapshot in one call:
 
 ```typescript
-import { withReplay } from "@verist/replay";
-
 const { result, artifacts } = await withReplay(step, input, { adapters });
 const snapshot = createSnapshot({ ...result.value, artifacts });
 ```

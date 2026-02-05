@@ -26,7 +26,7 @@ export function baselineDir(
  *
  * Format: `<normalized-name>-<shortHash>.json`
  * where shortHash is the first 8 hex chars of the input hash
- * (from `snapshot.inputHash`, computed by `@verist/replay`).
+ * (from `snapshot.inputHash`, computed by `verist`).
  *
  * Uses the snapshot's own hash — CLI doesn't compute hashes independently.
  */

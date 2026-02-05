@@ -47,18 +47,14 @@
     "dist",
     "src"
   ],
-  "peerDependencies": {
-    "@verist/core": "workspace:^",
-    "@verist/replay": "workspace:^"
-  },
   "devDependencies": {
-    "@verist/core": "workspace:*",
-    "@verist/replay": "workspace:*"
+    "verist": "workspace:*"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "verist": "workspace:^"
   }
 }

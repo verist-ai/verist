@@ -47,15 +47,13 @@
     "src"
   ],
   "peerDependencies": {
-    "@verist/core": "workspace:^",
-    "@verist/replay": "workspace:^",
+    "verist": "workspace:^",
     "@verist/storage": "workspace:^",
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
     "@types/pg": "^8.15.0",
-    "@verist/core": "workspace:*",
-    "@verist/replay": "workspace:*",
+    "verist": "workspace:*",
     "@verist/storage": "workspace:*",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.16.0"

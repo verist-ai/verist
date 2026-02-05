@@ -1,7 +1,7 @@
 # Verist
 
-[![npm version](https://badge.fury.io/js/@verist%2Fcore.svg)](https://badge.fury.io/js/@verist%2Fcore)
-[![npm downloads](https://img.shields.io/npm/dm/@verist/core.svg)](https://npmjs.com/package/@verist/core)
+[![npm version](https://badge.fury.io/js/verist.svg)](https://badge.fury.io/js/verist)
+[![npm downloads](https://img.shields.io/npm/dm/verist.svg)](https://npmjs.com/package/verist)
 [![Ask ChatGPT](https://img.shields.io/badge/Ask_ChatGPT-10a37f?logo=google+gemini&logoColor=white)](https://chatgpt.com/g/g-697e23b923088191b8cb315bebf14a3b-verist-architect)
 [![Twitter Follow](https://img.shields.io/twitter/follow/verist_ai?style=social)](https://x.com/verist_ai)
 
@@ -38,7 +38,7 @@ Verist is not logging or observability — it is deterministic replay with revie
 ## Install
 
 ```bash
-npm install @verist/core @verist/replay @verist/cli zod
+npm install verist @verist/cli zod
 ```
 
 ## Quickstart
@@ -76,8 +76,7 @@ Verist captures AI outputs as artifacts. When you change something, replay again
 
 ```typescript
 import { z } from "zod";
-import { defineStep, run, unwrap } from "@verist/core";
-import { recompute, formatDiff } from "@verist/replay";
+import { defineStep, run, unwrap, recompute, formatDiff } from "verist";
 
 // Define a step with typed input/output
 const extractClaims = defineStep({
@@ -92,19 +91,12 @@ const extractClaims = defineStep({
 
 // Run with artifact capture
 const result = unwrap(
-  await run(
-    extractClaims,
-    { text },
-    {
-      adapters: { llm },
-      onArtifact: (a) => store.save(a),
-    },
-  ),
+  await run(extractClaims, { text }, { adapters: { llm } }),
 );
 
 // Later: change prompt, recompute from snapshot
 const recomputeResult = unwrap(
-  await recompute(snapshot, extractClaims, newCtx),
+  await recompute(snapshot, extractClaims, { adapters: { llm: newLlm } }),
 );
 console.log(formatDiff(recomputeResult.deltaDiff));
 ```
@@ -131,19 +123,13 @@ Verist is not a chat framework or agent runtime. It's the trust layer that makes
 
 ## Packages
 
-| Package              | Purpose                                       |
-| -------------------- | --------------------------------------------- |
-| `@verist/core`       | Step/workflow definition, execution           |
-| `@verist/replay`     | Artifact capture, replay, recompute with diff |
-| `@verist/cli`        | CLI — replay, diff, and inspect baselines     |
-| `@verist/llm`        | LLM provider adapters with tracing            |
-| `@verist/storage`    | Storage interface and layered state model     |
-| `@verist/storage-pg` | PostgreSQL storage adapter (Drizzle ORM)      |
-| `@verist/artifacts`  | Content-addressable artifact storage          |
-| `@verist/pipeline`   | Sequential step composition                   |
-| `@verist/batch`      | Parallel execution with concurrency control   |
-| `@verist/queue`      | Job queue adapter for distributed execution   |
-| `@verist/otel`       | OpenTelemetry tracing adapter                 |
+| Package              | Purpose                                                      |
+| -------------------- | ------------------------------------------------------------ |
+| `verist`             | Step/workflow definition, execution, replay, recompute, diff |
+| `@verist/cli`        | CLI — replay, diff, and inspect baselines                    |
+| `@verist/llm`        | LLM provider adapters with tracing                           |
+| `@verist/storage`    | Storage interface and layered state model                    |
+| `@verist/storage-pg` | PostgreSQL storage adapter (Drizzle ORM)                     |
 
 ## Documentation
 
@@ -153,7 +139,7 @@ Verist is not a chat framework or agent runtime. It's the trust layer that makes
 
 ## Links
 
-[![npm version](https://badge.fury.io/js/@verist%2Fcore.svg)](https://npmjs.com/package/@verist/core)
+[![npm version](https://badge.fury.io/js/verist.svg)](https://npmjs.com/package/verist)
 [![Twitter](https://img.shields.io/twitter/follow/verist_ai?style=social)](https://x.com/verist_ai)
 
 ## License

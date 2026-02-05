@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { err, ok } from "@verist/core";
+import { err, ok } from "verist";
 import type {
   CommitParams,
   RunStore,

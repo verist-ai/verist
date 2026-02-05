@@ -8,7 +8,7 @@ Storage interfaces and state-layer helpers for Verist.
 ## Installation
 
 ```bash
-bun add @verist/storage @verist/core
+bun add @verist/storage verist
 ```
 
 ## What This Package Provides

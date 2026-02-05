@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Build script for all packages.
  * Bundles TypeScript → JavaScript with bun build.
@@ -13,18 +15,7 @@ const rootDir = join(import.meta.dir, "..");
 const packagesDir = join(rootDir, "packages");
 
 // Build order: packages with no internal deps first
-const buildOrder = [
-  "core",
-  "batch",
-  "storage",
-  "replay",
-  "cli",
-  "llm",
-  "queue",
-  "otel",
-  "artifacts",
-  "storage-pg",
-];
+const buildOrder = ["verist", "storage", "cli", "llm", "storage-pg"];
 
 console.log(`Building ${buildOrder.length} packages...\n`);
 

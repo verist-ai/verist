@@ -46,7 +46,7 @@ Next steps:
 }
 
 const STEP_BODY = `\
-import { defineStep } from "@verist/core";
+import { defineStep } from "verist";
 import { z } from "zod";
 
 const parseContact = defineStep({

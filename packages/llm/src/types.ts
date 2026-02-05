@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { LLMTrace, OnArtifact, Result } from "@verist/core";
+import type { LLMTrace, OnArtifact, Result } from "verist";
 
 // Re-export LLMTrace from core for convenience
-export type { LLMTrace } from "@verist/core";
+export type { LLMTrace } from "verist";
 
 /**
  * Request payload for LLM completion.

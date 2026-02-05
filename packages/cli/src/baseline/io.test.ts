@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Snapshot } from "@verist/replay";
 import { afterEach, describe, expect, it } from "bun:test";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Snapshot } from "verist";
 import {
   listBaselines,
   readBaseline,
