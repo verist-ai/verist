@@ -127,13 +127,13 @@ export { createMemoryStore } from "./memory.ts";
 export interface RunStore {
   /**
    * Load current state snapshot for a workflow run.
-   * Returns null if run doesn't exist.
+   * Returns `err({ code: "not_found" })` if run doesn't exist.
    * `T` is a type hint only; adapters do not validate persisted data.
    */
   load<T = unknown>(
     workflowId: string,
     runId: string,
-  ): Promise<Result<StateSnapshot<T> | null, StorageError>>;
+  ): Promise<Result<StateSnapshot<T>, StorageError>>;
 
   /**
    * Commit state delta + events atomically.
@@ -166,7 +166,7 @@ export interface TypedStore<T> {
   load(
     workflowId: string,
     runId: string,
-  ): Promise<Result<StateSnapshot<T> | null, StorageError>>;
+  ): Promise<Result<StateSnapshot<T>, StorageError>>;
 
   commit(
     params: CommitParams<T>,

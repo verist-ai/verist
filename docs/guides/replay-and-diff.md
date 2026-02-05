@@ -55,9 +55,7 @@ import { createSnapshotFromResult } from "verist";
 
 if (!result.ok) throw new Error(result.error.message);
 
-const snapshot = await createSnapshotFromResult(result.value, {
-  captureCommands: true, // required for command diffing
-});
+const snapshot = await createSnapshotFromResult(result.value);
 
 await db.snapshots.insert(snapshot);
 ```
@@ -82,7 +80,6 @@ const result = await run(verifyDocument, input, {
 
 if (result.ok) {
   const snapshot = await createSnapshotFromResult(result.value, {
-    captureCommands: true,
     artifacts: extraArtifacts,
   });
   await snapshotStore.save(snapshot);
@@ -124,7 +121,7 @@ if (recomputeResult.ok) {
 | What changed            | How it shows up                             |
 | ----------------------- | ------------------------------------------- |
 | State delta             | `deltaDiff` from `recompute()`              |
-| Control flow            | `commandsDiff` (requires `captureCommands`) |
+| Control flow            | `commandsDiff` (auto-captured when present) |
 | Schema violations       | `schemaViolations` (requires `validate`)    |
 | Inputs across snapshots | `inputDiff` from `compareSnapshots()`       |
 

@@ -154,9 +154,10 @@ export async function runStep<
     });
   }
 
+  // Normalize events: default to [] when omitted by step author
   const validatedOutput = {
     delta: outputResult.data as Delta<TDelta>,
-    events: output.events,
+    events: output.events ?? [],
     commands: output.commands,
   };
 
@@ -222,7 +223,6 @@ interface RunOptionsBase {
  *   delta: z.object({ summary: z.string() }),
  *   run: async (input) => ({
  *     delta: { summary: `Summary of: ${input.text}` },
- *     events: [{ type: "summary_created" }],
  *   }),
  * });
  *

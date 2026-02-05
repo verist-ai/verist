@@ -60,7 +60,6 @@ for (;;) {
   }
 
   const snapshot = await createSnapshotFromResult(result.value, {
-    captureCommands: true,
     artifacts: extraArtifacts,
   });
 
@@ -71,7 +70,7 @@ for (;;) {
 ## Notes
 
 - Capture artifacts only if you need replay/recompute
-- `captureCommands` is required if you want `commandsDiff` later
+- Commands are auto-captured; use `captureCommands: false` to suppress
 - Keep state in your DB; the kernel is stateless by design
 
 See [Anti-Patterns](./anti-patterns) for common mistakes to avoid when building a runner.

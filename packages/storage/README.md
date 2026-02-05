@@ -47,7 +47,7 @@ interface RunStore {
   load<T = unknown>(
     workflowId,
     runId,
-  ): Promise<Result<StateSnapshot<T> | null, StorageError>>;
+  ): Promise<Result<StateSnapshot<T>, StorageError>>;
   commit<T>(
     params: CommitParams<T>,
   ): Promise<Result<StateSnapshot<T>, StorageError>>;

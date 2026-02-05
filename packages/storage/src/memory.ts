@@ -25,7 +25,12 @@ export function createMemoryStore(): RunStore {
   return {
     async load<T = unknown>(workflowId: string, runId: string) {
       const snapshot = store.get(key(workflowId, runId));
-      if (!snapshot) return ok(null);
+      if (!snapshot) {
+        return err({
+          code: "not_found",
+          message: `Run ${runId} not found in workflow ${workflowId}`,
+        } as StorageError);
+      }
       // Return a clone to prevent external mutation
       return ok(structuredClone(snapshot) as StateSnapshot<T>);
     },

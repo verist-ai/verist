@@ -263,7 +263,7 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
     async load<T = unknown>(
       workflowId: string,
       runId: string,
-    ): Promise<Result<StateSnapshot<T> | null, StorageError>> {
+    ): Promise<Result<StateSnapshot<T>, StorageError>> {
       try {
         const rows = await db
           .select()
@@ -278,7 +278,10 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
 
         const row = rows[0];
         if (!row) {
-          return ok(null);
+          return err({
+            code: "not_found",
+            message: `Run ${runId} not found in workflow ${workflowId}`,
+          });
         }
 
         return ok({
@@ -600,24 +603,31 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
           async (tx: PgTransaction<any, any, any>) => {
             const now = new Date();
 
-            // Get the block
-            const blocks = await tx
-              .select()
-              .from(veristBlocks)
-              .where(
-                and(
-                  eq(veristBlocks.workflowId, workflowId),
-                  eq(veristBlocks.runId, runId),
-                  isNull(veristBlocks.resolvedAt),
-                ),
-              )
-              .limit(1);
+            // Lock the block row to prevent concurrent resolvers from
+            // both reading unresolved state and creating duplicate side effects.
+            // Without FOR UPDATE, two callers with different resumeData could
+            // each insert a resume command (different dedupe keys).
+            const blocks = await tx.execute(sql`
+              SELECT * FROM ${veristBlocks}
+              WHERE workflow_id = ${workflowId}
+                AND run_id = ${runId}
+                AND resolved_at IS NULL
+              LIMIT 1
+              FOR UPDATE
+            `);
 
-            const block = blocks[0];
-            if (!block) {
+            // Raw SQL returns snake_case rows
+            const row = (blocks.rows as Record<string, unknown>[])[0];
+            if (!row) {
               // Idempotent: already resolved or never existed
               return ok(null);
             }
+
+            const blockId = row.id as bigint;
+            const blockType = row.type as string;
+            const blockStepId = row.step_id as string;
+            const blockResumeStep = row.resume_step as string | null;
+            const blockPayload = row.payload;
 
             // Validate resolution shape before any mutations
             if (typeof resolution !== "object" || resolution === null) {
@@ -627,7 +637,7 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
               });
             }
 
-            if (block.type === "review") {
+            if (blockType === "review") {
               const reviewRes = resolution as ReviewResolution;
               if (typeof reviewRes.approved !== "boolean") {
                 return err({
@@ -649,7 +659,7 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                   and(
                     eq(veristOutbox.workflowId, workflowId),
                     eq(veristOutbox.runId, runId),
-                    eq(veristOutbox.stepId, block.stepId),
+                    eq(veristOutbox.stepId, blockStepId),
                     eq(veristOutbox.status, "deferred"),
                   ),
                 );
@@ -660,8 +670,8 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                   resolution: resolution as unknown as Record<string, unknown>,
                   resolvedAt: now,
                 })
-                .where(eq(veristBlocks.id, block.id));
-            } else if (block.type === "suspend") {
+                .where(eq(veristBlocks.id, blockId));
+            } else if (blockType === "suspend") {
               if (!("resumeData" in resolution)) {
                 return err({
                   code: "serialization_error",
@@ -676,9 +686,9 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
               // Create invoke command for resume step.
               // Uses synthetic stepId `resume:<blockId>` to distinguish from
               // regular step invocations — tooling should tolerate unknown stepIds.
-              const resumeStep = block.resumeStep ?? block.stepId;
+              const resumeStep = blockResumeStep ?? blockStepId;
               const resumeInput = {
-                checkpoint: block.payload,
+                checkpoint: blockPayload,
                 resumeData: suspendRes.resumeData,
               };
               const resumeCommand: Command = {
@@ -687,7 +697,7 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                 input: resumeInput,
               };
 
-              const syntheticStepId = `resume:${block.id}`;
+              const syntheticStepId = `resume:${blockId}`;
               const dedupeKey = await computeDedupeKey(
                 workflowId,
                 runId,
@@ -713,12 +723,17 @@ export function createPgRunStore(config: PgAdapterConfig): PgRunStore {
                   resolution: resolution as unknown as Record<string, unknown>,
                   resolvedAt: now,
                 })
-                .where(eq(veristBlocks.id, block.id));
+                .where(eq(veristBlocks.id, blockId));
+            } else {
+              return err({
+                code: "serialization_error",
+                message: `Unknown block type: ${blockType}`,
+              });
             }
 
             return ok({
-              id: block.id.toString(),
-              type: block.type as BlockType,
+              id: blockId.toString(),
+              type: blockType as BlockType,
               resolution,
             });
           },

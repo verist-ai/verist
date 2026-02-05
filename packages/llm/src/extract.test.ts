@@ -137,6 +137,133 @@ describe("extract", () => {
     }
   });
 
+  it("accepts context object and reads llm + onArtifact", async () => {
+    let receivedOpts: unknown;
+    const llm: LLMProvider = {
+      complete: async (_req, opts) => {
+        receivedOpts = opts;
+        return ok({
+          content: '{"name": "ctx", "score": 7}',
+          trace: {
+            model: "test",
+            promptTokens: 0,
+            completionTokens: 0,
+            durationMs: 0,
+            inputHash: "sha256:x",
+            outputHash: "sha256:y",
+          },
+        });
+      },
+    };
+
+    const onArtifact = () => {};
+    const ctx = { adapters: { llm }, onArtifact };
+    const result = await extract(
+      ctx,
+      { model: "test", messages: [{ role: "user", content: "extract" }] },
+      schema,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.data).toEqual({ name: "ctx", score: 7 });
+    }
+    expect(receivedOpts).toEqual({ onArtifact });
+  });
+
+  it("explicit opts.onArtifact overrides ctx.onArtifact", async () => {
+    let receivedOpts: unknown;
+    const llm: LLMProvider = {
+      complete: async (_req, opts) => {
+        receivedOpts = opts;
+        return ok({
+          content: '{"name": "merge", "score": 5}',
+          trace: {
+            model: "test",
+            promptTokens: 0,
+            completionTokens: 0,
+            durationMs: 0,
+            inputHash: "sha256:x",
+            outputHash: "sha256:y",
+          },
+        });
+      },
+    };
+
+    const ctxArtifact = () => {};
+    const explicitArtifact = () => {};
+    const ctx = { adapters: { llm }, onArtifact: ctxArtifact };
+    await extract(
+      ctx,
+      { model: "test", messages: [{ role: "user", content: "extract" }] },
+      schema,
+      { onArtifact: explicitArtifact },
+    );
+
+    // Explicit opts override ctx defaults
+    expect(receivedOpts).toEqual({ onArtifact: explicitArtifact });
+  });
+
+  it("context without onArtifact passes explicit opts through", async () => {
+    let receivedOpts: unknown;
+    const llm: LLMProvider = {
+      complete: async (_req, opts) => {
+        receivedOpts = opts;
+        return ok({
+          content: '{"name": "pass", "score": 3}',
+          trace: {
+            model: "test",
+            promptTokens: 0,
+            completionTokens: 0,
+            durationMs: 0,
+            inputHash: "sha256:x",
+            outputHash: "sha256:y",
+          },
+        });
+      },
+    };
+
+    const explicitArtifact = () => {};
+    const ctx = { adapters: { llm } };
+    await extract(
+      ctx,
+      { model: "test", messages: [{ role: "user", content: "extract" }] },
+      schema,
+      { onArtifact: explicitArtifact },
+    );
+
+    expect(receivedOpts).toEqual({ onArtifact: explicitArtifact });
+  });
+
+  it("context without onArtifact passes no opts", async () => {
+    let receivedOpts: unknown;
+    const llm: LLMProvider = {
+      complete: async (_req, opts) => {
+        receivedOpts = opts;
+        return ok({
+          content: '{"name": "test", "score": 1}',
+          trace: {
+            model: "test",
+            promptTokens: 0,
+            completionTokens: 0,
+            durationMs: 0,
+            inputHash: "sha256:x",
+            outputHash: "sha256:y",
+          },
+        });
+      },
+    };
+
+    const ctx = { adapters: { llm } };
+    await extract(
+      ctx,
+      { model: "test", messages: [{ role: "user", content: "extract" }] },
+      schema,
+    );
+
+    expect(receivedOpts).toBeUndefined();
+  });
+
   it("passes opts through to complete()", async () => {
     let receivedOpts: unknown;
     const llm: LLMProvider = {

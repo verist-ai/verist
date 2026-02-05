@@ -80,7 +80,7 @@ export async function createSnapshot(
 export interface SnapshotFromResultOptions {
   /** If true, omit content from step-output artifact (hash only). Input is always stored in full. */
   outputHashOnly?: boolean;
-  /** If true, capture commands as step-commands artifact. Required for command diffing. */
+  /** Set to false to suppress command capture. Commands are auto-captured when present. */
   captureCommands?: boolean;
   /** If true, omit content from step-commands artifact (hash only). */
   commandsHashOnly?: boolean;
@@ -128,6 +128,8 @@ export function normalizeCommands(commands: Command[] | undefined): unknown[] {
     .sort((a, b) => {
       if (a.type !== b.type) return a.type.localeCompare(b.type);
 
+      // Use stable identity keys where available (step name, topic).
+      // review/suspend have no structural identity key — fall through to full hash.
       let identifierCmp = 0;
       switch (a.type) {
         case "invoke":
@@ -139,12 +141,6 @@ export function normalizeCommands(commands: Command[] | undefined): unknown[] {
         case "emit":
           identifierCmp = (a as { topic: string }).topic.localeCompare(
             (b as { topic: string }).topic,
-          );
-          break;
-        case "review":
-        case "suspend":
-          identifierCmp = (a as { reason: string }).reason.localeCompare(
-            (b as { reason: string }).reason,
           );
           break;
       }
@@ -175,10 +171,7 @@ export function normalizeCommands(commands: Command[] | undefined): unknown[] {
  * ```typescript
  * const result = await runStep({ step, input, ... });
  * if (result.ok) {
- *   // Capture output and commands for full diff support
- *   const snapshot = await createSnapshotFromResult(result.value, {
- *     captureCommands: true,
- *   });
+ *   const snapshot = await createSnapshotFromResult(result.value);
  *   await artifactStore.save(snapshot);
  * }
  * ```
@@ -187,15 +180,27 @@ export async function createSnapshotFromResult<TInput, TDelta>(
   result: StepResult<TInput, TDelta>,
   options?: SnapshotFromResultOptions,
 ): Promise<Snapshot> {
-  const outputArtifact = await captureArtifact("step-output", result.output, {
-    hashOnly: options?.outputHashOnly,
-  });
+  // Normalize optional fields so hash is stable regardless of how StepResult was constructed
+  const normalizedOutput = {
+    delta: result.output.delta,
+    events: result.output.events ?? [],
+    commands: result.output.commands,
+  };
 
+  const outputArtifact = await captureArtifact(
+    "step-output",
+    normalizedOutput,
+    { hashOnly: options?.outputHashOnly },
+  );
+
+  // step-output: exact validated output for replay
+  // step-commands: normalized semantic projection for stable hash/diff
   const artifacts: Artifact[] = [outputArtifact];
 
-  // Capture commands if requested (required for command diffing)
-  if (options?.captureCommands) {
-    const normalizedCommands = normalizeCommands(result.output.commands);
+  // Auto-capture commands when present (opt out with captureCommands: false)
+  const hasCommands = (normalizedOutput.commands?.length ?? 0) > 0;
+  if (hasCommands && options?.captureCommands !== false) {
+    const normalizedCommands = normalizeCommands(normalizedOutput.commands);
     const commandsArtifact = await captureArtifact(
       "step-commands",
       normalizedCommands,
@@ -210,7 +215,8 @@ export async function createSnapshotFromResult<TInput, TDelta>(
   for (const a of options?.artifacts ?? []) {
     if (RESERVED_ARTIFACT_KINDS.has(a.kind)) {
       throw new Error(
-        `Artifact kind "${a.kind}" is reserved by the kernel. Use a custom kind instead.`,
+        `Artifact kind "${a.kind}" is reserved by the kernel. ` +
+          `Use a domain-specific kind (e.g. "llm-response", "pdf-source").`,
       );
     }
   }

@@ -75,9 +75,7 @@ import { createSnapshotFromResult, recompute, formatDiff } from "verist";
 
 if (!result.ok) throw new Error(result.error.message);
 
-const snapshot = await createSnapshotFromResult(result.value, {
-  captureCommands: true,
-});
+const snapshot = await createSnapshotFromResult(result.value);
 
 // Recompute with a different adapter
 const recomputeResult = await recompute(snapshot, verifyDocument, {

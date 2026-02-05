@@ -14,12 +14,12 @@ interface ITestState {
 }
 
 describe("createMemoryStore", () => {
-  it("load returns null for non-existent run", async () => {
+  it("load returns not_found for non-existent run", async () => {
     const store = createMemoryStore();
     const result = await store.load("wf-1", "run-1");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value).toBeNull();
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("not_found");
   });
 
   it("commit creates new run (version 0 → 1)", async () => {
@@ -133,7 +133,7 @@ describe("createMemoryStore", () => {
     // Verify effective before recompute
     const before = await store.load<TestState>("wf-1", "run-1");
     expect(before.ok).toBe(true);
-    if (!before.ok || !before.value) return;
+    if (!before.ok) return;
     const effectiveBefore = effectiveState(before.value);
     expect(effectiveBefore).toEqual({ score: 0.8, risk: "low" });
 
@@ -220,14 +220,14 @@ describe("createMemoryStore", () => {
 
     // Typed load: computed carries TestState
     const typed = await store.load<TestState>("wf-1", "run-1");
-    if (typed.ok && typed.value) {
+    if (typed.ok) {
       expectTypeOf(typed.value.computed).toEqualTypeOf<TestState>();
       expectTypeOf(typed.value.overlay).toEqualTypeOf<Partial<TestState>>();
     }
 
     // Untyped load: defaults to unknown
     const untyped = await store.load("wf-1", "run-1");
-    if (untyped.ok && untyped.value) {
+    if (untyped.ok) {
       expectTypeOf(untyped.value.computed).toEqualTypeOf<unknown>();
     }
   });
@@ -245,7 +245,7 @@ describe("createMemoryStore", () => {
 
     const result = await store.load<ITestState>("wf-1", "run-1");
     expect(result.ok).toBe(true);
-    if (!result.ok || !result.value) return;
+    if (!result.ok) return;
 
     // Would fail to compile if effectiveState required Record<string, unknown>
     const effective = effectiveState(result.value);
@@ -265,11 +265,11 @@ describe("createMemoryStore", () => {
     });
 
     const r1 = await store.load("wf-1", "run-1");
-    if (!r1.ok || !r1.value) return;
+    if (!r1.ok) return;
     (r1.value.computed as any).score = 999;
 
     const r2 = await store.load("wf-1", "run-1");
-    if (!r2.ok || !r2.value) return;
+    if (!r2.ok) return;
     expect((r2.value.computed as any).score).toBe(0.8);
   });
 });
@@ -292,7 +292,7 @@ describe("typedStore", () => {
     expectTypeOf(committed.value.computed).toEqualTypeOf<TestState>();
 
     const loaded = await store.load("wf-1", "run-1");
-    if (!loaded.ok || !loaded.value) return;
+    if (!loaded.ok) return;
     expectTypeOf(loaded.value.computed).toEqualTypeOf<TestState>();
   });
 });

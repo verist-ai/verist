@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Result } from "verist";
+import type { OnArtifact, Result } from "verist";
 import { err, ok } from "verist";
 import type {
   LLMCompleteOpts,
@@ -47,6 +47,12 @@ function stripJsonFences(text: string): string {
   return trimmed;
 }
 
+/** Minimal context shape that extract() can read from. */
+interface ExtractContext {
+  adapters: { llm: LLMProvider };
+  onArtifact?: OnArtifact;
+}
+
 /**
  * Extract structured data from an LLM response.
  *
@@ -54,25 +60,53 @@ function stripJsonFences(text: string): string {
  * The schema uses a generic `{ parse }` interface, so any validator works
  * (Zod, ArkType, custom) without coupling to a specific library.
  *
+ * Accepts either a step context (reads `ctx.adapters.llm` and `ctx.onArtifact`
+ * automatically) or an explicit `LLMProvider`.
+ *
  * @example
  * ```typescript
- * const result = await extract(llm, request, schema, {
- *   onArtifact: ctx.onArtifact,
- * });
- * if (!result.ok) throw new Error(`[${result.error.code}] ${result.error.message}`);
- * return {
- *   delta: result.value.data,
- *   events: [llmEvent("extracted", result.value.response)],
- * };
+ * // Context-aware: reads llm adapter and onArtifact from ctx
+ * const result = await extract(ctx, request, schema);
+ *
+ * // Explicit provider
+ * const result = await extract(llm, request, schema, opts);
  * ```
  */
-export async function extract<T>(
+export function extract<T>(
+  ctx: ExtractContext,
+  request: LLMRequest,
+  schema: { parse(value: unknown): T },
+  opts?: LLMCompleteOpts,
+): Promise<Result<ExtractResult<T>, ExtractError>>;
+export function extract<T>(
   llm: LLMProvider,
   request: LLMRequest,
   schema: { parse(value: unknown): T },
   opts?: LLMCompleteOpts,
+): Promise<Result<ExtractResult<T>, ExtractError>>;
+export async function extract<T>(
+  ctxOrLlm: ExtractContext | LLMProvider,
+  request: LLMRequest,
+  schema: { parse(value: unknown): T },
+  opts?: LLMCompleteOpts,
 ): Promise<Result<ExtractResult<T>, ExtractError>> {
-  const llmResult = await llm.complete(request, opts);
+  let llm: LLMProvider;
+  let resolvedOpts: LLMCompleteOpts | undefined;
+
+  // Discriminate: LLMProvider has complete(), context has adapters
+  if (typeof (ctxOrLlm as LLMProvider).complete === "function") {
+    llm = ctxOrLlm as LLMProvider;
+    resolvedOpts = opts;
+  } else {
+    const ctx = ctxOrLlm as ExtractContext;
+    llm = ctx.adapters.llm;
+    // ctx.onArtifact provides default; explicit opts override
+    resolvedOpts = ctx.onArtifact
+      ? { onArtifact: ctx.onArtifact, ...opts }
+      : opts;
+  }
+
+  const llmResult = await llm.complete(request, resolvedOpts);
   if (!llmResult.ok) {
     return err(llmResult.error);
   }

@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { hashValue } from "./artifact.ts";
-import { invoke } from "./command.ts";
+import { emit, invoke, review } from "./command.ts";
 import type { StepResult } from "./run.ts";
 import {
   captureArtifact,
@@ -207,7 +207,32 @@ describe("createSnapshotFromResult", () => {
     expect(snapshot.artifacts[1]!.kind).toBe("llm-output");
   });
 
-  it("captures commands when captureCommands is true", async () => {
+  it("auto-captures commands when present", async () => {
+    const result: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: {
+        delta: { status: "processing" },
+        events: [],
+        commands: [invoke("next", { id: "doc-123" })],
+      },
+      artifacts: [],
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    const snapshot = await createSnapshotFromResult(result);
+
+    expect(snapshot.artifacts).toHaveLength(2);
+    expect(snapshot.artifacts[0]!.kind).toBe("step-output");
+    expect(snapshot.artifacts[1]!.kind).toBe("step-commands");
+    expect(snapshot.artifacts[1]!.content).toEqual([
+      invoke("next", { id: "doc-123" }),
+    ]);
+  });
+
+  it("suppresses command capture with captureCommands: false", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
       output: {
@@ -223,15 +248,32 @@ describe("createSnapshotFromResult", () => {
     };
 
     const snapshot = await createSnapshotFromResult(result, {
-      captureCommands: true,
+      captureCommands: false,
     });
 
-    expect(snapshot.artifacts).toHaveLength(2);
+    expect(snapshot.artifacts).toHaveLength(1);
     expect(snapshot.artifacts[0]!.kind).toBe("step-output");
-    expect(snapshot.artifacts[1]!.kind).toBe("step-commands");
-    expect(snapshot.artifacts[1]!.content).toEqual([
-      invoke("next", { id: "doc-123" }),
-    ]);
+  });
+
+  it("does not produce step-commands artifact for empty commands", async () => {
+    const result: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: {
+        delta: { status: "done" },
+        events: [],
+        commands: [],
+      },
+      artifacts: [],
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    const snapshot = await createSnapshotFromResult(result);
+
+    expect(snapshot.artifacts).toHaveLength(1);
+    expect(snapshot.artifacts[0]!.kind).toBe("step-output");
   });
 
   it("supports commandsHashOnly mode", async () => {
@@ -250,7 +292,6 @@ describe("createSnapshotFromResult", () => {
     };
 
     const snapshot = await createSnapshotFromResult(result, {
-      captureCommands: true,
       commandsHashOnly: true,
     });
 
@@ -277,7 +318,7 @@ describe("createSnapshotFromResult", () => {
       const reserved = await captureArtifact(kind, { data: "test" });
       await expect(
         createSnapshotFromResult(result, { artifacts: [reserved] }),
-      ).rejects.toThrow(`Artifact kind "${kind}" is reserved by the kernel`);
+      ).rejects.toThrow(`Artifact kind "${kind}" is reserved by the kernel.`);
     }
   });
 
@@ -330,12 +371,8 @@ describe("createSnapshotFromResult", () => {
       runId: "run-2",
     };
 
-    const snapshot1 = await createSnapshotFromResult(result1, {
-      captureCommands: true,
-    });
-    const snapshot2 = await createSnapshotFromResult(result2, {
-      captureCommands: true,
-    });
+    const snapshot1 = await createSnapshotFromResult(result1);
+    const snapshot2 = await createSnapshotFromResult(result2);
 
     const hash1 = snapshot1.artifacts.find(
       (a) => a.kind === "step-commands",
@@ -345,6 +382,45 @@ describe("createSnapshotFromResult", () => {
     )?.hash;
 
     // Same commands in different order → same hash after normalization
+    expect(hash1).toBe(hash2);
+  });
+
+  it("normalizes mixed command types for consistent hashing", async () => {
+    const commands1 = [
+      review("check totals"),
+      invoke("enrich", { id: 1 }),
+      emit("doc.processed", { id: 1 }),
+      invoke("validate", { id: 1 }),
+    ];
+
+    const commands2 = [
+      invoke("validate", { id: 1 }),
+      emit("doc.processed", { id: 1 }),
+      invoke("enrich", { id: 1 }),
+      review("check totals"),
+    ];
+
+    const make = (cmds: typeof commands1, runId: string) =>
+      createSnapshotFromResult({
+        input: { id: "doc-1" },
+        output: { delta: { status: "done" }, events: [], commands: cmds },
+        artifacts: [],
+        stepName: "process",
+        workflowId: "wf",
+        workflowVersion: "1.0.0",
+        runId,
+      } as StepResult<{ id: string }, { status: string }>);
+
+    const snapshot1 = await make(commands1, "run-1");
+    const snapshot2 = await make(commands2, "run-2");
+
+    const hash1 = snapshot1.artifacts.find(
+      (a) => a.kind === "step-commands",
+    )?.hash;
+    const hash2 = snapshot2.artifacts.find(
+      (a) => a.kind === "step-commands",
+    )?.hash;
+
     expect(hash1).toBe(hash2);
   });
 });
