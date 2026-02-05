@@ -132,12 +132,12 @@ describe("createPgRunStore", () => {
   });
 
   describe("load", () => {
-    test("returns null for non-existent state", async () => {
+    test("returns not_found for non-existent state", async () => {
       const result = await store.load("wf-1", "run-1");
 
-      expect(isOk(result)).toBe(true);
-      if (isOk(result)) {
-        expect(result.value).toBeNull();
+      expect(isOk(result)).toBe(false);
+      if (!isOk(result)) {
+        expect(result.error.code).toBe("not_found");
       }
     });
 
@@ -154,7 +154,7 @@ describe("createPgRunStore", () => {
       const result = await store.load("wf-1", "run-1");
 
       expect(isOk(result)).toBe(true);
-      if (isOk(result) && result.value) {
+      if (isOk(result)) {
         expect(result.value.computed).toEqual({ score: 0.8 });
         expect(result.value.version).toBe(1);
       }

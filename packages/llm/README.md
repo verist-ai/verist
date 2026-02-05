@@ -84,9 +84,26 @@ interface LLMResponse {
 
 When `onArtifact` is provided, the adapter emits `llm-input` and `llm-output` artifacts on success (input before output). Not called on errors.
 
+### `LLMContext`
+
+Type alias for `StepContext<{ llm: LLMProvider }>`. Use it to annotate step `run` functions that need an LLM adapter:
+
+```ts
+import type { LLMContext } from "@verist/llm";
+
+run: async (input, ctx: LLMContext) => {
+  const result = await extract(ctx, request, schema);
+  // ...
+};
+```
+
+### `extract(ctx, request, schema, opts?)`
+
 ### `extract(llm, request, schema, opts?)`
 
 Call an LLM, parse the JSON response, and validate it against a schema in one step. Returns `Result<ExtractResult<T>, ExtractError>`.
+
+Accepts either a step context (reads `ctx.adapters.llm` and `ctx.onArtifact` automatically) or an explicit `LLMProvider`:
 
 ```ts
 import { extract, createOpenAI, llmEvent } from "@verist/llm";
@@ -94,19 +111,11 @@ import { z } from "zod";
 
 const ClaimsSchema = z.object({ claims: z.array(z.string()) });
 
-const result = await extract(
-  llm,
-  {
-    model: "gpt-4o",
-    messages: [{ role: "user", content: "Extract claims from: ..." }],
-  },
-  ClaimsSchema,
-);
+// Context-aware: reads llm adapter and onArtifact from ctx
+const result = await extract(ctx, request, ClaimsSchema);
 
-if (result.ok) {
-  console.log(result.value.data); // { claims: ["..."] }
-  const event = llmEvent("extracted", result.value.response);
-}
+// Explicit provider
+const result = await extract(llm, request, ClaimsSchema, opts);
 ```
 
 The `schema` parameter accepts any object with a `parse(value: unknown): T` method (Zod, ArkType, etc.). JSON fences in the LLM response are stripped automatically.

@@ -35,7 +35,7 @@ export interface StepOutput<TDelta> {
    * ```
    */
   delta: Delta<TDelta>;
-  events: AuditEvent[];
+  events?: AuditEvent[];
   commands?: Command[];
 }
 

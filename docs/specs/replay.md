@@ -172,9 +172,9 @@ const { inputDiff, deltaDiff, commandsDiff } = compareSnapshots(a, b);
 - **Replay** must be byte-identical to the original output when artifacts are available.
 - **Recompute** compares current output and commands to the original snapshot.
 - **Snapshot integrity**: A snapshot is valid iff `step-output` was produced from the same `inputHash` recorded in the snapshot.
-- **Command diffs** are first-class: control-flow changes are reviewable. Commands are only diffable if explicitly captured (`step-commands` artifact or embedded in `step-output`). Core does not capture commands by default.
+- **Command diffs** are first-class: control-flow changes are reviewable. `createSnapshotFromResult()` auto-captures commands as a `step-commands` artifact when present. Use `captureCommands: false` to suppress.
 - **Emission order**: Core emits `step-output` after step execution completes (after any adapter artifacts emitted during the run). Core awaits artifact hashing before invoking `onArtifact`; callbacks are invoked sequentially in emission order. When multiple artifacts share a kind, the first emitted takes precedence.
 - **Core emits `step-output` only**: The `step-commands` artifact is optionally emitted by replay helpers (e.g., `withReplay`). If neither artifact exists, command diffing returns `undefined`.
-- **Command capture is opt-in**: use `captureCommands: true` in `createSnapshotFromResult()` for full command diffing. Without explicit capture, `commandsDiff` falls back to commands embedded in `step-output` (if present) or returns `undefined`.
+- **Command capture is automatic**: `createSnapshotFromResult()` emits `step-commands` whenever commands are present. Suppress with `captureCommands: false`. If neither artifact exists, `commandsDiff` falls back to commands embedded in `step-output` (if present) or returns `undefined`.
 - **Artifact precedence**: when both `step-commands` and `step-output` contain commands, `step-commands` is authoritative.
 - **Hash-only limits diffing**: if `commandsHashOnly: true` is used and no other source provides command content, `commandsDiff` will be `undefined`.

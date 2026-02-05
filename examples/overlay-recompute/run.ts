@@ -86,11 +86,11 @@ async function main() {
       stepId: "assess-risk",
       expectedVersion: 0,
       delta: result.output.delta,
-      events: result.output.events,
+      events: result.output.events ?? [],
     }),
   );
 
-  const snap1 = unwrap(await store.load<RiskState>(workflowId, runId))!;
+  const snap1 = unwrap(await store.load<RiskState>(workflowId, runId));
   console.log("Computed:", snap1.computed);
   console.log("Effective:", effectiveState(snap1));
 
@@ -98,7 +98,7 @@ async function main() {
   console.log("\n=== Step 2: Human overrides risk to 'low' ===\n");
   unwrap(await store.setOverlay(workflowId, runId, { riskLevel: "low" }));
 
-  const snap2 = unwrap(await store.load<RiskState>(workflowId, runId))!;
+  const snap2 = unwrap(await store.load<RiskState>(workflowId, runId));
   console.log("Computed:", snap2.computed);
   console.log("Overlay:", snap2.overlay);
   console.log("Effective:", effectiveState(snap2));
@@ -124,11 +124,11 @@ async function main() {
       stepId: "assess-risk",
       expectedVersion: 1,
       delta: result2.output.delta,
-      events: result2.output.events,
+      events: result2.output.events ?? [],
     }),
   );
 
-  const snap3 = unwrap(await store.load<RiskState>(workflowId, runId))!;
+  const snap3 = unwrap(await store.load<RiskState>(workflowId, runId));
   const eff3 = effectiveState(snap3);
   console.log("Computed:", snap3.computed);
   console.log("Overlay:", snap3.overlay);
@@ -158,11 +158,11 @@ async function main() {
       stepId: "assess-risk",
       expectedVersion: 2,
       delta: result3.output.delta,
-      events: result3.output.events,
+      events: result3.output.events ?? [],
     }),
   );
 
-  const snap4 = unwrap(await store.load<RiskState>(workflowId, runId))!;
+  const snap4 = unwrap(await store.load<RiskState>(workflowId, runId));
   const eff4 = effectiveState(snap4);
   console.log("Computed:", snap4.computed);
   console.log("Overlay:", snap4.overlay);

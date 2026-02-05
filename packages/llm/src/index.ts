@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuditEvent } from "verist";
-import type { LLMResponse } from "./types";
+import type { AuditEvent, StepContext } from "verist";
+import type { LLMProvider, LLMResponse } from "./types";
 
 // Types
 export type {
@@ -14,6 +14,9 @@ export type {
   LLMResponse,
   LLMTrace,
 } from "./types";
+
+/** Step context with an LLM adapter. Shorthand for `StepContext<{ llm: LLMProvider }>`. */
+export type LLMContext = StepContext<{ llm: LLMProvider }>;
 
 // OpenAI adapter
 export { createOpenAI } from "./openai";

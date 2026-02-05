@@ -47,7 +47,7 @@ if (ctx.onArtifact) {
 }
 ```
 
-### What Stays in @verist/replay
+### What Stays in Replay Helpers
 
 - `createSnapshot()`, `createSnapshotFromResult()`
 - `recompute()`, `diff()`, `formatDiff()`
