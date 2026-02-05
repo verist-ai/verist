@@ -71,8 +71,7 @@ async function main() {
   const recomputeResult = unwrap(
     await recompute(snapshot, regressionStep, { adapters }),
   );
-  const newClaims = (recomputeResult.parsedOutput as Record<string, unknown>)
-    ?.claims as string[];
+  const newClaims = recomputeResult.parsedOutput?.claims ?? [];
   print(`Recompute: ${newClaims.length} claims`, "done");
   for (const claim of newClaims) console.log(`  • ${claim}`);
 
