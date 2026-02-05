@@ -285,7 +285,7 @@ describe("extract", () => {
 
     expect(result.ok).toBe(true);
     expect(emittedEvents).toHaveLength(1);
-    expect(emittedEvents[0]!.type).toBe("extracted");
+    expect(emittedEvents[0]!.type).toBe("llm.extracted");
     expect(emittedEvents[0]!.llmTrace).toBeDefined();
   });
 

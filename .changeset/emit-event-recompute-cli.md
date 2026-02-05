@@ -7,7 +7,7 @@
 Add ctx.emitEvent, recompute ergonomics, and CLI improvements
 
 - `ctx.emitEvent()` callback on StepContext for audit events from adapters
-- `extract(ctx, ...)` auto-emits "extracted" audit event via `ctx.emitEvent`
+- `extract(ctx, ...)` auto-emits `"llm.extracted"` audit event via `ctx.emitEvent`
 - `recompute()` accepts `StepResult` in addition to `Snapshot`
 - `recompute({ validate: true })` is now the default
 - CLI: mixed-step detection in `--baseline` directory mode

@@ -64,8 +64,8 @@ interface ExtractContext {
  * Accepts either a step context (reads `ctx.adapters.llm`, `ctx.onArtifact`,
  * and `ctx.emitEvent` automatically) or an explicit `LLMProvider`.
  *
- * When using the context overload, an "extracted" audit event is auto-emitted
- * via `ctx.emitEvent` on success (with the LLM trace attached).
+ * When using the context overload, an `"llm.extracted"` audit event is
+ * auto-emitted via `ctx.emitEvent` on success (with the LLM trace attached).
  *
  * @example
  * ```typescript
@@ -143,7 +143,7 @@ export async function extract<T>(
 
   // Auto-emit audit event when using context overload
   if (ctx) {
-    ctx.emitEvent({ type: "extracted", llmTrace: response.trace });
+    ctx.emitEvent({ type: "llm.extracted", llmTrace: response.trace });
   }
 
   return ok({ data, response });
