@@ -1,6 +1,8 @@
-import { describe, it, expect } from "bun:test";
+// SPDX-License-Identifier: Apache-2.0
+
+import { describe, expect, expectTypeOf, it } from "bun:test";
 import { z } from "zod";
-import { defineStep } from "./step.ts";
+import { defineStep, type StepDelta, type StepInput } from "./step.ts";
 
 describe("defineStep", () => {
   it("creates a step with schemas", () => {
@@ -17,5 +19,16 @@ describe("defineStep", () => {
     expect(step.name).toBe("test-step");
     expect(step.inputSchema).toBeDefined();
     expect(step.deltaSchema).toBeDefined();
+  });
+
+  it("StepDelta and StepInput extract correct types", () => {
+    const step = defineStep({
+      name: "test",
+      input: z.object({ id: z.string() }),
+      delta: z.object({ score: z.number() }),
+      run: async () => ({ delta: { score: 1 }, events: [] }),
+    });
+    expectTypeOf<StepInput<typeof step>>().toEqualTypeOf<{ id: string }>();
+    expectTypeOf<StepDelta<typeof step>>().toEqualTypeOf<{ score: number }>();
   });
 });

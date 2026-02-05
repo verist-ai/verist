@@ -84,6 +84,46 @@ interface LLMResponse {
 
 When `onArtifact` is provided, the adapter emits `llm-input` and `llm-output` artifacts on success (input before output). Not called on errors.
 
+### `extract(llm, request, schema, opts?)`
+
+Call an LLM, parse the JSON response, and validate it against a schema in one step. Returns `Result<ExtractResult<T>, ExtractError>`.
+
+```ts
+import { extract, createOpenAI, llmEvent } from "@verist/llm";
+import { z } from "zod";
+
+const ClaimsSchema = z.object({ claims: z.array(z.string()) });
+
+const result = await extract(
+  llm,
+  {
+    model: "gpt-4o",
+    messages: [{ role: "user", content: "Extract claims from: ..." }],
+  },
+  ClaimsSchema,
+);
+
+if (result.ok) {
+  console.log(result.value.data); // { claims: ["..."] }
+  const event = llmEvent("extracted", result.value.response);
+}
+```
+
+The `schema` parameter accepts any object with a `parse(value: unknown): T` method (Zod, ArkType, etc.). JSON fences in the LLM response are stripped automatically.
+
+```ts
+interface ExtractResult<T> {
+  data: T;
+  response: LLMResponse;
+}
+
+interface ExtractError {
+  code: LLMErrorCode | "json_error" | "schema_error";
+  message: string;
+  retryable: boolean;
+}
+```
+
 ### `llmEvent(type, response, payload?)`
 
 Create an audit event from an LLM response with trace attached.

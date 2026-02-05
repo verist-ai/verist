@@ -157,3 +157,40 @@ export interface RunStore {
     overlay: Partial<T>,
   ): Promise<Result<StateSnapshot<T>, StorageError>>;
 }
+
+/**
+ * A RunStore with a fixed state type parameter.
+ * Eliminates repeated `<T>` at each call site.
+ */
+export interface TypedStore<T> {
+  load(
+    workflowId: string,
+    runId: string,
+  ): Promise<Result<StateSnapshot<T> | null, StorageError>>;
+
+  commit(
+    params: CommitParams<T>,
+  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+
+  setOverlay(
+    workflowId: string,
+    runId: string,
+    overlay: Partial<T>,
+  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+}
+
+/**
+ * Bind a state type to a RunStore, removing repeated `<T>` at each call site.
+ *
+ * @example
+ * const store = typedStore<AppState>(createMemoryStore());
+ * const result = await store.commit({...}); // T is AppState
+ */
+export function typedStore<T>(store: RunStore): TypedStore<T> {
+  return {
+    load: (workflowId, runId) => store.load<T>(workflowId, runId),
+    commit: (params) => store.commit<T>(params),
+    setOverlay: (workflowId, runId, overlay) =>
+      store.setOverlay<T>(workflowId, runId, overlay),
+  };
+}

@@ -84,6 +84,14 @@ export interface Step<
   ) => Promise<StepOutput<TDelta>>;
 }
 
+/** Extract the input type from a Step. */
+export type StepInput<S extends Step<any, any, any>> =
+  S extends Step<infer I, any, any> ? I : never;
+
+/** Extract the full delta type from a Step (runtime output is `Partial` of this). */
+export type StepDelta<S extends Step<any, any, any>> =
+  S extends Step<any, infer D, any> ? D : never;
+
 /**
  * Define a workflow step with typed input and delta schemas.
  *

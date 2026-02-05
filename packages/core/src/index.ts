@@ -66,7 +66,13 @@ export type {
 
 // Step
 export { defineStep } from "./step.ts";
-export type { Step, StepConfig, StepOutput } from "./step.ts";
+export type {
+  Step,
+  StepConfig,
+  StepDelta,
+  StepInput,
+  StepOutput,
+} from "./step.ts";
 
 // Workflow
 export { defineWorkflow } from "./workflow.ts";

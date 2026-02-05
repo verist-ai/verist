@@ -76,7 +76,6 @@ import {
   recompute,
   formatDiff,
 } from "@verist/replay";
-import { createContextFactory } from "@verist/core";
 
 if (!result.ok) throw new Error(result.error.message);
 
@@ -85,15 +84,9 @@ const snapshot = await createSnapshotFromResult(result.value, {
 });
 
 // Recompute with a different adapter
-const ctx = createContextFactory({
-  llm: { verify: async () => "reject" }, // [!code highlight]
-})({
-  workflowId: snapshot.workflowId,
-  workflowVersion: snapshot.workflowVersion,
-  runId: "recompute-1",
+const recomputeResult = await recompute(snapshot, verifyDocument, {
+  adapters: { llm: { verify: async () => "reject" } }, // [!code highlight]
 });
-
-const recomputeResult = await recompute(snapshot, verifyDocument, ctx);
 
 if (recomputeResult.ok) {
   const { status, deltaDiff } = recomputeResult.value;

@@ -101,17 +101,9 @@ if (result.ok) {
 
 ```ts
 import { recompute, formatDiff } from "@verist/replay";
-import { createContextFactory } from "@verist/core";
 
-const ctx = createContextFactory({
-  llm: newModelAdapter, // [!code highlight]
-})({
-  workflowId: snapshot.workflowId,
-  workflowVersion: snapshot.workflowVersion,
-  runId: "recompute-1",
-});
-
-const recomputeResult = await recompute(snapshot, verifyDocument, ctx, {
+const recomputeResult = await recompute(snapshot, verifyDocument, {
+  adapters: { llm: newModelAdapter }, // [!code highlight]
   validate: true,
 });
 

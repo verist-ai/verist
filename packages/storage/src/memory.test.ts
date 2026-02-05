@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, expectTypeOf, it } from "bun:test";
-import { effectiveState, type StateSnapshot } from "./index.ts";
+import { effectiveState, typedStore, type StateSnapshot } from "./index.ts";
 import { createMemoryStore } from "./memory.ts";
 
 type TestState = { score: number; risk: string };
@@ -271,5 +271,28 @@ describe("createMemoryStore", () => {
     const r2 = await store.load("wf-1", "run-1");
     if (!r2.ok || !r2.value) return;
     expect((r2.value.computed as any).score).toBe(0.8);
+  });
+});
+
+describe("typedStore", () => {
+  it("binds type parameter to store operations", async () => {
+    const store = typedStore<TestState>(createMemoryStore());
+
+    const committed = await store.commit({
+      workflowId: "wf-1",
+      runId: "run-1",
+      stepId: "step-1",
+      expectedVersion: 0,
+      delta: { score: 0.8, risk: "high" },
+      events: [],
+    });
+
+    expect(committed.ok).toBe(true);
+    if (!committed.ok) return;
+    expectTypeOf(committed.value.computed).toEqualTypeOf<TestState>();
+
+    const loaded = await store.load("wf-1", "run-1");
+    if (!loaded.ok || !loaded.value) return;
+    expectTypeOf(loaded.value.computed).toEqualTypeOf<TestState>();
   });
 });

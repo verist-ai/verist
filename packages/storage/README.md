@@ -17,6 +17,7 @@ bun add @verist/storage @verist/core
 - `createMemoryStore()` — in-memory `RunStore` for examples and tests
 - `StateSnapshot` and commit/overlay types
 - `effectiveState()` helper for computed + overlay merge
+- `typedStore<T>()` — bind a state type to a `RunStore`, removing repeated `<T>` at each call site
 - Typed storage conflict reasons for retry/fatal handling
 
 ## Layered State Model
@@ -91,6 +92,31 @@ await store.setOverlay("verify-doc", "run-1", { risk: "low" });
 ```
 
 No persistence, no outbox — events and commands are accepted but not stored.
+
+## Typed Store
+
+When all calls share the same state type, use `typedStore<T>()` to avoid repeating the type parameter:
+
+```ts
+import { createMemoryStore, typedStore } from "@verist/storage";
+
+interface AppState {
+  score: number;
+  risk: string;
+}
+
+const store = typedStore<AppState>(createMemoryStore());
+
+// T is AppState at every call site — no <AppState> needed
+await store.commit({
+  workflowId: "verify-doc",
+  runId: "run-1",
+  stepId: "extract",
+  expectedVersion: 0,
+  delta: { score: 0.8, risk: "high" },
+  events: [{ type: "scored" }],
+});
+```
 
 ## License
 
