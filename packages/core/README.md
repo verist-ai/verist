@@ -104,7 +104,7 @@ Execute a step with typed I/O and audit events.
 
 ```typescript
 const result = await run(step, input, {
-  adapters,                    // Required: runtime dependencies
+  adapters,                    // Required only if step declares adapters
   workflowId?: string,         // Default: step.name
   workflowVersion?: string,    // Default: "0.0.0"
   runId?: string,              // Default: crypto.randomUUID()
@@ -112,9 +112,20 @@ const result = await run(step, input, {
 });
 ```
 
-**Identity defaults:** For quick start, identity parameters are optional. For production, pass explicit values to enable stable audit trails and replay.
+**Options are optional** when the step declares no adapters — `run(step, input)` is valid. For production, pass explicit identity values to enable stable audit trails and replay.
 
 **Artifact capture:** When `onArtifact` is provided, core emits a `step-output` artifact. Adapters can emit additional artifacts (e.g., `llm-input`, `llm-output`) via the same callback passed through context. See ADR-008.
+
+### Utility Types
+
+Extract input and delta types from a step definition:
+
+```typescript
+import type { StepInput, StepDelta } from "@verist/core";
+
+type Input = StepInput<typeof summarize>; // { text: string }
+type Delta = StepDelta<typeof summarize>; // { summary: string }
+```
 
 ### Command Helpers
 
