@@ -130,15 +130,12 @@ describe("createSnapshotFromResult", () => {
   it("creates snapshot from step result", async () => {
     const result: StepResult<{ id: string }, { score: number }> = {
       input: { id: "doc-123" },
-      output: {
-        delta: { score: 0.95 },
-        events: [{ type: "scored" }],
-      },
+      output: { score: 0.95 },
+      events: [{ type: "scored" }],
       stepName: "score",
       workflowId: "verify-doc",
       workflowVersion: "1.2.0",
       runId: "run-456",
-      artifacts: [],
     };
 
     const snapshot = await createSnapshotFromResult(result);
@@ -150,21 +147,22 @@ describe("createSnapshotFromResult", () => {
     expect(snapshot.inputHash).toBe(await hashValue({ id: "doc-123" }));
     expect(snapshot.capturedAt).toBe(1700000000000);
 
-    // Includes step output as artifact
+    // Includes step output as artifact with normalized content shape
     expect(snapshot.artifacts).toHaveLength(1);
     const artifact = snapshot.artifacts[0]!;
     expect(artifact.kind).toBe("step-output");
-    expect(artifact.content).toEqual(result.output);
+    expect(artifact.content).toEqual({
+      output: { score: 0.95 },
+      events: [{ type: "scored" }],
+      commands: undefined,
+    });
   });
 
   it("supports outputHashOnly mode for compliance", async () => {
     const result: StepResult<{ id: string }, { data: string }> = {
       input: { id: "sensitive" },
-      output: {
-        delta: { data: "secret" },
-        events: [],
-      },
-      artifacts: [],
+      output: { data: "secret" },
+      events: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -177,18 +175,20 @@ describe("createSnapshotFromResult", () => {
 
     // Hash present, content omitted
     const artifact = snapshot.artifacts[0]!;
-    expect(artifact.hash).toBe(await hashValue(result.output));
+    const normalizedOutput = {
+      output: result.output,
+      events: result.events,
+      commands: result.commands,
+    };
+    expect(artifact.hash).toBe(await hashValue(normalizedOutput));
     expect(artifact.content).toBeUndefined();
   });
 
   it("includes additional artifacts", async () => {
     const result: StepResult<{ id: string }, { summary: string }> = {
       input: { id: "doc" },
-      output: {
-        delta: { summary: "A summary" },
-        events: [],
-      },
-      artifacts: [],
+      output: { summary: "A summary" },
+      events: [],
       stepName: "summarize",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -210,12 +210,9 @@ describe("createSnapshotFromResult", () => {
   it("auto-captures commands when present", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: {
-        delta: { status: "processing" },
-        events: [],
-        commands: [invoke("next", { id: "doc-123" })],
-      },
-      artifacts: [],
+      output: { status: "processing" },
+      events: [],
+      commands: [invoke("next", { id: "doc-123" })],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -235,12 +232,9 @@ describe("createSnapshotFromResult", () => {
   it("suppresses command capture with captureCommands: false", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: {
-        delta: { status: "processing" },
-        events: [],
-        commands: [invoke("next", { id: "doc-123" })],
-      },
-      artifacts: [],
+      output: { status: "processing" },
+      events: [],
+      commands: [invoke("next", { id: "doc-123" })],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -258,12 +252,9 @@ describe("createSnapshotFromResult", () => {
   it("does not produce step-commands artifact for empty commands", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: {
-        delta: { status: "done" },
-        events: [],
-        commands: [],
-      },
-      artifacts: [],
+      output: { status: "done" },
+      events: [],
+      commands: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -279,12 +270,9 @@ describe("createSnapshotFromResult", () => {
   it("supports commandsHashOnly mode", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: {
-        delta: { status: "processing" },
-        events: [],
-        commands: [invoke("next", { id: "doc-123" })],
-      },
-      artifacts: [],
+      output: { status: "processing" },
+      events: [],
+      commands: [invoke("next", { id: "doc-123" })],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -306,8 +294,8 @@ describe("createSnapshotFromResult", () => {
   it("throws on reserved artifact kind in options.artifacts", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: { delta: { status: "done" }, events: [] },
-      artifacts: [],
+      output: { status: "done" },
+      events: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -325,8 +313,8 @@ describe("createSnapshotFromResult", () => {
   it("allows custom artifact kinds in options.artifacts", async () => {
     const result: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: { delta: { status: "done" }, events: [] },
-      artifacts: [],
+      output: { status: "done" },
+      events: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -345,12 +333,9 @@ describe("createSnapshotFromResult", () => {
   it("normalizes commands for consistent hashing", async () => {
     const result1: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: {
-        delta: { status: "done" },
-        events: [],
-        commands: [invoke("b", {}), invoke("a", {})],
-      },
-      artifacts: [],
+      output: { status: "done" },
+      events: [],
+      commands: [invoke("b", {}), invoke("a", {})],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -359,12 +344,9 @@ describe("createSnapshotFromResult", () => {
 
     const result2: StepResult<{ id: string }, { status: string }> = {
       input: { id: "doc-123" },
-      output: {
-        delta: { status: "done" },
-        events: [],
-        commands: [invoke("a", {}), invoke("b", {})],
-      },
-      artifacts: [],
+      output: { status: "done" },
+      events: [],
+      commands: [invoke("a", {}), invoke("b", {})],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -403,8 +385,9 @@ describe("createSnapshotFromResult", () => {
     const make = (cmds: typeof commands1, runId: string) =>
       createSnapshotFromResult({
         input: { id: "doc-1" },
-        output: { delta: { status: "done" }, events: [], commands: cmds },
-        artifacts: [],
+        output: { status: "done" },
+        events: [],
+        commands: cmds,
         stepName: "process",
         workflowId: "wf",
         workflowVersion: "1.0.0",

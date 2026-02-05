@@ -28,7 +28,7 @@ function makeSnapshot(overrides?: Partial<Snapshot>): Snapshot {
     input: { id: 1 },
     inputHash: "sha256:abc",
     artifacts: [
-      { hash: "sha256:def", kind: "step-output", content: { delta: {} } },
+      { hash: "sha256:def", kind: "step-output", content: { output: {} } },
     ],
     capturedAt: 1700000000000,
     ...overrides,
@@ -83,8 +83,8 @@ describe("writeBaseline / readBaseline round-trip", () => {
     const envelope = makeEnvelope({
       snapshot: makeSnapshot({
         artifacts: [
-          { hash: "sha256:a", kind: "step-output", content: { delta: {} } },
-          { hash: "sha256:b", kind: "step-output", content: { delta: {} } },
+          { hash: "sha256:a", kind: "step-output", content: { output: {} } },
+          { hash: "sha256:b", kind: "step-output", content: { output: {} } },
         ],
       }),
     });
@@ -100,7 +100,7 @@ describe("writeBaseline / readBaseline round-trip", () => {
     const envelope = makeEnvelope({
       snapshot: makeSnapshot({
         artifacts: [
-          { hash: "sha256:a", kind: "step-output", content: { delta: {} } },
+          { hash: "sha256:a", kind: "step-output", content: { output: {} } },
           { hash: "sha256:b", kind: "step-commands", content: [] },
           { hash: "sha256:c", kind: "step-commands", content: [] },
         ],

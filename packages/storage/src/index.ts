@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AuditEvent, Command, Delta, Result } from "verist";
+import type { AuditEvent, Command, Result } from "verist";
 
 /**
  * Three-layer state model (ADR-003).
@@ -9,7 +9,7 @@ import type { AuditEvent, Command, Delta, Result } from "verist";
  * - overlay: Human corrections, never touched by automation
  * - effective: Read-only merge where overlay wins
  */
-export interface LayeredState<T> {
+export interface LayeredState<T extends object> {
   computed: T;
   overlay: Partial<T>;
 }
@@ -27,7 +27,7 @@ export function effectiveState<T extends object>(state: LayeredState<T>): T {
 /**
  * Point-in-time state snapshot with layers.
  */
-export interface StateSnapshot<T = unknown> {
+export interface RunState<T extends object = Record<string, unknown>> {
   workflowId: string;
   runId: string;
   version: number;
@@ -39,20 +39,21 @@ export interface StateSnapshot<T = unknown> {
 
 /**
  * Parameters for committing a step result.
- * Writes state delta + events + commands atomically.
+ * Writes step output + events + commands atomically.
  */
-export interface CommitParams<T = unknown> {
+export interface CommitParams<T extends object = Record<string, unknown>> {
   workflowId: string;
   runId: string;
   stepId: string;
   /** Expected current version. Must be 0 for new runs. */
   expectedVersion: number;
   /**
-   * Partial update to computed state. Omitted keys are preserved from previous computed.
-   * For initial commits (expectedVersion === 0), must represent the full computed state.
+   * Step output to merge into computed state.
+   * When expectedVersion === 0, becomes the initial computed state.
+   * When expectedVersion > 0, shallow-merged into existing computed state.
    */
-  delta: Delta<T>;
-  events: AuditEvent[];
+  output: Partial<T>;
+  events?: AuditEvent[];
   /**
    * Commands to write to outbox atomically with state commit.
    *
@@ -130,53 +131,51 @@ export interface RunStore {
    * Returns `err({ code: "not_found" })` if run doesn't exist.
    * `T` is a type hint only; adapters do not validate persisted data.
    */
-  load<T = unknown>(
+  load<T extends object = Record<string, unknown>>(
     workflowId: string,
     runId: string,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
 
   /**
-   * Commit state delta + events atomically.
+   * Commit step output + events atomically.
    *
    * - Creates new run if `expectedVersion === 0`
    * - Returns `conflict` if version mismatch or if `expectedVersion !== 0` for new run
    * - Events are written with the provided `stepId`
    */
-  commit<T>(
+  commit<T extends object>(
     params: CommitParams<T>,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
 
   /**
    * Apply human correction to overlay layer.
    * Last-write-wins semantics (no versioning).
    * Overlay values take precedence over computed values.
    */
-  setOverlay<T>(
+  setOverlay<T extends object>(
     workflowId: string,
     runId: string,
     overlay: Partial<T>,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
 }
 
 /**
  * A RunStore with a fixed state type parameter.
  * Eliminates repeated `<T>` at each call site.
  */
-export interface TypedStore<T> {
+export interface TypedStore<T extends object> {
   load(
     workflowId: string,
     runId: string,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
 
-  commit(
-    params: CommitParams<T>,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  commit(params: CommitParams<T>): Promise<Result<RunState<T>, StorageError>>;
 
   setOverlay(
     workflowId: string,
     runId: string,
     overlay: Partial<T>,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
 }
 
 /**
@@ -186,7 +185,7 @@ export interface TypedStore<T> {
  * const store = typedStore<AppState>(createMemoryStore());
  * const result = await store.commit({...}); // T is AppState
  */
-export function typedStore<T>(store: RunStore): TypedStore<T> {
+export function typedStore<T extends object>(store: RunStore): TypedStore<T> {
   return {
     load: (workflowId, runId) => store.load<T>(workflowId, runId),
     commit: (params) => store.commit<T>(params),

@@ -14,11 +14,11 @@ Verist is a deterministic workflow kernel for AI systems: replay, recompute, and
 
 Most AI workflows are hard to trust because you can't reproduce decisions or understand what changed after a model upgrade. Verist fixes that by being strict about:
 
-| Discipline                 | Why it matters                                  |
-| -------------------------- | ----------------------------------------------- |
-| **Explicit inputs**        | No hidden dependencies                          |
-| **Explicit artifacts**     | Store what the model saw and returned           |
-| **Explicit state changes** | Steps return deltas, nothing else mutates state |
+| Discipline                 | Why it matters                                   |
+| -------------------------- | ------------------------------------------------ |
+| **Explicit inputs**        | No hidden dependencies                           |
+| **Explicit artifacts**     | Store what the model saw and returned            |
+| **Explicit state changes** | Steps return outputs, nothing else mutates state |
 
 That discipline makes replay and diff possible.
 
@@ -30,7 +30,7 @@ A deterministic function that takes input + context and returns:
 
 | Field        | Description                        |
 | ------------ | ---------------------------------- |
-| **delta**    | Partial state update               |
+| **output**   | Partial state update               |
 | **events**   | Audit records                      |
 | **commands** | What should happen next (optional) |
 

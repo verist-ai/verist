@@ -38,12 +38,12 @@ This scaffolds a `parse-contact` step that extracts name, email, and phone via r
 
 Each step returns:
 
-- **delta** – partial state update
+- **output** – partial state update
 - **events** – audit records (append-only)
 - **commands** – declarative next steps (optional)
 
 ```text
-(input, context) → { delta, events, commands? }
+(input, context) → { output, events?, commands? }
 ```
 
 ### Define and run a step
@@ -55,14 +55,14 @@ import { defineStep, run } from "verist";
 const verifyDocument = defineStep({
   name: "verify-document",
   input: z.object({ docId: z.string(), text: z.string() }),
-  delta: z.object({
+  output: z.object({
     verdict: z.enum(["accept", "reject"]),
     confidence: z.number(),
   }),
   run: async (input, ctx) => {
     const verdict = await ctx.adapters.llm.verify(input.text);
     return {
-      delta: { verdict, confidence: 0.84 },
+      output: { verdict, confidence: 0.84 },
       events: [{ type: "document_verified", payload: { docId: input.docId } }],
     };
   },
@@ -81,7 +81,7 @@ const result = await run(
 );
 
 if (result.ok) {
-  console.log(result.value.output.delta);
+  console.log(result.value.output);
   // { verdict: "accept", confidence: 0.84 }
 }
 ```
@@ -145,7 +145,7 @@ Verist does not ship an orchestrator. A minimal runner typically does:
 
 1. Load state
 2. Execute `run()` with explicit identity
-3. Commit delta + events atomically
+3. Commit output + events atomically
 4. Interpret commands (enqueue, fan-out, review, emit)
 5. Capture artifacts if you need replay/recompute
 
@@ -169,7 +169,7 @@ Commands are plain objects. Use helpers for common patterns:
 import { invoke, fanout, review, emit } from "verist";
 
 return {
-  delta,
+  output: { score, verdict },
   events,
   commands: [
     invoke("verify", { id }), // call another step

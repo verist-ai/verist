@@ -34,7 +34,7 @@ const result = await run(step, input, {
 
 ### What Core Emits
 
-Core automatically emits `step-output` artifact containing `{ delta, events }` when `onArtifact` is provided. The artifact includes a content hash computed via Web Crypto API, adding minimal per-step overhead.
+Core automatically emits `step-output` artifact containing `{ output, events }` when `onArtifact` is provided. The artifact includes a content hash computed via Web Crypto API, adding minimal per-step overhead.
 
 ### What Adapters Emit
 

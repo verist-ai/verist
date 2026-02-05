@@ -5,7 +5,7 @@
 ### Patch Changes
 
 - a7cd6f1: Improve DX ergonomics across packages
-  - `StepOutput.events` is now optional (defaults to `[]`)
+  - `StepReturn.events` is now optional (defaults to `[]`)
   - `createSnapshotFromResult` auto-captures commands when present (opt out with `captureCommands: false`)
   - `extract()` accepts step context — reads `ctx.adapters.llm` and `ctx.onArtifact` automatically
   - Export `LLMContext` type alias for `StepContext<{ llm: LLMProvider }>`
@@ -53,7 +53,7 @@
 
 - 61aba83: Add generic type parameter to `RunStore.load<T>()`
 
-  `load<T>()` now accepts a type parameter like `commit<T>()` and `setOverlay<T>()`, returning `StateSnapshot<T>` instead of `StateSnapshot<unknown>`. Eliminates manual casts at call sites.
+  `load<T>()` now accepts a type parameter like `commit<T>()` and `setOverlay<T>()`, returning `RunState<T>` instead of `StateSnapshot<unknown>`. Eliminates manual casts at call sites.
 
   ```ts
   const snap = await store.load<MyState>(workflowId, runId);
@@ -69,7 +69,7 @@
 
 - 3a00052: Add generic type parameter to `RunStore.load<T>()`
 
-  `load<T>()` now accepts a type parameter like `commit<T>()` and `setOverlay<T>()`, returning `StateSnapshot<T>` instead of `StateSnapshot<unknown>`. Eliminates manual casts at call sites.
+  `load<T>()` now accepts a type parameter like `commit<T>()` and `setOverlay<T>()`, returning `RunState<T>` instead of `StateSnapshot<unknown>`. Eliminates manual casts at call sites.
 
   ```ts
   const snap = await store.load<MyState>(workflowId, runId);

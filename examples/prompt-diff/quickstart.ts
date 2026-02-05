@@ -56,7 +56,7 @@ async function main() {
   const baselineResult = unwrap(
     await run(baselineStep, { text: SAMPLE_TEXT }, { adapters }),
   );
-  const baselineClaims = baselineResult.output.delta.claims!;
+  const baselineClaims = baselineResult.output.claims!;
   print(`Baseline: ${baselineClaims.length} claims`, "done");
   for (const claim of baselineClaims) console.log(`  • ${claim}`);
 
@@ -71,14 +71,13 @@ async function main() {
   const recomputeResult = unwrap(
     await recompute(snapshot, regressionStep, { adapters }),
   );
-  const newClaims = (recomputeResult.output.delta as Record<string, unknown>)
-    .claims as string[];
+  const newClaims = recomputeResult.parsedOutput?.claims ?? [];
   print(`Recompute: ${newClaims.length} claims`, "done");
   for (const claim of newClaims) console.log(`  • ${claim}`);
 
   // 4. Show diff
   console.log("\n--- Diff ---");
-  const diffResult = recomputeResult.deltaDiff;
+  const diffResult = recomputeResult.outputDiff;
   console.log(
     !diffResult || diffResult.equal ? "No changes." : formatDiff(diffResult),
   );
@@ -95,7 +94,7 @@ function extractStep(systemPrompt: string) {
   return defineStep({
     name: "extract-claims",
     input: z.object({ text: z.string() }),
-    delta: ClaimsSchema,
+    output: ClaimsSchema,
     run: async (input, ctx) => {
       const { llm } = ctx.adapters as Adapters;
       const response = unwrap(
@@ -111,7 +110,7 @@ function extractStep(systemPrompt: string) {
 
       const parsed = ClaimsSchema.parse(parseJSON(response.content));
       return {
-        delta: parsed,
+        output: parsed,
         events: [llmEvent("claims_extracted", response)],
       };
     },

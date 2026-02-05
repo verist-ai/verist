@@ -18,7 +18,7 @@ Acceptable for demos. Not for review-heavy or high-impact systems.
 | Capability                | Description                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------- |
 | **Replay + diff**         | Capture artifacts during a run, replay exactly, or recompute and review the diff before shipping         |
-| **Database-backed state** | All state lives in your database. Steps return deltas; nothing important is implicit or in memory        |
+| **Database-backed state** | All state lives in your database. Steps return outputs; nothing important is implicit or in memory       |
 | **Audit-first**           | Every step produces structured audit events. The evidence trail is part of the API, not optional logging |
 | **Human authority**       | Human overrides are first-class and survive recomputation                                                |
 | **Minimal kernel**        | Small, explicit library that fits under your existing runner, queue, and UI                              |

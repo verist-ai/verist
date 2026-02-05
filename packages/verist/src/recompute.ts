@@ -5,15 +5,20 @@ import { hashValue } from "./artifact.ts";
 import type { Command } from "./command.ts";
 import { createContextFactory } from "./context.ts";
 import { diff, formatPath } from "./diff.ts";
+import type { AuditEvent } from "./event.ts";
 import type { Result } from "./result.ts";
 import { err, ok } from "./result.ts";
-import { captureArtifact, normalizeCommands } from "./snapshot.ts";
-import type { Step, StepOutput } from "./step.ts";
+import type { StepResult } from "./run.ts";
+import {
+  captureArtifact,
+  createSnapshotFromResult,
+  normalizeCommands,
+} from "./snapshot.ts";
+import type { Step, StepReturn } from "./step.ts";
 import type {
   AdaptersOption,
   BaseAdapters,
   CaptureOptions,
-  Delta,
   DiffResult,
   OptionsArg,
   RecomputeResult,
@@ -22,35 +27,51 @@ import type {
   Snapshot,
 } from "./types.ts";
 
-/** Check if value has step-output shape (object with delta key). */
-function isStepOutputShape(value: unknown): value is { delta: unknown } {
-  return value !== null && typeof value === "object" && "delta" in value;
+/** Check if value has step-output shape (object with `output` key). */
+function isStepOutputShape(value: unknown): value is { output: unknown } {
+  return value !== null && typeof value === "object" && "output" in value;
 }
 
-/** Extract commands from a snapshot. Prefers step-commands artifact, falls back to step-output. */
-function extractSnapshotCommands(snapshot: Snapshot): Command[] | undefined {
+/** Extract the output data from a step-output artifact content. */
+function extractOutputFromContent(content: { output: unknown }): unknown {
+  return content.output;
+}
+
+/**
+ * Extract normalized commands from a snapshot for diffing.
+ *
+ * Prefers `step-commands` artifact (already normalized at capture time),
+ * falls back to raw commands in `step-output` (normalized here).
+ * Returns `unknown[]` — callers diff directly without re-normalizing.
+ */
+function extractNormalizedCommands(snapshot: Snapshot): unknown[] | undefined {
+  // step-commands artifact stores already-normalized projections
   const commandsArtifact = snapshot.artifacts.find(
     (a) => a.kind === "step-commands",
   );
-  if (
-    commandsArtifact?.content !== undefined &&
-    isCommandArray(commandsArtifact.content)
-  ) {
-    return commandsArtifact.content as Command[];
+  if (commandsArtifact?.content !== undefined) {
+    if (isObjectArrayWithType(commandsArtifact.content)) {
+      return commandsArtifact.content;
+    }
   }
+  // Fallback: raw commands inside step-output — normalize them
   const outputArtifact = snapshot.artifacts.find(
     (a) => a.kind === "step-output",
   );
   if (isStepOutputShape(outputArtifact?.content)) {
     const commands = (outputArtifact.content as { commands?: unknown })
       .commands;
-    return isCommandArray(commands) ? (commands as Command[]) : undefined;
+    if (isObjectArrayWithType(commands)) {
+      return normalizeCommands(commands as Command[]);
+    }
   }
   return undefined;
 }
 
 /** Cheap shape check: array of objects with a string `type` field. */
-function isCommandArray(value: unknown): value is Command[] {
+function isObjectArrayWithType(
+  value: unknown,
+): value is Array<{ type: string }> {
   return (
     Array.isArray(value) &&
     value.every(
@@ -67,9 +88,9 @@ function isCommandArray(value: unknown): value is Command[] {
  * Recompute error types.
  */
 export type RecomputeErrorCode =
-  | "INPUT_HASH_MISMATCH"
-  | "INPUT_VALIDATION"
-  | "EXECUTION_FAILED";
+  | "input_hash_mismatch"
+  | "input_validation"
+  | "execution_failed";
 
 export interface RecomputeError {
   code: RecomputeErrorCode;
@@ -92,15 +113,17 @@ interface RecomputeOptionsBase {
   /** Capture artifacts for the recomputed output. Pass options or true. */
   captureArtifacts?: CaptureOptions | boolean;
   /**
-   * Enable schema validation:
-   * - Input: strict (returns `err(INPUT_VALIDATION)` on failure)
-   * - Output delta: observational (populates `schemaViolations`, never gates).
-   *   When output passes, the Zod-parsed delta is used for diff and returned
-   *   as `parsedDelta` (reflecting defaults, coercions, transforms).
+   * Enable schema validation (defaults to `true`):
+   * - Input: strict (returns `err(input_validation)` on failure)
+   * - Output: observational (populates `schemaViolations`, never gates).
+   *   When output passes, the Zod-parsed output is used for diff and returned
+   *   as `parsedOutput` (reflecting defaults, coercions, transforms).
+   *
+   * Set to `false` to skip all validation.
    */
   validate?: boolean;
   /**
-   * Validate output against the full delta schema instead of the partial
+   * Validate output against the full output schema instead of the partial
    * schema. Catches missing required fields that `.partial()` would allow.
    * Only effective when `validate` is also true.
    */
@@ -110,37 +133,58 @@ interface RecomputeOptionsBase {
 /**
  * Recompute a step with fresh execution and compare to original.
  *
+ * Accepts either a `Snapshot` (baseline) or a `StepResult` (fresh result).
+ * When a StepResult is passed, a snapshot is created internally.
+ *
  * Unlike replay (which uses stored artifacts), recompute makes fresh calls
  * to adapters (LLMs, databases, etc). This reveals what would change if
  * the step were run today with current models/data.
  *
- * Compares both delta (state changes) and commands (control-flow decisions).
+ * Compares both output (state changes) and commands (control-flow decisions).
  * Events are audit logs and are not diffed.
+ *
+ * Validation is enabled by default. Set `validate: false` to skip.
  *
  * @example
  * ```typescript
- * const result = await recompute(snapshot, extractStep, {
- *   adapters: { llm },
- *   runId: `recompute-${id}`,
- *   validate: true,
- * });
+ * const result = await recompute(snapshot, extractStep, { adapters: { llm } });
  * if (result.ok) {
- *   const { deltaDiff, commandsDiff } = result.value;
- *   if (deltaDiff && !deltaDiff.equal) {
- *     console.log("State changed:", formatDiff(deltaDiff));
+ *   const { outputDiff, commandsDiff } = result.value;
+ *   if (outputDiff && !outputDiff.equal) {
+ *     console.log("State changed:", formatDiff(outputDiff));
  *   }
  * }
  * ```
  */
 export async function recompute<
   TInput,
-  TDelta,
+  TOutput extends object,
+  TAdapters extends BaseAdapters = BaseAdapters,
+>(
+  baseline: Snapshot | StepResult<TInput, TOutput>,
+  step: Step<TInput, TOutput, TAdapters>,
+  ...args: OptionsArg<TAdapters, RecomputeOptions<TAdapters>>
+): Promise<Result<RecomputeResult<TOutput>, RecomputeError>> {
+  // Discriminate: Snapshot has capturedAt, StepResult doesn't
+  let snapshot: Snapshot;
+  if ("capturedAt" in baseline) {
+    snapshot = baseline;
+  } else {
+    snapshot = await createSnapshotFromResult(baseline);
+  }
+
+  return recomputeFromSnapshot(snapshot, step, ...args);
+}
+
+async function recomputeFromSnapshot<
+  TInput,
+  TOutput extends object,
   TAdapters extends BaseAdapters = BaseAdapters,
 >(
   snapshot: Snapshot,
-  step: Step<TInput, TDelta, TAdapters>,
+  step: Step<TInput, TOutput, TAdapters>,
   ...args: OptionsArg<TAdapters, RecomputeOptions<TAdapters>>
-): Promise<Result<RecomputeResult<TDelta>, RecomputeError>> {
+): Promise<Result<RecomputeResult<TOutput>, RecomputeError>> {
   const options = (args[0] ?? {}) as RecomputeOptions<TAdapters>;
   const adapters = options.adapters ?? ({} as TAdapters);
 
@@ -155,32 +199,35 @@ export async function recompute<
     runId = crypto.randomUUID();
   }
 
-  // Derive context from snapshot metadata + options
+  // Collect events emitted via ctx.emitEvent() (mirrors runStep)
+  const contextEvents: AuditEvent[] = [];
+
   const ctx = createContextFactory(adapters)({
     workflowId: snapshot.workflowId,
     workflowVersion: snapshot.workflowVersion,
     runId,
     onArtifact: options.onArtifact,
+    emitEvent: (event) => contextEvents.push(event),
   });
 
   // Verify input hash matches
   const currentInputHash = await hashValue(snapshot.input);
   if (currentInputHash !== snapshot.inputHash) {
     return err({
-      code: "INPUT_HASH_MISMATCH",
+      code: "input_hash_mismatch",
       message: `Input hash mismatch: expected ${snapshot.inputHash}, got ${currentInputHash}`,
     });
   }
 
-  // Validate input against step schema if requested.
+  // Validate input against step schema (defaults to true).
   // When validating, use the parsed result (respects Zod transforms/defaults)
   // to match runStep semantics.
   let stepInput = snapshot.input as TInput;
-  if (options.validate) {
+  if (options.validate !== false) {
     const inputResult = step.inputSchema.safeParse(snapshot.input);
     if (!inputResult.success) {
       return err({
-        code: "INPUT_VALIDATION",
+        code: "input_validation",
         message:
           `Input validation failed for step "${step.name}": ${formatZodError(inputResult.error)}. ` +
           `Schema may have changed since baseline was captured. Recapture with \`verist capture\`.`,
@@ -191,67 +238,69 @@ export async function recompute<
   }
 
   // Execute the step with fresh adapters
-  let newOutput: StepOutput<TDelta>;
+  let newReturn: StepReturn<TOutput>;
   try {
-    newOutput = await step.run(stepInput, ctx);
+    newReturn = await step.run(stepInput, ctx);
   } catch (cause) {
     return err({
-      code: "EXECUTION_FAILED",
+      code: "execution_failed",
       message: cause instanceof Error ? cause.message : String(cause),
       cause,
     });
   }
 
   // Validate output schema (single safeParse). When validation succeeds,
-  // use the parsed delta for diffing to match runStep semantics (reflects
-  // Zod defaults, coercions, transforms). When it fails, diff raw delta.
-  let deltaForDiff: unknown = newOutput.delta;
-  let parsedDelta: Delta<TDelta> | undefined;
+  // use the parsed output for diffing to match runStep semantics (reflects
+  // Zod defaults, coercions, transforms). When it fails, diff raw output.
+  let outputForDiff: unknown = newReturn.output;
+  let parsedOutput: Partial<TOutput> | undefined;
   let schemaViolations: SchemaViolation[] = [];
 
-  if (options.validate) {
+  if (options.validate !== false) {
     const outputSchema = options.strictOutput
-      ? step.deltaSchema
-      : step.outputDeltaSchema;
-    const outputResult = outputSchema.safeParse(newOutput.delta);
+      ? step.outputSchema
+      : step.partialOutputSchema;
+    const outputResult = outputSchema.safeParse(newReturn.output);
     if (outputResult.success) {
-      parsedDelta = outputResult.data as Delta<TDelta>;
-      deltaForDiff = parsedDelta;
+      parsedOutput = outputResult.data as Partial<TOutput>;
+      outputForDiff = parsedOutput;
     } else {
       schemaViolations = (
         outputResult.error as import("zod").ZodError
-      ).issues.map((issue) => mapZodIssueToViolation(issue, newOutput.delta));
+      ).issues.map((issue) => mapZodIssueToViolation(issue, newReturn.output));
     }
   }
 
-  // Diff delta against baseline
+  // Diff output against baseline
   const originalOutputArtifact = snapshot.artifacts.find(
     (a) => a.kind === "step-output",
   );
-  const originalOutput = isStepOutputShape(originalOutputArtifact?.content)
-    ? (originalOutputArtifact.content as StepOutput<TDelta>)
+  const originalContent = isStepOutputShape(originalOutputArtifact?.content)
+    ? originalOutputArtifact.content
     : undefined;
+  const originalOutput =
+    originalContent !== undefined
+      ? extractOutputFromContent(originalContent)
+      : undefined;
 
-  const comparable = originalOutput !== undefined;
-  const deltaDiff = comparable
-    ? diff(originalOutput.delta, deltaForDiff)
+  const comparable = originalContent !== undefined;
+  const outputDiff = comparable
+    ? diff(originalOutput, outputForDiff)
     : undefined;
 
   // Diff commands (control-flow decisions)
-  const originalCommands = extractSnapshotCommands(snapshot);
+  // extractNormalizedCommands returns already-normalized projections
+  const originalCommands = extractNormalizedCommands(snapshot);
   const commandsDiff =
     originalCommands !== undefined
-      ? diff(
-          normalizeCommands(originalCommands),
-          normalizeCommands(newOutput.commands),
-        )
+      ? diff(originalCommands, normalizeCommands(newReturn.commands))
       : undefined;
 
   // Compute status (highest severity wins)
   const status: RecomputeStatus =
     schemaViolations.length > 0
       ? "schema_violation"
-      : deltaDiff && !deltaDiff.equal
+      : outputDiff && !outputDiff.equal
         ? "value_changed"
         : "clean";
 
@@ -262,16 +311,26 @@ export async function recompute<
   const captureOpts =
     captureArtifacts === true ? undefined : captureArtifacts || undefined;
 
+  // Merge context events with step-returned events (mirrors runStep)
+  const events = [...contextEvents, ...(newReturn.events ?? [])];
+
+  // Build artifact content in new shape for capture
+  const artifactContent = {
+    output: newReturn.output,
+    events,
+    commands: newReturn.commands,
+  };
+
   return ok({
-    output: newOutput as StepOutput<unknown>,
-    parsedDelta,
+    rawOutput: newReturn.output,
+    parsedOutput,
     status,
     comparable,
-    deltaDiff,
+    outputDiff,
     commandsDiff,
     schemaViolations,
     outputArtifact: shouldCapture
-      ? await captureArtifact("step-output", newOutput, captureOpts)
+      ? await captureArtifact("step-output", artifactContent, captureOpts)
       : undefined,
   });
 }
@@ -280,12 +339,12 @@ export async function recompute<
  * Compare two snapshots to see what changed.
  * Useful for comparing outputs across workflow versions.
  *
- * Compares delta (state changes) and commands (control-flow decisions).
+ * Compares output (state changes) and commands (control-flow decisions).
  * Events are audit logs and are not compared.
  *
- * `deltaDiff` will be `undefined` if either snapshot:
+ * `outputDiff` will be `undefined` if either snapshot:
  * - Is hash-only (content not stored)
- * - Has malformed step-output (missing `delta` key)
+ * - Has malformed step-output (missing `output` key)
  *
  * `commandsDiff` will be `undefined` if commands are unavailable in either snapshot.
  */
@@ -294,7 +353,7 @@ export function compareSnapshots(
   updated: Snapshot,
 ): {
   inputDiff: DiffResult;
-  deltaDiff: DiffResult | undefined;
+  outputDiff: DiffResult | undefined;
   commandsDiff: DiffResult | undefined;
 } {
   const inputDiff = diff(original.input, updated.input);
@@ -306,33 +365,35 @@ export function compareSnapshots(
     (a) => a.kind === "step-output",
   );
 
-  // Require content with valid step-output shape for delta comparison.
+  // Require content with valid step-output shape for output comparison.
   const originalValid = isStepOutputShape(originalOutputArtifact?.content);
   const updatedValid = isStepOutputShape(updatedOutputArtifact?.content);
 
-  const deltaDiff =
+  const outputDiff =
     originalValid &&
     updatedValid &&
     originalOutputArtifact &&
     updatedOutputArtifact
       ? diff(
-          (originalOutputArtifact.content as { delta: unknown }).delta,
-          (updatedOutputArtifact.content as { delta: unknown }).delta,
+          extractOutputFromContent(
+            originalOutputArtifact.content as { output: unknown },
+          ),
+          extractOutputFromContent(
+            updatedOutputArtifact.content as { output: unknown },
+          ),
         )
       : undefined;
 
-  const originalCommands = extractSnapshotCommands(original);
-  const updatedCommands = extractSnapshotCommands(updated);
+  // extractNormalizedCommands returns already-normalized projections
+  const originalCommands = extractNormalizedCommands(original);
+  const updatedCommands = extractNormalizedCommands(updated);
 
   const commandsDiff =
     originalCommands !== undefined && updatedCommands !== undefined
-      ? diff(
-          normalizeCommands(originalCommands),
-          normalizeCommands(updatedCommands),
-        )
+      ? diff(originalCommands, updatedCommands)
       : undefined;
 
-  return { inputDiff, deltaDiff, commandsDiff };
+  return { inputDiff, outputDiff, commandsDiff };
 }
 
 function formatZodError(error: import("zod").ZodError): string {

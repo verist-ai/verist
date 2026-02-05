@@ -23,14 +23,14 @@ import { z } from "zod";
 const verifyDocument = defineStep({
   name: "verify-document",
   input: z.object({ docId: z.string(), text: z.string() }),
-  delta: z.object({
+  output: z.object({
     verdict: z.enum(["accept", "reject"]),
     confidence: z.number(),
   }),
   run: async (input, ctx) => {
     const verdict = await ctx.adapters.llm.verify(input.text);
     return {
-      delta: { verdict, confidence: 0.84 },
+      output: { verdict, confidence: 0.84 },
       events: [{ type: "document_verified", payload: { docId: input.docId } }],
     };
   },
@@ -101,16 +101,15 @@ import { recompute, formatDiff } from "verist";
 
 const recomputeResult = await recompute(snapshot, verifyDocument, {
   adapters: { llm: newModelAdapter }, // [!code highlight]
-  validate: true,
 });
 
 if (recomputeResult.ok) {
-  const { status, deltaDiff, commandsDiff, schemaViolations } =
+  const { status, outputDiff, commandsDiff, schemaViolations } =
     recomputeResult.value;
 
   if (status === "schema_violation")
     console.log("Violations:", schemaViolations);
-  if (deltaDiff && !deltaDiff.equal) console.log(formatDiff(deltaDiff));
+  if (outputDiff && !outputDiff.equal) console.log(formatDiff(outputDiff));
   if (commandsDiff && !commandsDiff.equal)
     console.log(formatDiff(commandsDiff));
 }
@@ -120,7 +119,7 @@ if (recomputeResult.ok) {
 
 | What changed            | How it shows up                             |
 | ----------------------- | ------------------------------------------- |
-| State delta             | `deltaDiff` from `recompute()`              |
+| Output values           | `outputDiff` from `recompute()`             |
 | Control flow            | `commandsDiff` (auto-captured when present) |
 | Schema violations       | `schemaViolations` (requires `validate`)    |
 | Inputs across snapshots | `inputDiff` from `compareSnapshots()`       |
@@ -128,7 +127,7 @@ if (recomputeResult.ok) {
 The `status` field classifies each result: `"clean"`, `"value_changed"`, or `"schema_violation"` (highest severity wins). Command changes are orthogonal and tracked separately.
 
 ::: info
-Events are audit logs and are **not** diffed. If original output is missing or hash-only, `comparable` is `false` and `deltaDiff` is `undefined`.
+Events are audit logs and are **not** diffed. If original output is missing or hash-only, `comparable` is `false` and `outputDiff` is `undefined`.
 :::
 
 ## Replay vs recompute

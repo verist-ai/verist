@@ -52,7 +52,7 @@ import { z } from "zod";
 const parseContact = defineStep({
   name: "parse-contact",
   input: z.object({ text: z.string() }),
-  delta: z.object({
+  output: z.object({
     name: z.string().nullable(),
     email: z.string().nullable(),
     phone: z.string().nullable(),
@@ -63,7 +63,7 @@ const parseContact = defineStep({
     const phoneMatch = input.text.match(/\\+?\\d[\\d\\s()-]{7,}/);
 
     return {
-      delta: {
+      output: {
         name: nameMatch?.[1] ?? null,
         email: emailMatch?.[0] ?? null,
         phone: phoneMatch?.[0]?.replace(/\\s+/g, "") ?? null,

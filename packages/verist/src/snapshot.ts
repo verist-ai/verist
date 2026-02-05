@@ -176,15 +176,15 @@ export function normalizeCommands(commands: Command[] | undefined): unknown[] {
  * }
  * ```
  */
-export async function createSnapshotFromResult<TInput, TDelta>(
-  result: StepResult<TInput, TDelta>,
+export async function createSnapshotFromResult<TInput, TOutput extends object>(
+  result: StepResult<TInput, TOutput>,
   options?: SnapshotFromResultOptions,
 ): Promise<Snapshot> {
   // Normalize optional fields so hash is stable regardless of how StepResult was constructed
   const normalizedOutput = {
-    delta: result.output.delta,
-    events: result.output.events ?? [],
-    commands: result.output.commands,
+    output: result.output,
+    events: result.events ?? [],
+    commands: result.commands,
   };
 
   const outputArtifact = await captureArtifact(

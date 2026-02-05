@@ -15,7 +15,7 @@ bun add @verist/storage verist
 
 - `RunStore` contract for durable workflow state
 - `createMemoryStore()` — in-memory `RunStore` for examples and tests
-- `StateSnapshot` and commit/overlay types
+- `RunState` and commit/overlay types
 - `effectiveState()` helper for computed + overlay merge
 - `typedStore<T>()` — bind a state type to a `RunStore`, removing repeated `<T>` at each call site
 - Typed storage conflict reasons for retry/fatal handling
@@ -47,15 +47,15 @@ interface RunStore {
   load<T = unknown>(
     workflowId,
     runId,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
   commit<T>(
     params: CommitParams<T>,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
   setOverlay<T>(
     workflowId,
     runId,
     overlay: Partial<T>,
-  ): Promise<Result<StateSnapshot<T>, StorageError>>;
+  ): Promise<Result<RunState<T>, StorageError>>;
 }
 ```
 
@@ -83,7 +83,7 @@ await store.commit({
   runId: "run-1",
   stepId: "extract",
   expectedVersion: 0,
-  delta: { score: 0.8, risk: "high" },
+  output: { score: 0.8, risk: "high" },
   events: [{ type: "scored" }],
 });
 
@@ -113,7 +113,7 @@ await store.commit({
   runId: "run-1",
   stepId: "extract",
   expectedVersion: 0,
-  delta: { score: 0.8, risk: "high" },
+  output: { score: 0.8, risk: "high" },
   events: [{ type: "scored" }],
 });
 ```

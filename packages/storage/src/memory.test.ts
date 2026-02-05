@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, expectTypeOf, it } from "bun:test";
-import { effectiveState, typedStore, type StateSnapshot } from "./index.ts";
+import { effectiveState, typedStore, type RunState } from "./index.ts";
 import { createMemoryStore } from "./memory.ts";
 
 type TestState = { score: number; risk: string };
@@ -29,7 +29,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8 },
+      output: { score: 0.8 },
       events: [{ type: "scored" }],
     });
 
@@ -47,7 +47,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8 },
+      output: { score: 0.8 },
       events: [],
     });
 
@@ -56,7 +56,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-2",
       expectedVersion: 5,
-      delta: { score: 0.9 },
+      output: { score: 0.9 },
       events: [],
     });
 
@@ -73,7 +73,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8 },
+      output: { score: 0.8 },
       events: [],
     });
 
@@ -82,7 +82,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.9 },
+      output: { score: 0.9 },
       events: [],
     });
 
@@ -99,7 +99,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8, risk: "high" },
+      output: { score: 0.8, risk: "high" },
       events: [],
     });
 
@@ -123,7 +123,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8, risk: "high" },
+      output: { score: 0.8, risk: "high" },
       events: [],
     });
 
@@ -143,7 +143,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 1,
-      delta: { score: 0.95, risk: "medium" },
+      output: { score: 0.95, risk: "medium" },
       events: [],
     });
 
@@ -155,9 +155,7 @@ describe("createMemoryStore", () => {
     // Overlay preserved
     expect(result.value.overlay).toEqual({ risk: "low" });
     // Effective: overlay wins
-    const effectiveAfter = effectiveState(
-      result.value as StateSnapshot<TestState>,
-    );
+    const effectiveAfter = effectiveState(result.value as RunState<TestState>);
     expect(effectiveAfter).toEqual({ score: 0.95, risk: "low" });
   });
 
@@ -176,7 +174,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 1,
-      delta: { score: 0.8 },
+      output: { score: 0.8 },
       events: [],
     });
     expect(result.ok).toBe(false);
@@ -191,7 +189,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8, risk: "high" },
+      output: { score: 0.8, risk: "high" },
       events: [],
     });
 
@@ -203,7 +201,7 @@ describe("createMemoryStore", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.overlay).toEqual({ risk: "low" });
-    const effective = effectiveState(result.value as StateSnapshot<TestState>);
+    const effective = effectiveState(result.value as RunState<TestState>);
     expect(effective.score).toBe(0.8);
   });
 
@@ -214,7 +212,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8, risk: "high" },
+      output: { score: 0.8, risk: "high" },
       events: [],
     });
 
@@ -225,10 +223,12 @@ describe("createMemoryStore", () => {
       expectTypeOf(typed.value.overlay).toEqualTypeOf<Partial<TestState>>();
     }
 
-    // Untyped load: defaults to unknown
+    // Untyped load: defaults to Record<string, unknown>
     const untyped = await store.load("wf-1", "run-1");
     if (untyped.ok) {
-      expectTypeOf(untyped.value.computed).toEqualTypeOf<unknown>();
+      expectTypeOf(untyped.value.computed).toEqualTypeOf<
+        Record<string, unknown>
+      >();
     }
   });
 
@@ -239,7 +239,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8, risk: "high" },
+      output: { score: 0.8, risk: "high" },
       events: [],
     });
 
@@ -260,7 +260,7 @@ describe("createMemoryStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8 },
+      output: { score: 0.8 },
       events: [],
     });
 
@@ -283,7 +283,7 @@ describe("typedStore", () => {
       runId: "run-1",
       stepId: "step-1",
       expectedVersion: 0,
-      delta: { score: 0.8, risk: "high" },
+      output: { score: 0.8, risk: "high" },
       events: [],
     });
 

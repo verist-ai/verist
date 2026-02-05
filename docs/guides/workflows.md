@@ -74,7 +74,7 @@ Commands are data. Your runner interprets them. Here's what each command expects
 | --------- | ------------------------------------ | ------------------------------------- |
 | `invoke`  | Enqueue the target step              | Execute inline without queueing       |
 | `fanout`  | Enqueue all items, track completion  | Assume ordering or atomicity          |
-| `review`  | Block siblings, await human decision | Persist delta before approval         |
+| `review`  | Block siblings, await human decision | Persist output before approval        |
 | `suspend` | Store checkpoint, stop execution     | Keep sibling commands (they're stale) |
 | `emit`    | Dispatch to event bus or webhook     | Treat as synchronous call             |
 

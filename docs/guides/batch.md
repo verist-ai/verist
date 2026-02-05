@@ -15,7 +15,7 @@ Use cases: backfills, model upgrades, reprocessing a dataset.
 ## The flow
 
 1. Run step for each item
-2. Persist each delta + events
+2. Persist each output + events
 3. Collect per-item results
 4. Continue even if some items fail
 

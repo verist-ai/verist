@@ -16,9 +16,9 @@ The database is the source of truth. In-memory state is ephemeral. Queue jobs ar
 
 Steps return commands as plain objects describing intent. The kernel does not execute commands – runners interpret them.
 
-## 4. Deltas Are Partial
+## 4. Outputs Are Partial
 
-Steps return partial state updates (changed fields only). Runners merge deltas into persisted state.
+Steps return partial state updates (changed fields only). Runners merge outputs into persisted state.
 
 ## 5. Events Are Immutable
 

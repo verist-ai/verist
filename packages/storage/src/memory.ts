@@ -3,8 +3,8 @@
 import { err, ok } from "verist";
 import type {
   CommitParams,
+  RunState,
   RunStore,
-  StateSnapshot,
   StorageError,
 } from "./index.ts";
 
@@ -13,17 +13,20 @@ import type {
  *
  * - No persistence, no outbox, no blocks; events/commands are accepted but not stored
  * - Optimistic locking via expectedVersion
- * - Shallow merge for both commit delta and setOverlay
+ * - Shallow merge for both commit output and setOverlay
  */
 export function createMemoryStore(): RunStore {
-  const store = new Map<string, StateSnapshot>();
+  const store = new Map<string, RunState>();
 
   function key(workflowId: string, runId: string): string {
     return `${workflowId}\0${runId}`;
   }
 
   return {
-    async load<T = unknown>(workflowId: string, runId: string) {
+    async load<T extends object = Record<string, unknown>>(
+      workflowId: string,
+      runId: string,
+    ) {
       const snapshot = store.get(key(workflowId, runId));
       if (!snapshot) {
         return err({
@@ -32,11 +35,11 @@ export function createMemoryStore(): RunStore {
         } as StorageError);
       }
       // Return a clone to prevent external mutation
-      return ok(structuredClone(snapshot) as StateSnapshot<T>);
+      return ok(structuredClone(snapshot) as RunState<T>);
     },
 
-    async commit<T>(params: CommitParams<T>) {
-      const { workflowId, runId, expectedVersion, delta } = params;
+    async commit<T extends object>(params: CommitParams<T>) {
+      const { workflowId, runId, expectedVersion, output } = params;
       const k = key(workflowId, runId);
       const existing = store.get(k);
 
@@ -50,16 +53,16 @@ export function createMemoryStore(): RunStore {
           } as StorageError);
         }
         const now = new Date();
-        const snapshot: StateSnapshot<T> = {
+        const snapshot: RunState<T> = {
           workflowId,
           runId,
           version: 1,
-          computed: { ...delta } as T,
+          computed: { ...output } as T,
           overlay: {},
           createdAt: now,
           updatedAt: now,
         };
-        store.set(k, snapshot as StateSnapshot);
+        store.set(k, snapshot as RunState);
         return ok(structuredClone(snapshot));
       }
 
@@ -78,20 +81,20 @@ export function createMemoryStore(): RunStore {
         } as StorageError);
       }
 
-      const snapshot: StateSnapshot<T> = {
+      const snapshot: RunState<T> = {
         workflowId,
         runId,
         version: existing.version + 1,
-        computed: Object.assign({}, existing.computed, delta) as T,
+        computed: Object.assign({}, existing.computed, output) as T,
         overlay: { ...existing.overlay } as Partial<T>,
         createdAt: existing.createdAt,
         updatedAt: new Date(),
       };
-      store.set(k, snapshot as StateSnapshot);
+      store.set(k, snapshot as RunState);
       return ok(structuredClone(snapshot));
     },
 
-    async setOverlay<T>(
+    async setOverlay<T extends object>(
       workflowId: string,
       runId: string,
       overlay: Partial<T>,
@@ -114,12 +117,12 @@ export function createMemoryStore(): RunStore {
         if (v !== undefined) clean[k2] = v;
       }
 
-      const snapshot: StateSnapshot<T> = {
+      const snapshot: RunState<T> = {
         ...existing,
         overlay: { ...existing.overlay, ...clean } as Partial<T>,
         updatedAt: new Date(),
-      } as StateSnapshot<T>;
-      store.set(k, snapshot as StateSnapshot);
+      } as RunState<T>;
+      store.set(k, snapshot as RunState);
       return ok(structuredClone(snapshot));
     },
   };

@@ -73,7 +73,7 @@ export interface Workflow<TSteps extends Record<string, AnyStep>> {
  *
  * // Type-safe commands (preferred over untyped invoke/fanout)
  * return {
- *   delta: { claims },
+ *   output: { claims },
  *   events: [],
  *   commands: [workflow.invoke("verify", { claims })],
  * };

@@ -52,9 +52,9 @@ import { z } from "zod";
 const doubleStep = defineStep({
   name: "double",
   input: z.object({ value: z.number() }),
-  delta: z.object({ result: z.number() }),
+  output: z.object({ result: z.number() }),
   run: async (input) => ({
-    delta: { result: ${runFn} },
+    output: { result: ${runFn} },
     events: [{ type: "computed" }],
   }),
 });
@@ -128,7 +128,7 @@ describe("verist CLI integration", () => {
     expect(exitCode).toBe(0);
   });
 
-  it("capture + test: exits 1 when delta changed", async () => {
+  it("capture + test: exits 1 when output changed", async () => {
     const captureResult = await runCli(
       ["capture", "--step", "double", "--input", "input-valid.json"],
       tmpDir,
@@ -180,10 +180,9 @@ import { z } from "zod";
 const doubleStep = defineStep({
   name: "double",
   input: z.object({ value: z.string() }),
-  delta: z.object({ result: z.string() }),
+  output: z.object({ result: z.string() }),
   run: async (input) => ({
-    delta: { result: input.value + input.value },
-    events: [],
+    output: { result: input.value + input.value },
   }),
 });
 

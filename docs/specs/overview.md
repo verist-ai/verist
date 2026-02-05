@@ -4,7 +4,7 @@
 
 **Workflow** – Named sequence of steps with typed state.
 
-**Step** – Pure function: `(input, context) => { delta, events, commands? }`. Atomic, idempotent. May call LLMs. Commands express routing declaratively.
+**Step** – Pure function: `(input, context) => { output, events?, commands? }`. Atomic, idempotent. May call LLMs. Commands express routing declaratively.
 
 **State** – Domain data persisted between steps. Source of truth is database.
 
@@ -15,7 +15,7 @@
 ## Flow
 
 ```
-Queue message → Load state → Run step → Persist delta + events → Emit next message
+Queue message → Load state → Run step → Persist output + events → Emit next message
 ```
 
 Steps don't know about queues. Orchestration is external.
@@ -57,12 +57,12 @@ const workflow = defineWorkflow({
 const step = defineStep({
   name: "extract",
   input: z.object({ documentId: z.string() }),
-  delta: z.object({ claims: z.array(ClaimSchema) }),
+  output: z.object({ claims: z.array(ClaimSchema) }),
   run: async (input, ctx) => {
     const doc = await ctx.adapters.db.getDocument(input.documentId);
     const claims = await ctx.adapters.llm.extract(doc.content);
     return {
-      delta: { claims },
+      output: { claims },
       events: [{ type: "claims_extracted", payload: { count: claims.length } }],
       // Type-safe: workflow.invoke infers input type from step schema
       commands: [workflow.invoke("verify", { claims })],
@@ -135,11 +135,11 @@ Recomputation never modifies human decisions. See ADR-003 for merge semantics.
 
 After calling `run()`, the caller **must** complete the following to honor the kernel's guarantees. Below, `stepResult` refers to the unwrapped `StepResult` (i.e., `result.value` when `result.ok === true`).
 
-1. **Persist the delta** – Merge `stepResult.output.delta` into storage (computed layer). Without this, state is lost.
+1. **Persist the output** – Merge `stepResult.output` into storage (computed layer). Without this, state is lost.
 
-2. **Record events** – Write `stepResult.output.events` to your audit log. Events are the evidence trail.
+2. **Record events** – Write `stepResult.events` to your audit log. Events are the evidence trail.
 
-3. **Enqueue commands** – If `stepResult.output.commands` is non-empty, translate each command to your queue/orchestration system.
+3. **Enqueue commands** – If `stepResult.commands` is non-empty, translate each command to your queue/orchestration system.
 
 ```typescript
 const result = await run(step, input, {
@@ -150,18 +150,18 @@ const result = await run(step, input, {
 });
 
 if (result.ok) {
-  // 1. Persist delta
+  // 1. Persist output
   await store.commit({
     workflowId: result.value.workflowId,
     runId: result.value.runId,
     stepId: result.value.stepName,
     expectedVersion: currentVersion,
-    delta: result.value.output.delta,
-    events: result.value.output.events,
+    output: result.value.output,
+    events: result.value.events,
   });
 
   // 2. Enqueue commands
-  for (const cmd of result.value.output.commands ?? []) {
+  for (const cmd of result.value.commands ?? []) {
     await queue.enqueue(cmd);
   }
 }
@@ -185,7 +185,7 @@ Verist is a kernel, not a platform. The following are explicitly external:
 
 **Diff review and persistence**: `recompute()` produces a diff. The decision to accept, reject, or modify that diff – and persist the outcome – is external.
 
-The kernel's contract ends at: `(input, artifacts) → (delta, events, commands)`.
+The kernel's contract ends at: `(input, artifacts) → (output, events, commands)`.
 
 **Runner constraints**: External orchestrators must treat steps as pure black boxes:
 
@@ -200,7 +200,7 @@ The kernel's contract ends at: `(input, artifacts) → (delta, events, commands)
 - Background loops or long-lived workers
 - Local filesystem for persistence
 
-**Layer boundaries**: Higher-level packages consume only the kernel's public outputs – audit events and state deltas – never raw internal state. This ensures the kernel remains universal and extensions are purely additive.
+**Layer boundaries**: Higher-level packages consume only the kernel's public outputs – audit events and step outputs – never raw internal state. This ensures the kernel remains universal and extensions are purely additive.
 
 ## Future: Trust Kit
 

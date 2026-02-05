@@ -12,7 +12,7 @@ describe("loadOutput", () => {
     const originalDateNow = Date.now;
     Date.now = () => 1700000000000;
 
-    const output = { delta: { result: 42 }, events: [] };
+    const output = { output: { result: 42 }, events: [] };
     mockSnapshot = await createSnapshot({
       workflowId: "test-wf",
       workflowVersion: "1.0.0",
@@ -29,7 +29,7 @@ describe("loadOutput", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value).toEqual({
-        delta: { result: 42 },
+        output: { result: 42 },
         events: [],
       });
     }
@@ -44,7 +44,7 @@ describe("loadOutput", () => {
     const result = await loadOutput(snapshotWithoutOutput);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("MISSING_OUTPUT");
+      expect(result.error.code).toBe("missing_output");
       expect(result.error.message).toContain("compute");
     }
   });
@@ -56,7 +56,7 @@ describe("loadOutput", () => {
         {
           hash: "sha256:corrupted-hash-value",
           kind: "step-output",
-          content: { delta: { result: 42 }, events: [] },
+          content: { output: { result: 42 }, events: [] },
         },
       ],
     };
@@ -64,7 +64,7 @@ describe("loadOutput", () => {
     const result = await loadOutput(corruptedSnapshot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("OUTPUT_CORRUPTED");
+      expect(result.error.code).toBe("output_corrupted");
       expect(result.error.message).toContain("hash mismatch");
     }
   });
@@ -73,14 +73,18 @@ describe("loadOutput", () => {
     const hashOnlySnapshot: Snapshot = {
       ...mockSnapshot,
       artifacts: [
-        await captureArtifact("step-output", { delta: {} }, { hashOnly: true }),
+        await captureArtifact(
+          "step-output",
+          { output: {} },
+          { hashOnly: true },
+        ),
       ],
     };
 
     const result = await loadOutput(hashOnlySnapshot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("MISSING_OUTPUT");
+      expect(result.error.code).toBe("missing_output");
       expect(result.error.message).toContain("hash-only");
     }
   });

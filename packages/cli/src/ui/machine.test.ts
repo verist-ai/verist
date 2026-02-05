@@ -24,7 +24,7 @@ function makeEntry(overrides: Partial<BaselineEntry> = {}): BaselineEntry {
     status: "clean",
     comparable: true,
     schemaViolations: [],
-    deltaDiff: null,
+    outputDiff: null,
     commandsDiff: null,
     ...overrides,
   };
@@ -61,6 +61,14 @@ describe("formatJson", () => {
     expect(parsed.status).toBe("fail");
   });
 
+  it("status is fail on command changes", () => {
+    const counts = makeCounts({ passed: 2, commandsChanged: 1 });
+    const raw = formatJson("test", counts, []);
+    const parsed: MachineOutput = JSON.parse(raw);
+
+    expect(parsed.status).toBe("fail");
+  });
+
   it("status is error on infrastructure failures", () => {
     const counts = makeCounts({ passed: 2, failed: 1 });
     const raw = formatJson("test", counts, []);
@@ -83,7 +91,7 @@ describe("formatJson", () => {
       makeEntry({
         filename: "a.json",
         status: "value_changed",
-        deltaDiff: {
+        outputDiff: {
           equal: false,
           entries: [{ path: ["x"], before: 1, after: 2 }],
         },
@@ -98,7 +106,7 @@ describe("formatJson", () => {
     const parsed: MachineOutput = JSON.parse(raw);
 
     expect(parsed.baselines[0]!.status).toBe("value_changed");
-    expect(parsed.baselines[0]!.deltaDiff!.entries).toHaveLength(1);
+    expect(parsed.baselines[0]!.outputDiff!.entries).toHaveLength(1);
     expect(parsed.baselines[1]!.status).toBe("clean");
   });
 
@@ -140,7 +148,7 @@ describe("formatMarkdown", () => {
     expect(md).toContain("| Changed | 2 |");
   });
 
-  it("lists changed baselines", () => {
+  it("lists regressions separately from errors", () => {
     const baselines = [
       makeEntry({ filename: "a.json", status: "value_changed" }),
       makeEntry({ filename: "b.json", status: "clean" }),
@@ -152,19 +160,47 @@ describe("formatMarkdown", () => {
       baselines,
     );
 
-    expect(md).toContain("#### Changed baselines");
+    expect(md).toContain("#### Regressions");
     expect(md).toContain("`a.json` — value_changed");
     expect(md).toContain("`c.json` — schema_violation");
     expect(md).not.toContain("`b.json`");
+    expect(md).not.toContain("#### Errors");
   });
 
-  it("shows Error status on infrastructure failures", () => {
+  it("shows errors section for infrastructure failures", () => {
     const md = formatMarkdown("test", makeCounts({ passed: 2, failed: 1 }), [
-      makeEntry({ status: "failed" }),
+      makeEntry({
+        filename: "broken.json",
+        status: "failed",
+        error: "Invalid JSON",
+      }),
     ]);
 
-    expect(md).toContain("Error");
+    expect(md).toContain("#### Errors");
+    expect(md).toContain("`broken.json` — Invalid JSON");
     expect(md).toContain("| Failed | 1 |");
+    expect(md).not.toContain("#### Regressions");
+  });
+
+  it("shows both regressions and errors when mixed", () => {
+    const baselines = [
+      makeEntry({ filename: "a.json", status: "value_changed" }),
+      makeEntry({
+        filename: "b.json",
+        status: "failed",
+        error: "Parse error",
+      }),
+    ];
+    const md = formatMarkdown(
+      "test",
+      makeCounts({ passed: 1, changed: 1, failed: 1 }),
+      baselines,
+    );
+
+    expect(md).toContain("#### Regressions");
+    expect(md).toContain("`a.json` — value_changed");
+    expect(md).toContain("#### Errors");
+    expect(md).toContain("`b.json` — Parse error");
   });
 
   it("omits zero-count rows", () => {

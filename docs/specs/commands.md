@@ -25,7 +25,7 @@ Runners MUST either:
 - Execute the command, or
 - Persist it for later execution
 
-Silently ignoring commands violates the contract. Commands SHOULD be persisted atomically with `delta + events` to prevent "committed state but lost command" scenarios.
+Silently ignoring commands violates the contract. Commands SHOULD be persisted atomically with `output + events` to prevent "committed state but lost command" scenarios.
 
 ### 2. Blocking Commands: Review and Suspend
 
@@ -35,14 +35,14 @@ Silently ignoring commands violates the contract. Commands SHOULD be persisted a
 
 **Review** (human approval):
 
-- Step delta/events are committed as **provisional state**
+- Step output/events are committed as **provisional state**
 - Sibling commands are **deferred** until review resolves
 - Run enters "pending review" state
 - Resolution: approve (execute deferred), reject (discard deferred), override (apply correction, then continue)
 
 **Suspend** (await external data):
 
-- The step's delta and events are committed
+- The step's output and events are committed
 - A suspension record is created with the checkpoint
 - All sibling commands are **discarded** (not deferred)
 - The run enters "suspended" state

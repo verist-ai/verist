@@ -50,14 +50,14 @@ export async function testCommand(
 
   // Schema violations always trigger failure (exit 1, not exit 2)
   const schemaViolationsFail = counts.schemaViolations > 0;
-  const deltaTriggersFail = counts.changed > 0;
+  const outputTriggersFail = counts.changed > 0;
   const commandsTriggersFail = counts.commandsChanged > 0 && failOnCommandsDiff;
 
   // Each concern is independent: schema violations are always fatal,
   // value diffs respect --no-fail-on-diff, commands respect --no-fail-on-commands-diff.
   const shouldFail =
     schemaViolationsFail ||
-    (failOnDiff && deltaTriggersFail) ||
+    (failOnDiff && outputTriggersFail) ||
     commandsTriggersFail;
 
   if (shouldFail) {

@@ -2,13 +2,13 @@
 
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { BaseAdapters, Step } from "verist";
+import type { AnyStep, BaseAdapters } from "verist";
 
 /**
  * CLI configuration loaded from `verist.config.ts` or `verist.config.mjs`.
  */
 export interface VeristConfig {
-  steps: Record<string, Step<unknown, unknown>>;
+  steps: Record<string, AnyStep>;
   adapters: BaseAdapters;
 }
 
@@ -73,6 +73,17 @@ export async function loadConfig(cwd?: string): Promise<VeristConfig> {
     throw new Error(
       `Config must export "adapters" as an object. Pass an empty object {} if no adapters are needed.`,
     );
+  }
+
+  // Ensure config keys match step.name — the CLI uses keys for lookup,
+  // but snapshots/baselines store step.name as the canonical identity.
+  for (const [key, step] of Object.entries(config.steps)) {
+    if ((step as { name?: string }).name !== key) {
+      throw new Error(
+        `Step key "${key}" must match step.name "${(step as { name?: string }).name}". ` +
+          `Rename the key to "${(step as { name?: string }).name}" or change the step name.`,
+      );
+    }
   }
 
   return config as VeristConfig;

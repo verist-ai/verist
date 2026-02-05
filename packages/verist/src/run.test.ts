@@ -20,9 +20,9 @@ describe("runStep", () => {
   const testStep = defineStep({
     name: "test",
     input: z.object({ input: z.number() }),
-    delta: z.object({ output: z.number() }),
+    output: z.object({ output: z.number() }),
     run: async (input, ctx: StepContext<TestAdapters>) => ({
-      delta: { output: input.input + ctx.adapters.db.getValue() },
+      output: { output: input.input + ctx.adapters.db.getValue() },
       events: [{ type: "computed", payload: { input: input.input } }],
     }),
   });
@@ -40,8 +40,8 @@ describe("runStep", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.input).toEqual({ input: 5 });
-      expect(result.value.output.delta).toEqual({ output: 105 });
-      expect(result.value.output.events).toEqual([
+      expect(result.value.output).toEqual({ output: 105 });
+      expect(result.value.events).toEqual([
         { type: "computed", payload: { input: 5 } },
       ]);
       expect(result.value.stepName).toBe("test");
@@ -51,7 +51,7 @@ describe("runStep", () => {
     }
   });
 
-  it("returns INPUT_VALIDATION error for invalid input", async () => {
+  it("returns input_validation error for invalid input", async () => {
     const result = await runStep({
       step: testStep,
       input: { input: "not a number" } as unknown as { input: number },
@@ -63,15 +63,15 @@ describe("runStep", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("INPUT_VALIDATION");
+      expect(result.error.code).toBe("input_validation");
     }
   });
 
-  it("returns EXECUTION error for thrown errors", async () => {
+  it("returns execution_failed error for thrown errors", async () => {
     const failingStep = defineStep({
       name: "failing",
       input: z.object({ x: z.number() }),
-      delta: z.object({ y: z.number() }),
+      output: z.object({ y: z.number() }),
       run: async () => {
         throw new Error("step failed");
       },
@@ -88,18 +88,18 @@ describe("runStep", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("EXECUTION");
+      expect(result.error.code).toBe("execution_failed");
       expect(result.error.message).toBe("step failed");
     }
   });
 
-  it("returns OUTPUT_VALIDATION error for invalid output", async () => {
+  it("returns output_validation error for invalid output", async () => {
     const badOutputStep = defineStep({
       name: "bad-output",
       input: z.object({ x: z.number() }),
-      delta: z.object({ y: z.number() }),
+      output: z.object({ y: z.number() }),
       run: async () => ({
-        delta: { y: "not a number" } as unknown as { y: number },
+        output: { y: "not a number" } as unknown as { y: number },
         events: [],
       }),
     });
@@ -115,7 +115,7 @@ describe("runStep", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("OUTPUT_VALIDATION");
+      expect(result.error.code).toBe("output_validation");
     }
   });
 
@@ -123,23 +123,23 @@ describe("runStep", () => {
     defineStep({
       name: "typed-adapters",
       input: z.object({ x: z.number() }),
-      delta: z.object({ y: z.number() }),
+      output: z.object({ y: z.number() }),
       run: async (_input, ctx: StepContext<TestAdapters>) => {
         // Compile-time proof: ctx.adapters is inferred as TestAdapters
         expectTypeOf(ctx.adapters).toEqualTypeOf<TestAdapters>();
         expectTypeOf(ctx.adapters.db.getValue).toEqualTypeOf<() => number>();
-        return { delta: { y: 1 }, events: [] };
+        return { output: { y: 1 }, events: [] };
       },
     });
   });
 
-  it("allows partial output delta", async () => {
+  it("allows partial output", async () => {
     const partialStep = defineStep({
       name: "partial",
       input: z.object({ x: z.number() }),
-      delta: z.object({ a: z.number(), b: z.number() }),
+      output: z.object({ a: z.number(), b: z.number() }),
       run: async () => ({
-        delta: { a: 1 }, // b is not included
+        output: { a: 1 }, // b is not included
         events: [],
       }),
     });
@@ -155,7 +155,7 @@ describe("runStep", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.delta).toEqual({ a: 1 });
+      expect(result.value.output).toEqual({ a: 1 });
     }
   });
 });
@@ -164,9 +164,9 @@ describe("run", () => {
   const simpleStep = defineStep({
     name: "greet",
     input: z.object({ name: z.string() }),
-    delta: z.object({ greeting: z.string() }),
+    output: z.object({ greeting: z.string() }),
     run: async (input) => ({
-      delta: { greeting: `Hello, ${input.name}!` },
+      output: { greeting: `Hello, ${input.name}!` },
       events: [{ type: "greeted", payload: { name: input.name } }],
     }),
   });
@@ -176,7 +176,10 @@ describe("run", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.delta).toEqual({ greeting: "Hello, World!" });
+      expectTypeOf(result.value.output).toEqualTypeOf<
+        Partial<{ greeting: string }>
+      >();
+      expect(result.value.output).toEqual({ greeting: "Hello, World!" });
       expect(result.value.stepName).toBe("greet");
       // Defaults: workflowId = step.name, workflowVersion = "0.0.0"
       expect(result.value.workflowId).toBe("greet");
@@ -215,9 +218,9 @@ describe("run", () => {
     const stepWithAdapters = defineStep({
       name: "prefixed",
       input: z.object({ text: z.string() }),
-      delta: z.object({ result: z.string() }),
+      output: z.object({ result: z.string() }),
       run: async (input, ctx: StepContext<MyAdapters>) => ({
-        delta: { result: `${ctx.adapters.prefix}${input.text}` },
+        output: { result: `${ctx.adapters.prefix}${input.text}` },
         events: [],
       }),
     });
@@ -230,7 +233,7 @@ describe("run", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.delta).toEqual({ result: ">>>test" });
+      expect(result.value.output).toEqual({ result: ">>>test" });
     }
   });
 
@@ -247,9 +250,9 @@ describe("run", () => {
     const stepWithCommands = defineStep({
       name: "with-commands",
       input: z.object({ id: z.string() }),
-      delta: z.object({ processed: z.boolean() }),
+      output: z.object({ processed: z.boolean() }),
       run: async (input) => ({
-        delta: { processed: true },
+        output: { processed: true },
         events: [],
         commands: [
           { type: "invoke", step: "next", input: { id: input.id } },
@@ -262,7 +265,7 @@ describe("run", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.output.commands).toEqual([
+      expect(result.value.commands).toEqual([
         { type: "invoke", step: "next", input: { id: "123" } },
         { type: "emit", topic: "done", payload: {} },
       ]);
@@ -270,68 +273,13 @@ describe("run", () => {
   });
 
   describe("onArtifact callback", () => {
-    const artifactStep = defineStep({
-      name: "artifact-test",
-      input: z.object({ value: z.number() }),
-      delta: z.object({ doubled: z.number() }),
-      run: async (input) => ({
-        delta: { doubled: input.value * 2 },
-        events: [{ type: "doubled", payload: { original: input.value } }],
-      }),
-    });
-
-    it("emits step-output artifact when callback is provided", async () => {
-      const callbackArtifacts: Artifact[] = [];
-
-      const result = await run(
-        artifactStep,
-        { value: 5 },
-        {
-          onArtifact: (artifact) => callbackArtifacts.push(artifact),
-        },
-      );
-
-      expect(result.ok).toBe(true);
-      // Callback receives the same artifacts
-      expect(callbackArtifacts).toHaveLength(1);
-      expect(callbackArtifacts[0]!.kind).toBe("step-output");
-
-      // Result also contains artifacts
-      if (result.ok) {
-        expect(result.value.artifacts).toHaveLength(1);
-        expect(result.value.artifacts[0]!.kind).toBe("step-output");
-
-        const expectedContent = {
-          delta: { doubled: 10 },
-          events: [{ type: "doubled", payload: { original: 5 } }],
-        };
-        expect(result.value.artifacts[0]!.content).toEqual(expectedContent);
-
-        // Hash must match the validated output (not raw/pre-validation)
-        const { hashValue } = await import("./artifact.ts");
-        expect(result.value.artifacts[0]!.hash).toBe(
-          await hashValue(expectedContent),
-        );
-      }
-    });
-
-    it("collects artifacts even without callback", async () => {
-      const result = await run(artifactStep, { value: 5 });
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value.artifacts).toHaveLength(1);
-        expect(result.value.artifacts[0]!.kind).toBe("step-output");
-      }
-    });
-
-    it("passes onArtifact to context for adapters", async () => {
+    it("forwards adapter-emitted artifacts to onArtifact callback", async () => {
       const callbackArtifacts: Artifact[] = [];
 
       const adapterStep = defineStep({
         name: "adapter-test",
         input: z.object({ x: z.number() }),
-        delta: z.object({ y: z.number() }),
+        output: z.object({ y: z.number() }),
         run: async (input, ctx) => {
           // Simulate adapter emitting an artifact
           ctx.onArtifact?.({
@@ -339,7 +287,7 @@ describe("run", () => {
             kind: "llm-output",
             content: { response: "mocked" },
           });
-          return { delta: { y: input.x }, events: [] };
+          return { output: { y: input.x }, events: [] };
         },
       });
 
@@ -351,18 +299,9 @@ describe("run", () => {
         },
       );
 
-      // Callback receives both adapter + step-output artifacts
-      expect(callbackArtifacts).toHaveLength(2);
-      expect(callbackArtifacts[0]!.kind).toBe("llm-output");
-      expect(callbackArtifacts[1]!.kind).toBe("step-output");
-
-      // Result also contains both artifacts
       expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value.artifacts).toHaveLength(2);
-        expect(result.value.artifacts[0]!.kind).toBe("llm-output");
-        expect(result.value.artifacts[1]!.kind).toBe("step-output");
-      }
+      expect(callbackArtifacts).toHaveLength(1);
+      expect(callbackArtifacts[0]!.kind).toBe("llm-output");
     });
   });
 });
