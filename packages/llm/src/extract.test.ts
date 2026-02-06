@@ -92,7 +92,7 @@ describe("extract", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("schema_error");
       expect(result.error.message).toContain("Schema validation failed");
-      expect(result.error.retryable).toBe(true);
+      expect(result.error.retryable).toBe(false);
     }
   });
 

@@ -6,6 +6,7 @@ import type { Command } from "./command.ts";
 import { createContextFactory } from "./context.ts";
 import { diff, formatPath } from "./diff.ts";
 import type { AuditEvent } from "./event.ts";
+import { isStepFailure } from "./fail.ts";
 import type { Result } from "./result.ts";
 import { err, ok } from "./result.ts";
 import type { StepResult } from "./run.ts";
@@ -90,11 +91,14 @@ function isObjectArrayWithType(
 export type RecomputeErrorCode =
   | "input_hash_mismatch"
   | "input_validation"
-  | "execution_failed";
+  | "execution_failed"
+  | (string & {});
 
 export interface RecomputeError {
   code: RecomputeErrorCode;
   message: string;
+  /** Always present — normalized by recompute(). */
+  retryable: boolean;
   cause?: unknown;
 }
 
@@ -216,6 +220,7 @@ async function recomputeFromSnapshot<
     return err({
       code: "input_hash_mismatch",
       message: `Input hash mismatch: expected ${snapshot.inputHash}, got ${currentInputHash}`,
+      retryable: false,
     });
   }
 
@@ -231,6 +236,7 @@ async function recomputeFromSnapshot<
         message:
           `Input validation failed for step "${step.name}": ${formatZodError(inputResult.error)}. ` +
           `Schema may have changed since baseline was captured. Recapture with \`verist capture\`.`,
+        retryable: false,
         cause: inputResult.error,
       });
     }
@@ -240,11 +246,24 @@ async function recomputeFromSnapshot<
   // Execute the step with fresh adapters
   let newReturn: StepReturn<TOutput>;
   try {
-    newReturn = await step.run(stepInput, ctx);
+    const returnValue = await step.run(stepInput, ctx);
+
+    // Detect structured failure (fail() returns a tagged StepFailure)
+    if (isStepFailure(returnValue)) {
+      return err({
+        code: returnValue.code,
+        message: returnValue.message,
+        retryable: returnValue.retryable ?? false,
+        cause: returnValue.cause,
+      });
+    }
+
+    newReturn = returnValue;
   } catch (cause) {
     return err({
       code: "execution_failed",
       message: cause instanceof Error ? cause.message : String(cause),
+      retryable: false,
       cause,
     });
   }

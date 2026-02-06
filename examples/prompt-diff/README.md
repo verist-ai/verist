@@ -25,9 +25,8 @@ OPENAI_API_KEY=sk-... node --experimental-strip-types examples/prompt-diff/quick
 ## What it does
 
 1. **Baseline** — Extracts specific claims from sample text using a precise prompt
-2. **Capture** — Snapshots the result as an artifact
-3. **Recompute** — Re-runs extraction with a vague "summarize" prompt
-4. **Diff** — Shows exactly which claims were lost or changed
+2. **Recompute** — Re-runs extraction with a vague "summarize" prompt using the baseline result
+3. **Diff** — Shows exactly which claims were lost or changed
 
 ## Example output
 

@@ -121,10 +121,9 @@ export default defineConfig({
         collapsed: true,
         items: [
           { text: "Overview", link: "/specs/overview" },
+          { text: "Steps", link: "/specs/steps" },
           { text: "Commands", link: "/specs/commands" },
           { text: "Replay", link: "/specs/replay" },
-          { text: "Pipeline", link: "/specs/pipeline" },
-          { text: "Batch", link: "/specs/batch" },
           { text: "Suspend", link: "/specs/suspend" },
           { text: "Kernel Invariants", link: "/specs/kernel-invariants" },
         ],
@@ -156,6 +155,18 @@ export default defineConfig({
           {
             text: "ADR-009 Pipeline Errors",
             link: "/adr/009-pipeline-error-handling",
+          },
+          {
+            text: "ADR-010 Execution Loop",
+            link: "/adr/010-execution-loop",
+          },
+          {
+            text: "ADR-011 Package Consolidation",
+            link: "/adr/011-package-consolidation",
+          },
+          {
+            text: "ADR-012 Structured Step Errors",
+            link: "/adr/012-structured-step-errors",
           },
         ],
       },

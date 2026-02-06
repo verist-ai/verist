@@ -12,16 +12,9 @@
  */
 
 import type { LLMProvider } from "@verist/llm";
-import { createOpenAI, llmEvent } from "@verist/llm";
+import { createOpenAI, defineExtractionStep } from "@verist/llm";
 import OpenAI from "openai";
-import {
-  createSnapshotFromResult,
-  defineStep,
-  formatDiff,
-  recompute,
-  run,
-  unwrap,
-} from "verist";
+import { formatDiff, recompute, run, unwrap } from "verist";
 import { z } from "zod";
 
 type Adapters = { llm: LLMProvider };
@@ -60,16 +53,11 @@ async function main() {
   print(`Baseline: ${baselineClaims.length} claims`, "done");
   for (const claim of baselineClaims) console.log(`  • ${claim}`);
 
-  // 2. Capture snapshot
-  print("Capturing snapshot...");
-  const snapshot = await createSnapshotFromResult(baselineResult);
-  print("Snapshot captured", "done");
-
-  // 3. Recompute with regression prompt
+  // 2. Recompute with regression prompt
   print("Recomputing with new prompt...");
   const regressionStep = extractStep(REGRESSION_PROMPT);
   const recomputeResult = unwrap(
-    await recompute(snapshot, regressionStep, { adapters }),
+    await recompute(baselineResult, regressionStep, { adapters }),
   );
   const newClaims = recomputeResult.parsedOutput?.claims ?? [];
   print(`Recompute: ${newClaims.length} claims`, "done");
@@ -91,49 +79,20 @@ main().catch((err) => {
 // --- Implementation details ---
 
 function extractStep(systemPrompt: string) {
-  return defineStep({
+  return defineExtractionStep({
     name: "extract-claims",
     input: z.object({ text: z.string() }),
     output: ClaimsSchema,
-    run: async (input, ctx) => {
-      const { llm } = ctx.adapters as Adapters;
-      const response = unwrap(
-        await llm.complete({
-          model: "gpt-4o-mini",
-          temperature: 0,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: input.text },
-          ],
-        }),
-      );
-
-      const parsed = ClaimsSchema.parse(parseJSON(response.content));
-      return {
-        output: parsed,
-        events: [llmEvent("claims_extracted", response)],
-      };
-    },
+    request: (input) => ({
+      model: "gpt-4o-mini",
+      temperature: 0,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: input.text },
+      ],
+      responseFormat: "json",
+    }),
   });
-}
-
-/** Extract JSON object from LLM response, tolerating markdown fences and surrounding text. */
-function parseJSON(text: string): unknown {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1) {
-    throw new SyntaxError(
-      `No JSON object found in LLM response: ${text.slice(0, 200)}`,
-    );
-  }
-  const snippet = text.slice(start, end + 1);
-  try {
-    return JSON.parse(snippet);
-  } catch {
-    throw new SyntaxError(
-      `Invalid JSON in LLM response: ${snippet.slice(0, 200)}`,
-    );
-  }
 }
 
 function print(label: string, status?: "done") {

@@ -4,6 +4,7 @@ import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import type { Command } from "./command.ts";
 import { emit, invoke, suspend } from "./command.ts";
+import { fail } from "./fail.ts";
 import { compareSnapshots, recompute } from "./recompute.ts";
 import {
   captureArtifact,
@@ -187,6 +188,7 @@ describe("recompute", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("execution_failed");
       expect(result.error.message).toBe("Step execution failed");
+      expect(result.error.retryable).toBe(false);
     }
   });
 
@@ -667,6 +669,61 @@ describe("recompute command diffing", () => {
       expect(result.value.commandsDiff?.entries).toEqual([
         { path: [0, "input", "id"], before: 1, after: 2 },
       ]);
+    }
+  });
+});
+
+describe("recompute fail()", () => {
+  it("preserves structured error from fail() through recompute", async () => {
+    const step = defineStep({
+      name: "failing",
+      input: z.object({ value: z.number() }),
+      output: z.object({ result: z.number() }),
+      run: async () =>
+        fail("rate_limit", "Too many requests", { retryable: true }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "failing",
+      input: { value: 21 },
+      artifacts: [],
+    });
+
+    const result = await recompute(snapshot, step);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("rate_limit");
+      expect(result.error.message).toBe("Too many requests");
+      expect(result.error.retryable).toBe(true);
+    }
+  });
+
+  it("preserves error from object overload through recompute", async () => {
+    const step = defineStep({
+      name: "failing-object",
+      input: z.object({ value: z.number() }),
+      output: z.object({ result: z.number() }),
+      run: async () =>
+        fail({ code: "schema_error", message: "Bad schema", retryable: true }),
+    });
+
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "failing-object",
+      input: { value: 21 },
+      artifacts: [],
+    });
+
+    const result = await recompute(snapshot, step);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("schema_error");
+      expect(result.error.retryable).toBe(true);
     }
   });
 });

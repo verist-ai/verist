@@ -30,6 +30,9 @@ export type { AnthropicAdapterConfig, AnthropicClientLike } from "./anthropic";
 export { extract } from "./extract";
 export type { ExtractError, ExtractErrorCode, ExtractResult } from "./extract";
 
+// Extraction step shorthand
+export { defineExtractionStep } from "./extraction-step";
+
 // Internal hash utility for testing/debugging. API may change.
 export { hashValue } from "./hash";
 

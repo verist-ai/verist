@@ -63,6 +63,11 @@ export type {
   StepReturn,
 } from "./step.ts";
 
+// ── Structured step failures ──────────────────────────────────────────────
+
+export { fail, isStepFailure } from "./fail.ts";
+export type { StepFailure } from "./fail.ts";
+
 // ── Workflow ───────────────────────────────────────────────────────────────
 
 export { defineWorkflow } from "./workflow.ts";

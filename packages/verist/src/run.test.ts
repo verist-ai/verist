@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { Artifact } from "./artifact.ts";
 import type { StepContext } from "./context.ts";
 import { createContextFactory } from "./context.ts";
+import { fail } from "./fail.ts";
 import { run, runStep } from "./run.ts";
 import { defineStep } from "./step.ts";
 
@@ -302,6 +303,202 @@ describe("run", () => {
       expect(result.ok).toBe(true);
       expect(callbackArtifacts).toHaveLength(1);
       expect(callbackArtifacts[0]!.kind).toBe("llm-output");
+    });
+  });
+
+  describe("fail()", () => {
+    it("preserves structured error through runStep", async () => {
+      const step = defineStep({
+        name: "failing-structured",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async () =>
+          fail("rate_limit", "Too many requests", { retryable: true }),
+      });
+
+      const result = await run(step, { x: 1 });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("rate_limit");
+        expect(result.error.message).toBe("Too many requests");
+        expect(result.error.retryable).toBe(true);
+      }
+    });
+
+    it("preserves error from object overload", async () => {
+      const step = defineStep({
+        name: "failing-object",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async () =>
+          fail({
+            code: "schema_error",
+            message: "Bad schema",
+            retryable: true,
+          }),
+      });
+
+      const result = await run(step, { x: 1 });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("schema_error");
+        expect(result.error.retryable).toBe(true);
+      }
+    });
+
+    it("defaults retryable to false when omitted", async () => {
+      const step = defineStep({
+        name: "non-retryable",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async () => fail("fatal", "Something broke"),
+      });
+
+      const result = await run(step, { x: 1 });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("fatal");
+        expect(result.error.retryable).toBe(false);
+      }
+    });
+  });
+
+  describe("retryable on StepError", () => {
+    it("is false for input_validation", async () => {
+      const step = defineStep({
+        name: "test",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async () => ({ output: { y: 1 } }),
+      });
+
+      const result = await run(step, { x: "bad" } as unknown as { x: number });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.retryable).toBe(false);
+      }
+    });
+
+    it("is false for output_validation", async () => {
+      const step = defineStep({
+        name: "test",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async () => ({
+          output: { y: "bad" } as unknown as { y: number },
+        }),
+      });
+
+      const result = await run(step, { x: 1 });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.retryable).toBe(false);
+      }
+    });
+
+    it("is false for execution_failed (thrown)", async () => {
+      const step = defineStep({
+        name: "test",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async () => {
+          throw new Error("boom");
+        },
+      });
+
+      const result = await run(step, { x: 1 });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.retryable).toBe(false);
+      }
+    });
+  });
+
+  describe("artifacts on StepResult", () => {
+    it("collects adapter-emitted artifacts on result", async () => {
+      const step = defineStep({
+        name: "artifact-test",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async (input, ctx) => {
+          ctx.onArtifact?.({
+            hash: "sha256:input-mock",
+            kind: "llm-input",
+            content: { request: "hello" },
+          });
+          ctx.onArtifact?.({
+            hash: "sha256:output-mock",
+            kind: "llm-output",
+            content: { response: "world" },
+          });
+          return { output: { y: input.x } };
+        },
+      });
+
+      const result = await run(step, { x: 1 });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.artifacts).toHaveLength(2);
+        expect(result.value.artifacts[0]!.kind).toBe("llm-input");
+        expect(result.value.artifacts[1]!.kind).toBe("llm-output");
+      }
+    });
+
+    it("returns empty artifacts when none emitted", async () => {
+      const step = defineStep({
+        name: "no-artifacts",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async (input) => ({ output: { y: input.x } }),
+      });
+
+      const result = await run(step, { x: 1 });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.artifacts).toEqual([]);
+      }
+    });
+
+    it("fires onArtifact callback AND collects on result", async () => {
+      const callbackArtifacts: Artifact[] = [];
+
+      const step = defineStep({
+        name: "both-test",
+        input: z.object({ x: z.number() }),
+        output: z.object({ y: z.number() }),
+        run: async (input, ctx) => {
+          ctx.onArtifact?.({
+            hash: "sha256:mock",
+            kind: "llm-output",
+            content: {},
+          });
+          return { output: { y: input.x } };
+        },
+      });
+
+      const result = await run(
+        step,
+        { x: 1 },
+        {
+          onArtifact: (a) => callbackArtifacts.push(a),
+        },
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // Both callback and result have the artifact
+        expect(callbackArtifacts).toHaveLength(1);
+        expect(result.value.artifacts).toHaveLength(1);
+        expect(result.value.artifacts[0]!.kind).toBe("llm-output");
+      }
     });
   });
 });

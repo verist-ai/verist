@@ -4,6 +4,7 @@ import type { z } from "zod";
 import type { Command } from "./command.ts";
 import type { StepContext } from "./context.ts";
 import type { AuditEvent } from "./event.ts";
+import type { StepFailure } from "./fail.ts";
 import type { BaseAdapters } from "./types.ts";
 
 /** Schema with optional partial() method (ZodObject has this) */
@@ -60,7 +61,7 @@ export interface StepConfig<
   run: (
     input: TInput,
     ctx: StepContext<TAdapters>,
-  ) => Promise<StepReturn<TOutput>>;
+  ) => Promise<StepReturn<TOutput> | StepFailure>;
 }
 
 /**
@@ -81,7 +82,7 @@ export interface Step<
   readonly run: (
     input: TInput,
     ctx: StepContext<TAdapters>,
-  ) => Promise<StepReturn<TOutput>>;
+  ) => Promise<StepReturn<TOutput> | StepFailure>;
 }
 
 /** Extract the input type from a Step. */
