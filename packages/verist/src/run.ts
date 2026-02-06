@@ -1,27 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ZodError } from "zod";
-import type { OnArtifact } from "./artifact.ts";
+import type { Artifact, OnArtifact } from "./artifact.ts";
 import type { Command } from "./command.ts";
 import type { ContextFactory } from "./context.ts";
 import { createContextFactory } from "./context.ts";
 import type { AuditEvent } from "./event.ts";
+import { isStepFailure } from "./fail.ts";
 import type { Result } from "./result.ts";
 import { err, ok } from "./result.ts";
 import type { Step, StepReturn } from "./step.ts";
 import type { AdaptersOption, BaseAdapters, OptionsArg } from "./types.ts";
 
 /**
- * Step execution error types.
+ * Step execution error codes.
+ *
+ * Kernel-owned codes: `input_validation`, `output_validation`, `execution_failed`.
+ * Steps may return any string code via `fail()` — runners should treat
+ * non-kernel codes as domain-specific.
  */
 export type StepErrorCode =
   | "input_validation"
   | "output_validation"
-  | "execution_failed";
+  | "execution_failed"
+  | (string & {});
 
 export interface StepError {
   code: StepErrorCode;
   message: string;
+  /** Always present — normalized by runStep(). */
+  retryable: boolean;
   cause?: unknown;
 }
 
@@ -38,6 +46,13 @@ export interface StepResult<TInput, TOutput extends object> {
   events: AuditEvent[];
   /** Commands expressing "what should happen next". */
   commands?: Command[];
+  /**
+   * Adapter-emitted artifacts collected during execution (batch).
+   * Same artifacts are also streamed via `onArtifact` callback if provided.
+   * Contains only non-reserved kinds (e.g., `llm-input`, `llm-output`).
+   * Reserved kinds (`step-output`, `step-commands`) are created at snapshot time.
+   */
+  artifacts: Artifact[];
   stepName: string;
   workflowId: string;
   workflowVersion: string;
@@ -108,6 +123,7 @@ export async function runStep<
     return err({
       code: "input_validation",
       message: formatZodError(inputResult.error),
+      retryable: false,
       cause: inputResult.error,
     });
   }
@@ -115,23 +131,43 @@ export async function runStep<
   // Collect events emitted via ctx.emitEvent()
   const contextEvents: AuditEvent[] = [];
 
+  // Collect artifacts emitted by adapters via ctx.onArtifact
+  const collectedArtifacts: Artifact[] = [];
+  const wrappedOnArtifact: OnArtifact = (artifact) => {
+    collectedArtifacts.push(artifact);
+    onArtifact?.(artifact);
+  };
+
   // Create context with version for audit correlation
   const ctx = contextFactory({
     workflowId,
     workflowVersion,
     runId,
-    onArtifact,
+    onArtifact: wrappedOnArtifact,
     emitEvent: (event) => contextEvents.push(event),
   });
 
   // Execute step
   let stepReturn: StepReturn<TOutput>;
   try {
-    stepReturn = await step.run(inputResult.data, ctx);
+    const returnValue = await step.run(inputResult.data, ctx);
+
+    // Detect structured failure (fail() returns a tagged StepFailure)
+    if (isStepFailure(returnValue)) {
+      return err({
+        code: returnValue.code,
+        message: returnValue.message,
+        retryable: returnValue.retryable ?? false,
+        cause: returnValue.cause,
+      });
+    }
+
+    stepReturn = returnValue;
   } catch (cause) {
     return err({
       code: "execution_failed",
       message: cause instanceof Error ? cause.message : String(cause),
+      retryable: false,
       cause,
     });
   }
@@ -142,6 +178,7 @@ export async function runStep<
     return err({
       code: "output_validation",
       message: formatZodError(outputResult.error),
+      retryable: false,
       cause: outputResult.error,
     });
   }
@@ -154,6 +191,7 @@ export async function runStep<
     output: outputResult.data as Partial<TOutput>,
     events,
     commands: stepReturn.commands,
+    artifacts: collectedArtifacts,
     stepName: step.name,
     workflowId,
     workflowVersion,

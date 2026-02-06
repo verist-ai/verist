@@ -76,30 +76,48 @@ Verist captures AI outputs as artifacts. When you change something, replay again
 
 ```typescript
 import { z } from "zod";
-import { defineStep, run, unwrap, recompute, formatDiff } from "verist";
+import { extract } from "@verist/llm";
+import { defineStep, run, unwrap, recompute, formatDiff, fail } from "verist";
+
+const ClaimsSchema = z.object({ claims: z.array(z.string()) });
 
 // Define a step with typed input/output
 const extractClaims = defineStep({
   name: "extract-claims",
   input: z.object({ text: z.string() }),
-  output: z.object({ claims: z.array(z.string()) }),
+  output: ClaimsSchema,
   run: async (input, ctx) => {
-    const claims = await ctx.adapters.llm.extract(input.text);
-    return { output: { claims } };
+    const result = await extract(
+      ctx,
+      {
+        model: "gpt-4o",
+        messages: [{ role: "user", content: input.text }],
+        responseFormat: "json",
+      },
+      ClaimsSchema,
+    );
+    if (!result.ok) return fail(result.error);
+    return { output: result.value.data };
   },
 });
 
 // Run with artifact capture
-const result = unwrap(
+const baseline = unwrap(
   await run(extractClaims, { text }, { adapters: { llm } }),
 );
 
 // Later: change prompt, recompute from snapshot
 const recomputeResult = unwrap(
-  await recompute(snapshot, extractClaims, { adapters: { llm: newLlm } }),
+  await recompute(baseline, extractClaims, { adapters: { llm: newLlm } }),
 );
 console.log(formatDiff(recomputeResult.outputDiff));
 ```
+
+For pure extraction steps, use `defineExtractionStep()` from `@verist/llm` to avoid boilerplate.
+
+### Error Handling
+
+Expected failures should return `fail(...)` so runners can act on `code` and `retryable`. Throw only for programmer errors or invariant violations.
 
 ## CI Integration
 
@@ -136,6 +154,7 @@ Verist is not a chat framework or agent runtime. It's the trust layer that makes
 - [Getting Started](https://verist.dev/getting-started)
 - [CI Integration Guide](./docs/guides/ci-integration.md)
 - [Replay and Diff Guide](https://verist.dev/guides/replay-and-diff)
+- [Step Execution Spec (fail(), defineExtractionStep)](./docs/specs/steps.md)
 
 ## Links
 

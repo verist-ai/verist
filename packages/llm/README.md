@@ -133,6 +133,26 @@ interface ExtractError {
 }
 ```
 
+### `defineExtractionStep(config)`
+
+Define the common extraction pattern in one call. Internally uses `extract()` and returns `fail(...)` on structured errors.
+
+```ts
+import { z } from "zod";
+import { defineExtractionStep } from "@verist/llm";
+
+const extractClaims = defineExtractionStep({
+  name: "extract-claims",
+  input: z.object({ text: z.string() }),
+  output: z.object({ claims: z.array(z.string()) }),
+  request: (input) => ({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: input.text }],
+    responseFormat: "json",
+  }),
+});
+```
+
 ### `llmEvent(type, response, payload?)`
 
 Create an audit event from an LLM response with trace attached.

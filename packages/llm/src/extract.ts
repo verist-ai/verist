@@ -22,7 +22,7 @@ export interface ExtractResult<T> {
  * Error codes for extract() — extends LLMErrorCode with parse failures.
  *
  * - `json_error` — LLM returned non-JSON content (retryable, model may do better)
- * - `schema_error` — valid JSON but doesn't match schema (may indicate prompt issue)
+ * - `schema_error` — valid JSON but doesn't match schema (not retryable, likely a prompt issue)
  */
 export type ExtractErrorCode = LLMErrorCode | "json_error" | "schema_error";
 
@@ -69,10 +69,10 @@ interface ExtractContext {
  *
  * @example
  * ```typescript
- * // Context-aware: reads llm adapter, onArtifact, and emitEvent from ctx
+ * // With step context (reads ctx.adapters.llm, auto-emits audit event)
  * const result = await extract(ctx, request, schema);
  *
- * // Explicit provider
+ * // With explicit provider
  * const result = await extract(llm, request, schema, opts);
  * ```
  */
@@ -137,7 +137,7 @@ export async function extract<T>(
     return err({
       code: "schema_error",
       message: `Schema validation failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-      retryable: true,
+      retryable: false,
     });
   }
 

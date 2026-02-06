@@ -38,7 +38,7 @@ Every LLM interaction records input and output hashes to enable audit, dedupe, a
 
 ## 9. Errors Are Values
 
-Expected failures return `Result` values; thrown exceptions indicate bugs, not business logic failures.
+Expected failures return `Result` values; thrown exceptions indicate bugs, not business logic failures. See ADR-012.
 
 ## 10. Version Is Auditable
 

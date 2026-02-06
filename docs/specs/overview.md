@@ -71,6 +71,15 @@ const step = defineStep({
 });
 ```
 
+Expected failures return values instead of throwing. Use `fail()` to preserve structured error metadata for runners (see ADR-012 and SPEC-steps):
+
+```typescript
+import { fail } from "verist";
+
+const result = await someAdapterCall();
+if (!result.ok) return fail(result.error);
+```
+
 ## Commands
 
 Steps return optional commands to express "what should happen next" declaratively:

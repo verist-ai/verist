@@ -132,6 +132,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { score: 0.95 },
       events: [{ type: "scored" }],
+      artifacts: [],
       stepName: "score",
       workflowId: "verify-doc",
       workflowVersion: "1.2.0",
@@ -163,6 +164,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "sensitive" },
       output: { data: "secret" },
       events: [],
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -189,6 +191,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc" },
       output: { summary: "A summary" },
       events: [],
+      artifacts: [],
       stepName: "summarize",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -212,6 +215,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "processing" },
       events: [],
+      artifacts: [],
       commands: [invoke("next", { id: "doc-123" })],
       stepName: "process",
       workflowId: "wf",
@@ -234,6 +238,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "processing" },
       events: [],
+      artifacts: [],
       commands: [invoke("next", { id: "doc-123" })],
       stepName: "process",
       workflowId: "wf",
@@ -254,6 +259,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "done" },
       events: [],
+      artifacts: [],
       commands: [],
       stepName: "process",
       workflowId: "wf",
@@ -272,6 +278,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "processing" },
       events: [],
+      artifacts: [],
       commands: [invoke("next", { id: "doc-123" })],
       stepName: "process",
       workflowId: "wf",
@@ -296,6 +303,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "done" },
       events: [],
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -315,6 +323,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "done" },
       events: [],
+      artifacts: [],
       stepName: "process",
       workflowId: "wf",
       workflowVersion: "1.0.0",
@@ -335,6 +344,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "done" },
       events: [],
+      artifacts: [],
       commands: [invoke("b", {}), invoke("a", {})],
       stepName: "process",
       workflowId: "wf",
@@ -346,6 +356,7 @@ describe("createSnapshotFromResult", () => {
       input: { id: "doc-123" },
       output: { status: "done" },
       events: [],
+      artifacts: [],
       commands: [invoke("a", {}), invoke("b", {})],
       stepName: "process",
       workflowId: "wf",
@@ -387,6 +398,7 @@ describe("createSnapshotFromResult", () => {
         input: { id: "doc-1" },
         output: { status: "done" },
         events: [],
+        artifacts: [],
         commands: cmds,
         stepName: "process",
         workflowId: "wf",
@@ -405,5 +417,37 @@ describe("createSnapshotFromResult", () => {
     )?.hash;
 
     expect(hash1).toBe(hash2);
+  });
+
+  it("result.artifacts pass through reserved-kinds guard cleanly", async () => {
+    // End-to-end invariant: adapter-emitted artifacts (non-reserved kinds)
+    // collected on StepResult can be passed to createSnapshotFromResult
+    // without triggering the reserved-kinds guard.
+    const result: StepResult<{ id: string }, { status: string }> = {
+      input: { id: "doc-123" },
+      output: { status: "done" },
+      events: [],
+      artifacts: [
+        await captureArtifact("llm-input", { request: "hello" }),
+        await captureArtifact("llm-output", { response: "world" }),
+      ],
+      stepName: "process",
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      runId: "run-1",
+    };
+
+    // Should not throw — result.artifacts contains only non-reserved kinds
+    const snapshot = await createSnapshotFromResult(result, {
+      artifacts: result.artifacts,
+    });
+
+    // step-output + llm-input + llm-output
+    expect(snapshot.artifacts).toHaveLength(3);
+    expect(snapshot.artifacts.map((a) => a.kind)).toEqual([
+      "step-output",
+      "llm-input",
+      "llm-output",
+    ]);
   });
 });
