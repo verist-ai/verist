@@ -1,5 +1,13 @@
 # @verist/llm
 
+## 0.0.15
+
+### Patch Changes
+
+- 0d73f49: Add `defineExtractionStep()` shorthand for the common pattern of building an LLM request from input, extracting structured data, and returning it as output.
+- Updated dependencies [0d73f49]
+  - verist@0.0.5
+
 ## 0.0.14
 
 ### Patch Changes
