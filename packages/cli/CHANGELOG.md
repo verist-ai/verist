@@ -1,5 +1,12 @@
 # @verist/cli
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [5bd9b52]
+  - verist@0.0.6
+
 ## 0.0.12
 
 ### Patch Changes

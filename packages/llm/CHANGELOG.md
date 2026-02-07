@@ -1,5 +1,12 @@
 # @verist/llm
 
+## 0.0.16
+
+### Patch Changes
+
+- Updated dependencies [5bd9b52]
+  - verist@0.0.6
+
 ## 0.0.15
 
 ### Patch Changes

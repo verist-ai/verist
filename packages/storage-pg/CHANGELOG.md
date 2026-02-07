@@ -1,5 +1,13 @@
 # @verist/storage-pg
 
+## 0.0.18
+
+### Patch Changes
+
+- Updated dependencies [5bd9b52]
+  - verist@0.0.6
+  - @verist/storage@0.0.13
+
 ## 0.0.17
 
 ### Patch Changes
