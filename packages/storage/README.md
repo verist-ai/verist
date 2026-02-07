@@ -2,10 +2,12 @@
 
 [![npm version](https://badge.fury.io/js/@verist%2Fstorage.svg)](https://badge.fury.io/js/@verist%2Fstorage)
 [![npm downloads](https://img.shields.io/npm/dm/@verist/storage.svg)](https://npmjs.com/package/@verist/storage)
+[![Ask ChatGPT](https://img.shields.io/badge/Ask_ChatGPT-10a37f?logo=google+gemini&logoColor=white)](https://chatgpt.com/g/g-697e23b923088191b8cb315bebf14a3b-verist-architect)
+[![Twitter Follow](https://img.shields.io/twitter/follow/verist_ai?style=social)](https://x.com/verist_ai)
 
 Storage interfaces and state-layer helpers for Verist.
 
-## Installation
+## Install
 
 ```bash
 bun add @verist/storage verist
