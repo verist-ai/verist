@@ -1,5 +1,11 @@
 # verist
 
+## 0.0.6
+
+### Patch Changes
+
+- 5bd9b52: Add README for core package npm page, add missing badges to storage README
+
 ## 0.0.5
 
 ### Patch Changes
