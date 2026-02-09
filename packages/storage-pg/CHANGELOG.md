@@ -1,5 +1,14 @@
 # @verist/storage-pg
 
+## 0.0.19
+
+### Patch Changes
+
+- 0805a31: Ship pre-built .d.ts declarations instead of serving types from source
+- Updated dependencies [0805a31]
+  - verist@0.0.7
+  - @verist/storage@0.0.14
+
 ## 0.0.18
 
 ### Patch Changes
