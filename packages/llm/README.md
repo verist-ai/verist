@@ -69,6 +69,7 @@ interface LLMRequest {
   messages: LLMMessage[];
   temperature?: number;
   maxTokens?: number;
+  responseFormat?: "json";
 }
 
 interface LLMCompleteOpts {
