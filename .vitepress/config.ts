@@ -22,6 +22,22 @@ export default defineConfig({
 
   head: [
     ["link", { rel: "icon", href: "/favicon.ico" }],
+    ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
+    [
+      "link",
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossorigin: "",
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Outfit:wght@600;800&display=swap",
+      },
+    ],
     [
       "meta",
       { name: "msvalidate.01", content: "7FD66972397F9CE88FEB4B2FA2B3D379" },
@@ -83,7 +99,6 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "Docs", link: "/guides/first-step" },
       { text: "Guides", link: "/guides/architecture" },
-      { text: "Reference", link: "/specs/overview" },
     ],
 
     sidebar: [
@@ -116,60 +131,6 @@ export default defineConfig({
       },
       { text: "FAQ", link: "/faq" },
       { text: "Glossary", link: "/glossary" },
-      {
-        text: "Reference",
-        collapsed: true,
-        items: [
-          { text: "Overview", link: "/specs/overview" },
-          { text: "Steps", link: "/specs/steps" },
-          { text: "Commands", link: "/specs/commands" },
-          { text: "Replay", link: "/specs/replay" },
-          { text: "Suspend", link: "/specs/suspend" },
-          { text: "Kernel Invariants", link: "/specs/kernel-invariants" },
-        ],
-      },
-      {
-        text: "Architecture Decisions",
-        collapsed: true,
-        items: [
-          { text: "ADR-001 Determinism", link: "/adr/001-determinism" },
-          { text: "ADR-002 Commands", link: "/adr/002-commands" },
-          { text: "ADR-003 State Layers", link: "/adr/003-state-layers" },
-          {
-            text: "ADR-004 Replay Semantics",
-            link: "/adr/004-replay-semantics",
-          },
-          {
-            text: "ADR-005 Package Stability",
-            link: "/adr/005-package-stability",
-          },
-          {
-            text: "ADR-006 Command Categories",
-            link: "/adr/006-command-categories",
-          },
-          { text: "ADR-007 Unified Run API", link: "/adr/007-unified-run-api" },
-          {
-            text: "ADR-008 Artifact Capture",
-            link: "/adr/008-artifact-capture-hook",
-          },
-          {
-            text: "ADR-009 Pipeline Errors",
-            link: "/adr/009-pipeline-error-handling",
-          },
-          {
-            text: "ADR-010 Execution Loop",
-            link: "/adr/010-execution-loop",
-          },
-          {
-            text: "ADR-011 Package Consolidation",
-            link: "/adr/011-package-consolidation",
-          },
-          {
-            text: "ADR-012 Structured Step Errors",
-            link: "/adr/012-structured-step-errors",
-          },
-        ],
-      },
     ],
 
     socialLinks: [
