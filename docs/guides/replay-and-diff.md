@@ -151,6 +151,37 @@ Capture anything that can change across runs:
 
 **Rule:** If it can change, it should be an artifact.
 
+## Stable diffs with `keyBy`
+
+LLMs often return array elements in unstable order. Without identity keys, recompute reports every element as changed whenever the order shifts.
+
+Use `keyBy` on `defineStep` to match array elements by identity instead of index:
+
+```ts
+const extractEntities = defineStep({
+  name: "extract-entities",
+  input: z.object({ text: z.string() }),
+  output: z.object({ entities: z.array(entitySchema) }),
+  keyBy: { entities: "id" }, // [!code highlight]
+  run: async (input, ctx) => {
+    /* ... */
+  },
+});
+```
+
+Verist normalizes keyed arrays into maps before diffing, so only actual content changes appear in the diff. Keys must be unique and present on every element.
+
+For composite keys, use a function:
+
+```ts
+keyBy: {
+  entities: (item) => {
+    const e = item as { class: string; text: string };
+    return `${e.class}::${e.text}`;
+  },
+},
+```
+
 ## Common mistakes
 
 | Mistake                        | Consequence                  |

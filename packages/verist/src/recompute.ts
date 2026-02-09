@@ -7,6 +7,7 @@ import { createContextFactory } from "./context.ts";
 import { diff, formatPath } from "./diff.ts";
 import type { AuditEvent } from "./event.ts";
 import { isStepFailure } from "./fail.ts";
+import { normalizeForDiff } from "./normalize.ts";
 import type { Result } from "./result.ts";
 import { err, ok } from "./result.ts";
 import type { StepResult } from "./run.ts";
@@ -21,6 +22,7 @@ import type {
   BaseAdapters,
   CaptureOptions,
   DiffResult,
+  KeyFn,
   OptionsArg,
   RecomputeResult,
   RecomputeStatus,
@@ -92,6 +94,7 @@ export type RecomputeErrorCode =
   | "input_hash_mismatch"
   | "input_validation"
   | "execution_failed"
+  | "normalization_failed"
   | (string & {});
 
 export interface RecomputeError {
@@ -302,10 +305,24 @@ async function recomputeFromSnapshot<
       ? extractOutputFromContent(originalContent)
       : undefined;
 
+  // Normalize keyed arrays to maps for identity-aware diffing
   const comparable = originalContent !== undefined;
-  const outputDiff = comparable
-    ? diff(originalOutput, outputForDiff)
-    : undefined;
+  let outputDiff: DiffResult | undefined;
+  if (comparable) {
+    const keyBy = step.keyBy ?? {};
+    try {
+      const normalizedOriginal = normalizeForDiff(originalOutput, keyBy);
+      const normalizedNew = normalizeForDiff(outputForDiff, keyBy);
+      outputDiff = diff(normalizedOriginal, normalizedNew);
+    } catch (cause) {
+      return err({
+        code: "normalization_failed",
+        message: cause instanceof Error ? cause.message : String(cause),
+        retryable: false,
+        cause,
+      });
+    }
+  }
 
   // Diff commands (control-flow decisions)
   // extractNormalizedCommands returns already-normalized projections
@@ -366,10 +383,14 @@ async function recomputeFromSnapshot<
  * - Has malformed step-output (missing `output` key)
  *
  * `commandsDiff` will be `undefined` if commands are unavailable in either snapshot.
+ *
+ * @throws When `keyBy` is provided and snapshot data has duplicate keys
+ *   or elements missing the key field.
  */
 export function compareSnapshots(
   original: Snapshot,
   updated: Snapshot,
+  options?: { keyBy?: Record<string, KeyFn> },
 ): {
   inputDiff: DiffResult;
   outputDiff: DiffResult | undefined;
@@ -388,20 +409,25 @@ export function compareSnapshots(
   const originalValid = isStepOutputShape(originalOutputArtifact?.content);
   const updatedValid = isStepOutputShape(updatedOutputArtifact?.content);
 
-  const outputDiff =
+  const keyBy = options?.keyBy ?? {};
+  let outputDiff: DiffResult | undefined;
+  if (
     originalValid &&
     updatedValid &&
     originalOutputArtifact &&
     updatedOutputArtifact
-      ? diff(
-          extractOutputFromContent(
-            originalOutputArtifact.content as { output: unknown },
-          ),
-          extractOutputFromContent(
-            updatedOutputArtifact.content as { output: unknown },
-          ),
-        )
-      : undefined;
+  ) {
+    const origOutput = extractOutputFromContent(
+      originalOutputArtifact.content as { output: unknown },
+    );
+    const updOutput = extractOutputFromContent(
+      updatedOutputArtifact.content as { output: unknown },
+    );
+    outputDiff = diff(
+      normalizeForDiff(origOutput, keyBy),
+      normalizeForDiff(updOutput, keyBy),
+    );
+  }
 
   // extractNormalizedCommands returns already-normalized projections
   const originalCommands = extractNormalizedCommands(original);

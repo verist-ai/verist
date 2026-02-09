@@ -97,7 +97,13 @@ export type {
 // ── Diff ───────────────────────────────────────────────────────────────────
 
 export { applyDiff, diff, formatDiff } from "./diff.ts";
-export type { DiffEntry, DiffResult, LayeredStateInput } from "./types.ts";
+export { normalizeForDiff } from "./normalize.ts";
+export type {
+  DiffEntry,
+  DiffResult,
+  KeyFn,
+  LayeredStateInput,
+} from "./types.ts";
 
 // ── Recompute ──────────────────────────────────────────────────────────────
 
