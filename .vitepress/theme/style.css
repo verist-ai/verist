@@ -1,50 +1,51 @@
-/**
- * Customize default theme styling by overriding CSS variables:
- * https://github.com/vuejs/vitepress/blob/main/src/client/theme-default/styles/vars.css
- */
-
-/* Import Outfit font for headings to give a modern SaaS look */
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;600&display=swap");
-
 :root {
-  /* Brand Colors (Autoblocks-ish Neon/Indigo) */
-  --vp-c-brand-1: #6366f1; /* Indigo-500 */
-  --vp-c-brand-2: #818cf8; /* Indigo-400 */
-  --vp-c-brand-3: #a5b4fc; /* Indigo-300 */
-  --vp-c-brand-soft: rgba(99, 102, 241, 0.14);
+  --vp-font-family-base: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --vp-font-family-mono:
+    "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo,
+    Consolas, "DejaVu Sans Mono", monospace;
 
-  /* Typography */
-  --vp-font-family-base: "Inter", sans-serif;
-  --vp-font-family-headings: "Outfit", sans-serif;
+  /* Brand — Emerald */
+  --vp-c-brand-1: #10b981;
+  --vp-c-brand-2: #34d399;
+  --vp-c-brand-3: #6ee7b7;
+  --vp-c-brand-soft: rgba(16, 185, 129, 0.14);
 
-  /* Custom Grid Background on Dark Mode */
-  --bg-grid-color: rgba(255, 255, 255, 0.05);
+  /* Brand buttons — dark text on green */
+  --vp-button-brand-text: #022c22;
+  --vp-button-brand-bg: #10b981;
+  --vp-button-brand-hover-text: #022c22;
+  --vp-button-brand-hover-bg: #34d399;
+  --vp-button-brand-active-text: #022c22;
+  --vp-button-brand-active-bg: #059669;
 
-  /* Deep rich dark background always (since we force dark mode or want this look) */
+  /* Backgrounds */
   --vp-c-bg: #0b0c15;
   --vp-c-bg-alt: #131421;
+  --vp-c-bg-soft: #1a1b2e;
+
+  /* Hero gradient */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #fff 30%, #10b981);
+
+  /* Code block diffs */
+  --vp-code-line-diff-add-color: rgba(52, 211, 153, 0.1);
+  --vp-code-line-diff-add-symbol-color: #34d399;
+  --vp-code-line-diff-remove-color: rgba(248, 113, 113, 0.1);
+  --vp-code-line-diff-remove-symbol-color: #f87171;
 }
 
-/* Global Background with Grid & Glow */
+/* Grid background with centered glow */
 body {
   background-color: var(--vp-c-bg) !important;
-  background-image:
-    radial-gradient(
-      circle at 50% 0%,
-      rgba(99, 102, 241, 0.15) 0%,
-      transparent 60%
-    ),
-    linear-gradient(var(--bg-grid-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--bg-grid-color) 1px, transparent 1px) !important;
-  background-size:
-    100% 100%,
-    40px 40px,
-    40px 40px !important;
+  background-image: radial-gradient(
+    circle at 50% 0%,
+    rgba(16, 185, 129, 0.15) 0%,
+    transparent 60%
+  ) !important;
   background-position: center top !important;
-  background-attachment: fixed !important;
 }
 
-/* Typography Overrides */
+/* Headings — Outfit */
 h1,
 h2,
 h3,
@@ -52,141 +53,97 @@ h4,
 h5,
 h6,
 .VPFeature .title {
-  font-family: var(--vp-font-family-headings) !important;
+  font-family: "Outfit", sans-serif !important;
   letter-spacing: -0.02em;
 }
 
-/**
- * Component: Home Hero
- * -------------------------------------------------------------------------- */
-
-:root {
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(
-    135deg,
-    #fff 30%,
-    #6366f1 80%
-  );
+/* Hero — two-column with terminal */
+.VPHero {
+  overflow-x: clip;
 }
 
-/* -------------------------------------------------------------------------- */
-/* HERO SECTION OVERRIDES */
-/* -------------------------------------------------------------------------- */
-
+/* Mobile: centered text, terminal below */
 .VPHero .container {
   text-align: center !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
-  justify-content: center !important;
 }
 
 .VPHero .main {
   text-align: center !important;
-  margin: 0 auto !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   width: 100% !important;
+  order: 1 !important;
 }
 
-/* Ensure the heading wrapper (default VitePress structure) also centers */
-.VPHero .heading {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  width: 100% !important;
+.VPHero .image {
+  order: 2 !important;
 }
 
-/* Main Title (H1) */
 .VPHero .name {
   font-family: "Outfit", sans-serif !important;
-  /* Fluid typography: 40px on mobile -> 72px on desktop */
   font-size: clamp(40px, 8vw, 72px) !important;
   line-height: 1.1 !important;
-  margin: 0 auto 16px auto !important; /* Force center for block element */
-  max-width: 100% !important; /* Allow it to span if needed, or stick to auto */
-
-  /* Ensure gradient text is centered if it spans multiple lines */
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent !important;
-  display: inline-block !important; /* Helps with gradient centering */
-  text-align: center !important;
 }
 
-/* Subtitle / Tagline ("Replay + diff...") */
 .VPHero .text {
   font-family: "Outfit", sans-serif !important;
-  font-size: clamp(20px, 4vw, 24px) !important; /* Increased from ~20px */
+  font-size: clamp(20px, 4vw, 24px) !important;
   font-weight: 500 !important;
   color: var(--vp-c-text-2) !important;
-  margin-bottom: 24px !important;
   max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
-@media (min-width: 960px) {
-  .VPHome .vp-doc {
-    max-width: 1280px !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-}
-
-/* Center standard markdown elements on Home Page */
-.VPHome .vp-doc h2 {
-  text-align: center;
-  border-top: none;
-  margin-top: 60px;
-  margin-bottom: 40px;
-  font-size: 32px;
-  font-weight: 800;
-  background: linear-gradient(to right, #fff, #a5b4fc);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.VPHome .vp-doc table {
-  margin: 0 auto;
-  display: table; /* Override block if needed */
-  width: auto;
-}
-
-/* Center table headers and cells for comparison */
-.VPHome .vp-doc table th,
-.VPHome .vp-doc table td {
-  text-align: center; /* Optional: Center text within cells */
-}
-
-/* Description / Hook ("Upgrade models and prompts...") */
 .VPHero .tagline {
-  font-family: "Inter", sans-serif !important;
-  font-size: clamp(18px, 3vw, 20px) !important; /* Increased from ~16px */
+  font-size: clamp(18px, 3vw, 20px) !important;
   line-height: 1.6 !important;
   color: var(--vp-c-text-3) !important;
-  max-width: 60ch !important; /* Limit line length for readability */
-  margin-left: auto !important;
-  margin-right: auto !important;
-  text-align: center !important;
-  margin-bottom: 32px !important;
+  max-width: 60ch !important;
 }
 
 .VPHero .actions {
   justify-content: center;
-  margin-top: 32px;
 }
 
-/* Adjust Buttons to be "Pill" style and larger */
+/* Desktop: left-aligned text, terminal overflows right */
+@media (min-width: 960px) {
+  .VPHero.has-image .container {
+    text-align: left !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .VPHero.has-image .main {
+    text-align: left !important;
+    align-items: flex-start !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  .VPHero.has-image .tagline {
+    text-align: left !important;
+  }
+
+  .VPHero.has-image .actions {
+    justify-content: flex-start !important;
+  }
+
+  .VPHero .image {
+    overflow: visible !important;
+  }
+}
+
+/* Pill buttons */
 .VPButton.brand {
   border-radius: 9999px;
   padding: 0 32px;
-  line-height: 52px; /* Taller buttons */
+  line-height: 52px;
   font-size: 16px;
   font-weight: 600;
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.3) !important;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.3) !important;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -197,16 +154,7 @@ h6,
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.VPHero .image-bg {
-  /* If image exists, make it a subtle glow */
-  opacity: 0.3;
-  filter: blur(100px);
-  z-index: 0;
-}
-
-/**
- * Component: Features (Glassmorphism Cards)
- * -------------------------------------------------------------------------- */
+/* Glassmorphism feature cards */
 .VPFeature {
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   background-color: rgba(255, 255, 255, 0.02) !important;
@@ -215,77 +163,26 @@ h6,
   transition:
     transform 0.2s,
     box-shadow 0.2s;
-  height: 100%;
 }
 
 .VPFeature:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.15);
   border-color: var(--vp-c-brand-2) !important;
 }
 
-.VPFeature .icon {
-  background-color: rgba(99, 102, 241, 0.1) !important;
-  border-radius: 8px;
-  padding: 8px;
-}
-
-/**
- * Home page customized content sections
- * -------------------------------------------------------------------------- */
-
-.VPHome .trigger-section,
-.VPHome .mental-model,
-.VPHome .comparison-table {
-  max-width: 900px; /* Wider for dashboard feel */
-  margin: 0 auto;
-  padding: 80px 24px;
-}
-
-.VPHome .trigger-section h2 {
-  font-size: 32px;
-  font-family: var(--vp-font-family-headings);
-  font-weight: 800;
+/* Home page markdown — centered gradient headings */
+.VPHome .vp-doc h2 {
   text-align: center;
+  border-top: none;
+  margin-top: 60px;
   margin-bottom: 40px;
-  background: linear-gradient(to right, #fff, #a5b4fc);
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(to right, #fff, #6ee7b7);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-/* Triggers List -> Cards Grid */
-.VPHome .trigger-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
-  max-width: 100%;
-}
-
-.VPHome .trigger-item {
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  font-size: 16px;
-  color: var(--vp-c-text-1);
-  text-align: center;
-}
-
-/* Comparison Table Styling */
-.VPHome .comparison-table table {
-  background: rgba(19, 20, 33, 0.6);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
-}
-
-.VPHome .comparison-table th {
-  background: rgba(255, 255, 255, 0.03);
-  text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  color: var(--vp-c-text-3);
 }
 
 .DocSearch {

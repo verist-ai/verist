@@ -157,3 +157,31 @@ Human decisions survive recomputation. The overlay is never overwritten by steps
 | Build a runner              | [Reference Runner](./reference-runner) |
 | Add human overrides         | [Human Overrides](./overrides)         |
 | Store state                 | [Storage and State](./storage)         |
+
+## Deep dive
+
+For contributors and advanced users, the following resources cover kernel internals and design rationale.
+
+**Specifications** – formal contracts for each kernel subsystem:
+
+- [Overview](../specs/overview) – core concepts, invariants, API surface
+- [Steps](../specs/steps) – step execution semantics
+- [Commands](../specs/commands) – command type system and semantics
+- [Replay](../specs/replay) – replay and recompute contracts
+- [Suspend](../specs/suspend) – suspend/resume protocol
+- [Kernel Invariants](../specs/kernel-invariants) – non-negotiable guarantees
+
+**Architecture Decision Records (ADRs)** – why things are the way they are:
+
+- [ADR-001 Determinism](../adr/001-determinism)
+- [ADR-002 Commands](../adr/002-commands)
+- [ADR-003 State Layers](../adr/003-state-layers)
+- [ADR-004 Replay Semantics](../adr/004-replay-semantics)
+- [ADR-005 Package Stability](../adr/005-package-stability)
+- [ADR-006 Command Categories](../adr/006-command-categories)
+- [ADR-007 Unified Run API](../adr/007-unified-run-api)
+- [ADR-008 Artifact Capture](../adr/008-artifact-capture-hook)
+- [ADR-009 Pipeline Errors](../adr/009-pipeline-error-handling)
+- [ADR-010 Execution Loop](../adr/010-execution-loop)
+- [ADR-011 Package Consolidation](../adr/011-package-consolidation)
+- [ADR-012 Structured Step Errors](../adr/012-structured-step-errors)

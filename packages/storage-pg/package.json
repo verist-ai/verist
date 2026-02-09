@@ -31,12 +31,12 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./schema": {
-      "types": "./src/schema.ts",
+      "types": "./dist/schema.d.ts",
       "bun": "./src/schema.ts",
       "default": "./dist/schema.js"
     }
