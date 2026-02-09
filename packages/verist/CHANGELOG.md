@@ -1,5 +1,11 @@
 # verist
 
+## 0.2.0
+
+### Minor Changes
+
+- a5e8473: Add `keyBy` option to `defineStep` for identity-aware array diffing during recompute
+
 ## 0.1.0
 
 ### Minor Changes
