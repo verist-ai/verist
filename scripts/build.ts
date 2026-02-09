@@ -2,10 +2,8 @@
 
 /**
  * Build script for all packages.
- * Bundles TypeScript → JavaScript with bun build.
- *
- * Types are served from source files (./src/*.ts) which TypeScript 5+
- * can consume directly with moduleResolution: bundler.
+ * Bundles TypeScript → JavaScript with Bun.build, then
+ * generates .d.ts declarations with tsc (emitDeclarationOnly).
  */
 
 import { existsSync } from "fs";
@@ -80,6 +78,18 @@ for (const pkg of buildOrder) {
         }
       }
     }
+  }
+
+  // Generate .d.ts declarations (tsc handles types, Bun handles JS)
+  const tsc = Bun.spawn(["tsc", "-p", join(pkgDir, "tsconfig.json")], {
+    stderr: "pipe",
+  });
+  const tscExit = await tsc.exited;
+  if (tscExit !== 0) {
+    const stderr = await new Response(tsc.stderr).text();
+    console.error(`✗ ${pkg} (tsc)`);
+    console.error(stderr);
+    process.exit(1);
   }
 
   console.log(`✓ ${pkg}`);

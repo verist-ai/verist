@@ -67,4 +67,5 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - run: bun install --frozen-lockfile
+      - run: bun run build
       - run: bunx tsc --noEmit
