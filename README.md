@@ -74,6 +74,21 @@ Full example: [`examples/prompt-diff/`](./examples/prompt-diff/)
 
 Verist captures AI outputs as artifacts. When you change something, replay against stored inputs and see a diff.
 
+### Compare Any Two Objects
+
+```typescript
+import { diff, formatDiff } from "verist";
+
+const before = { claims: ["Revenue: $5M", "Headcount: 45"] };
+const after = { claims: ["Revenue was strong"] };
+
+console.log(formatDiff(diff(before, after)));
+//   claims[0]: "Revenue: $5M" → "Revenue was strong"
+// - claims[1]: "Headcount: 45"
+```
+
+### LLM Extraction with Recompute
+
 ```typescript
 import { z } from "zod";
 import { extract } from "@verist/llm";
