@@ -1,5 +1,16 @@
 # @verist/llm
 
+## 0.1.0
+
+### Minor Changes
+
+- 130c13c: First stable API release
+
+### Patch Changes
+
+- Updated dependencies [130c13c]
+  - verist@0.1.0
+
 ## 0.0.17
 
 ### Patch Changes
