@@ -1,5 +1,13 @@
 # @verist/llm
 
+## 0.0.17
+
+### Patch Changes
+
+- 0805a31: Ship pre-built .d.ts declarations instead of serving types from source
+- Updated dependencies [0805a31]
+  - verist@0.0.7
+
 ## 0.0.16
 
 ### Patch Changes

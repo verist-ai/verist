@@ -1,6 +1,6 @@
 {
   "name": "verist",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Deterministic workflow kernel for AI systems — replay + diff for AI decisions",
   "keywords": [
     "verist",
