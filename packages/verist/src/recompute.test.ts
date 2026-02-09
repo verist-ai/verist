@@ -1296,3 +1296,182 @@ describe("normalizeCommands", () => {
     );
   });
 });
+
+describe("recompute with keyBy", () => {
+  // Step that returns entities in different order each time
+  let callCount = 0;
+  const extractStep = defineStep({
+    name: "extract",
+    input: z.object({ docId: z.string() }),
+    output: z.object({
+      entities: z.array(z.object({ id: z.string(), text: z.string() })),
+    }),
+    keyBy: { entities: "id" },
+    async run() {
+      callCount++;
+      // Reverse order on second call
+      const entities =
+        callCount % 2 === 1
+          ? [
+              { id: "e1", text: "John" },
+              { id: "e2", text: "Acme" },
+            ]
+          : [
+              { id: "e2", text: "Acme" },
+              { id: "e1", text: "John" },
+            ];
+      return { output: { entities } };
+    },
+  });
+
+  it("reorder-only → clean with keyBy", async () => {
+    callCount = 0;
+    const originalOutput = {
+      output: {
+        entities: [
+          { id: "e1", text: "John" },
+          { id: "e2", text: "Acme" },
+        ],
+      },
+    };
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "extract",
+      input: { docId: "d1" },
+      artifacts: [await captureArtifact("step-output", originalOutput)],
+    });
+
+    const result = await recompute(snapshot, extractStep);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.status).toBe("clean");
+      expect(result.value.outputDiff!.equal).toBe(true);
+    }
+  });
+
+  it("normalization error → structured RecomputeError", async () => {
+    const badStep = defineStep({
+      name: "bad",
+      input: z.object({ x: z.number() }),
+      output: z.object({
+        items: z.array(z.object({ id: z.string() })),
+      }),
+      keyBy: { items: "id" },
+      async run() {
+        // Return items with duplicate keys
+        return {
+          output: {
+            items: [{ id: "dup" }, { id: "dup" }],
+          },
+        };
+      },
+    });
+
+    const originalOutput = {
+      output: { items: [{ id: "a" }] },
+    };
+    const snapshot = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "bad",
+      input: { x: 1 },
+      artifacts: [await captureArtifact("step-output", originalOutput)],
+    });
+
+    const result = await recompute(snapshot, badStep);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("normalization_failed");
+      expect(result.error.message).toContain("duplicate key");
+      expect(result.error.retryable).toBe(false);
+    }
+  });
+});
+
+describe("compareSnapshots with keyBy", () => {
+  it("reordered array with keyBy → equal output", async () => {
+    const snapshot1 = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "extract",
+      input: { docId: "d1" },
+      artifacts: [
+        await captureArtifact("step-output", {
+          output: {
+            entities: [
+              { id: "e1", text: "A" },
+              { id: "e2", text: "B" },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const snapshot2 = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "extract",
+      input: { docId: "d1" },
+      artifacts: [
+        await captureArtifact("step-output", {
+          output: {
+            entities: [
+              { id: "e2", text: "B" },
+              { id: "e1", text: "A" },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const { outputDiff } = compareSnapshots(snapshot1, snapshot2, {
+      keyBy: { entities: "id" },
+    });
+    expect(outputDiff).toBeDefined();
+    expect(outputDiff!.equal).toBe(true);
+  });
+
+  it("without keyBy, reordered array shows changes", async () => {
+    const snapshot1 = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "extract",
+      input: { docId: "d1" },
+      artifacts: [
+        await captureArtifact("step-output", {
+          output: {
+            entities: [
+              { id: "e1", text: "A" },
+              { id: "e2", text: "B" },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const snapshot2 = await createSnapshot({
+      workflowId: "wf",
+      workflowVersion: "1.0.0",
+      stepName: "extract",
+      input: { docId: "d1" },
+      artifacts: [
+        await captureArtifact("step-output", {
+          output: {
+            entities: [
+              { id: "e2", text: "B" },
+              { id: "e1", text: "A" },
+            ],
+          },
+        }),
+      ],
+    });
+
+    // Without keyBy, index-based diff sees changes
+    const { outputDiff } = compareSnapshots(snapshot1, snapshot2);
+    expect(outputDiff).toBeDefined();
+    expect(outputDiff!.equal).toBe(false);
+  });
+});

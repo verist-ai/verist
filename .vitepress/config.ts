@@ -129,6 +129,14 @@ export default defineConfig({
           { text: "Anti-Patterns", link: "/guides/anti-patterns" },
         ],
       },
+      {
+        text: "Integrations",
+        collapsed: false,
+        items: [
+          { text: "Overview", link: "/integrations/" },
+          { text: "LangExtract", link: "/integrations/langextract" },
+        ],
+      },
       { text: "FAQ", link: "/faq" },
       { text: "Glossary", link: "/glossary" },
     ],

@@ -39,6 +39,15 @@ export type OptionsArg<TAdapters extends BaseAdapters, TOptions> = [
   ? [options?: TOptions]
   : [options: TOptions];
 
+// ── Key-based normalization ───────────────────────────────────────────────
+
+/**
+ * Identity key extractor for array elements.
+ * - `string` — field name within each element (e.g. `"id"`)
+ * - `function` — returns a unique key from the element
+ */
+export type KeyFn = string | ((item: unknown) => string | number);
+
 // ── Replay / snapshot types ────────────────────────────────────────────────
 
 /**

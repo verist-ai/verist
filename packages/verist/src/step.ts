@@ -5,7 +5,7 @@ import type { Command } from "./command.ts";
 import type { StepContext } from "./context.ts";
 import type { AuditEvent } from "./event.ts";
 import type { StepFailure } from "./fail.ts";
-import type { BaseAdapters } from "./types.ts";
+import type { BaseAdapters, KeyFn } from "./types.ts";
 
 /** Schema with optional partial() method (ZodObject has this) */
 type PartialableSchema<T> = z.ZodType<T> & {
@@ -58,6 +58,17 @@ export interface StepConfig<
    * The output returned by run() is validated as Partial<output>.
    */
   output: z.ZodType<TOutput>;
+  /**
+   * Identity keys for array fields in the output.
+   * Used by recompute to match array elements by identity instead of
+   * by index, producing clean diffs when LLMs return unstable ordering.
+   *
+   * Has no effect on execution, replay, validation, or storage.
+   *
+   * Key: dot-path to an array field in the output.
+   * Value: field name within each element, or a function returning a unique key.
+   */
+  keyBy?: Record<string, KeyFn>;
   run: (
     input: TInput,
     ctx: StepContext<TAdapters>,
@@ -79,6 +90,8 @@ export interface Step<
   readonly outputSchema: z.ZodType<TOutput>;
   /** Schema for validating step output. Derived as output.partial() for objects. */
   readonly partialOutputSchema: z.ZodType<Partial<TOutput>>;
+  /** Identity keys for array fields in the output. */
+  readonly keyBy?: Readonly<Record<string, KeyFn>>;
   readonly run: (
     input: TInput,
     ctx: StepContext<TAdapters>,
@@ -133,6 +146,7 @@ export function defineStep<
     inputSchema: config.input,
     outputSchema: config.output,
     partialOutputSchema,
+    keyBy: config.keyBy,
     run: config.run,
   };
 }
