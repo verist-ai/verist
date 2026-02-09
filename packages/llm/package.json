@@ -1,6 +1,6 @@
 {
   "name": "@verist/llm",
-  "version": "0.0.17",
+  "version": "0.1.0",
   "description": "LLM provider adapters with built-in tracing for audit events",
   "keywords": [
     "verist",

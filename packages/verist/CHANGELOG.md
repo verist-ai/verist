@@ -1,5 +1,11 @@
 # verist
 
+## 0.1.0
+
+### Minor Changes
+
+- 130c13c: First stable API release
+
 ## 0.0.7
 
 ### Patch Changes
